@@ -1,0 +1,8 @@
+{
+  "name": "qosmos",
+  "version": "0.1.0",
+  "description": "All your Claude Code projects and sessions on one sky: what needs you blinks red, working agents glow orange; a clickable full-screen map, side-by-side sessions, one command bar with a microphone.",
+  "author": { "name": "aydinsoy" },
+  "license": "SEE LICENSE IN LICENSE",
+  "types": "./types/index.d.ts"
+}

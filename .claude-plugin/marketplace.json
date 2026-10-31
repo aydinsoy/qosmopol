@@ -1,0 +1,5 @@
+{
+  "name": "qosmos",
+  "owner": { "name": "aydinsoy" },
+  "plugins": [{ "name": "qosmos", "source": "./" }]
+}

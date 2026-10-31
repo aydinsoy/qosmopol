@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qosmos</title>
+<style>
+  :root, :root[data-theme="antrasit"] {
+    --bg: #181818; --side: #141414; --card: #1f1f1f; --line: #2b2b2b; --text: #cccccc; --dim: #8b8b8b;
+    --btn: #313131; --btn-line: #3c3c3c; --btn-hover: #3c3c3c; --hover: #2a2d2e; --sel: #04395e; --chip: #2b2b2b;
+    --input: #313131; --input-line: #3c3c3c; --on-bg: #cccccc; --on-fg: #181818; --toast: #252526;
+    --red: #f14c4c; --orange: #f0a030; --blue: #0078d4; --grey: #858585;
+    --sky: #181818; --orbit: #2b2b2b; --mline: #474747; --planet: #e6e6e6; --planet-dim: #9a9a9a; --planet-text: #181818; --label: #cccccc; --ring: #ffffff;
+  }
+  :root[data-theme="acik"] {
+    --bg: #f7f7f8; --side: #efeff1; --card: #ffffff; --line: #e1e1e4; --text: #1f1f22; --dim: #6b6b72;
+    --btn: #ffffff; --btn-line: #d4d4d8; --btn-hover: #ececef; --hover: #e6e6ea; --sel: #dbe8fb; --chip: #e2e2e6;
+    --input: #ffffff; --input-line: #d4d4d8; --on-bg: #1f1f22; --on-fg: #ffffff; --toast: #ffffff;
+    --red: #e5121b; --orange: #e87400; --blue: #1a73e8; --grey: #a8a8ae;
+    --sky: #f7f7f8; --orbit: #e0e0e4; --mline: #c4c4ca; --planet: #3b3b40; --planet-dim: #8b8b92; --planet-text: #ffffff; --label: #333338; --ring: #1f1f22;
+  }
+  :root[data-theme="siyah"] {
+    --bg: #000; --side: #08080a; --card: #0f0f12; --line: #1e1e22; --text: #e9e9ea; --dim: #8b8b90;
+    --btn: #1a1a1f; --btn-line: #2a2a30; --btn-hover: #24242a; --hover: #15151a; --sel: #1b2433; --chip: #1c1c21;
+    --input: #121216; --input-line: #2a2a30; --on-bg: #e9e9ea; --on-fg: #000; --toast: #1f1f25;
+    --red: #ff2020; --orange: #ff8a00; --blue: #4da3ff; --grey: #8c8c8c;
+    --sky: #000; --orbit: #1d1d1d; --mline: #3a3a3a; --planet: #ffffff; --planet-dim: #9a9a9a; --planet-text: #000; --label: #dddddd; --ring: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  button, textarea, select { font: inherit; color: inherit; }
+  button { background: var(--btn); border: 1px solid var(--btn-line); border-radius: 7px; padding: 4px 10px; cursor: pointer; }
+  button:hover { background: var(--btn-hover); }
+  button.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+  button.ghost { background: none; border: none; padding: 2px 4px; color: var(--dim); }
+  button.ghost:hover { color: var(--text); }
+  .dim { color: var(--dim); }
+  .red { color: var(--red); }
+  .orange { color: var(--orange); }
+  #app { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+  #side { display: flex; flex-direction: column; min-height: 0; background: var(--side); border-right: 1px solid var(--line); }
+  #head { padding: 12px 12px 8px; }
+  #counts { font-weight: 600; }
+  #days { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+  #days button { padding: 2px 8px; font-size: 12px; }
+  #days button.on, #themes button.on { background: var(--on-bg); color: var(--on-fg); }
+  #themes { display: flex; gap: 4px; margin-top: 6px; }
+  #themes button { padding: 1px 8px; font-size: 11px; }
+  #tree { flex: 1; overflow: auto; padding: 4px 6px 8px; min-height: 80px; }
+  .proj { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; }
+  .proj:hover, .topic:hover { background: var(--hover); }
+  .proj .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip { font-size: 11px; padding: 0 6px; border-radius: 9px; background: var(--chip); }
+  .chip.r { background: var(--red); color: #fff; }
+  .chip.o { background: var(--orange); color: #1f1f1f; }
+  .topic { display: flex; align-items: center; gap: 6px; padding: 3px 6px 3px 22px; border-radius: 6px; cursor: pointer; }
+  .topic .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topic.on, .proj.on { background: var(--sel); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--grey); }
+  .dot.r { background: var(--red); animation: blink 0.9s infinite; }
+  .dot.o { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+  .dot.u { box-shadow: 0 0 0 1.5px var(--ring); }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  .x { visibility: hidden; }
+  .topic:hover .x { visibility: visible; }
+  #bar { border-top: 1px solid var(--line); padding: 8px; }
+  #target { display: flex; align-items: center; gap: 4px; font-size: 12px; margin-bottom: 4px; min-height: 20px; }
+  #target .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #box { display: flex; align-items: flex-end; gap: 6px; background: var(--input); border: 1px solid var(--input-line); border-radius: 10px; padding: 6px; }
+  #box:focus-within { border-color: var(--blue); }
+  #text { flex: 1; resize: none; background: none; border: none; outline: none; min-height: 38px; max-height: 160px; }
+  #mic.on { background: var(--red); border-color: var(--red); color: #fff; }
+  #barnote { font-size: 11px; margin-top: 4px; min-height: 14px; }
+  #mini { --sky: var(--side); border-top: 1px solid var(--line); height: 230px; flex: none; position: relative; cursor: pointer; }
+  #mini svg { width: 100%; height: 100%; display: block; }
+  #mini .hint { position: absolute; right: 6px; bottom: 4px; font-size: 11px; color: var(--dim); pointer-events: none; }
+  #main { display: flex; min-width: 0; min-height: 0; overflow-x: auto; }
+  .col { flex: 1 1 0; min-width: 330px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+  .col.focus { box-shadow: inset 0 2px 0 var(--blue); }
+  .col { background: var(--bg); }
+  #side { color: var(--text); }
+  .col > header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .col > header .t { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .col > .body { flex: 1; overflow: auto; padding: 12px; }
+  .meta { font-size: 12px; }
+  .status { margin: 6px 0 10px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; }
+  .msg { margin: 10px 0; }
+  .msg .who { font-size: 12px; font-weight: 700; }
+  .msg.sen .who { color: var(--blue); }
+  .msg .txt { white-space: pre-wrap; word-wrap: break-word; }
+  .item { padding: 8px 6px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .item:hover { background: var(--hover); }
+  .item .line { display: flex; align-items: center; gap: 6px; }
+  .item .line .t { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .sub { font-size: 13px; margin: 2px 0 0 15px; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tabs button.on { background: var(--on-bg); color: var(--on-fg); }
+  #inbox { flex: 1; overflow: auto; padding: 16px; }
+  #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--toast); border: 1px solid var(--btn-line); padding: 8px 14px; border-radius: 9px; display: none; z-index: 9; max-width: 80vw; }
+  .bigmap svg { width: 100%; height: auto; display: block; }
+  svg [data-k], svg [data-p] { cursor: pointer; }
+  svg [data-k]:hover circle:last-of-type { stroke: var(--ring); stroke-width: 1.5; }
+  @media (max-width: 760px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
+    #tree { max-height: 40vh; }
+    #main { flex-direction: column; overflow: visible; }
+    .col { min-width: 0; border-right: none; border-bottom: 1px solid var(--line); }
+    .col > .body { max-height: 70vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <div id="head">
+      <div id="counts">Taranıyor…</div>
+      <div id="scaninfo" class="dim" style="font-size:12px"></div>
+      <div id="days"></div>
+      <div id="themes"></div>
+    </div>
+    <div id="tree"></div>
+    <div id="bar">
+      <div id="target"></div>
+      <div id="box">
+        <textarea id="text" rows="2" placeholder="Yaz ya da 🎤 ile konuş… (Enter gönderir)"></textarea>
+        <button id="mic" title="Konuşarak yaz">🎤</button>
+        <button id="send" class="primary" title="Gönder">↑</button>
+      </div>
+      <div id="barnote" class="dim"></div>
+    </div>
+    <div id="mini" title="Daireye bas: konu ya da proje açılır · boşluğa bas: büyük harita"><div class="hint">⤢ büyüt</div></div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="toast"></div>
+<script>
+'use strict'
+try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('theme') || '"antrasit"') } catch { document.documentElement.dataset.theme = 'antrasit' }
+const TOKEN = '__QOSMOS_TOKEN__'
+const DAY = 86400000
+const MAXCOLS = 4
+const $ = s => document.querySelector(s)
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const cut = (s, n) => (s = String(s ?? ''), s.length > n ? s.slice(0, n - 1) + '…' : s)
+const keep = (k, v) => { try { v === undefined ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)) } catch {} }
+const kept = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d } catch { return d } }
+
+const S = {
+  data: null, days: kept('days', 7), open: new Set(kept('open', [])), cols: kept('cols', []), target: kept('target', ''),
+  tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false,
+}
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined
+    ? { headers: { 'X-Qosmos-Token': TOKEN } }
+    : { method: 'POST', headers: { 'X-Qosmos-Token': TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  const d = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(d.error || r.status)
+  return d
+}
+function toast(t, ms = 3500) {
+  const el = $('#toast'); el.textContent = t; el.style.display = 'block'
+  clearTimeout(toast.h); toast.h = setTimeout(() => (el.style.display = 'none'), ms)
+}
+
+// --- status rules (same as the pane): red = the owner must act, orange = the agent works
+const waiting = k => !!k.ask || (k.cat === 'blocked' && !k.busy)
+const running = k => !!k.busy && !k.ask
+const readAt = id => Math.max(S.data?.readAt?.[id] ?? 0, 0)
+const unread = k => Math.max(k.seen, readAt(k.id)) < k.last - 1000
+const ago = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 60 ? `${m} dk` : m < 2880 ? `${Math.round(m / 60)} sa` : `${Math.round(m / 1440)} g` }
+const visible = () => (S.data?.sessions ?? []).filter(k => S.days === 0 || Date.now() - k.last < S.days * DAY || (waiting(k) && Date.now() - k.last < 30 * DAY))
+const dotClass = k => 'dot' + (waiting(k) ? ' r' : running(k) ? ' o' : '') + (!waiting(k) && !running(k) && unread(k) ? ' u' : '')
+const accLabel = acc => { const a = S.data.accounts; return `H${a.indexOf(acc) + 1}${acc === S.data.current ? '' : '·başka'}` }
+const byId = () => new Map((S.data?.sessions ?? []).map(k => [k.id, k]))
+function groups() {
+  const g = new Map()
+  for (const k of visible()) g.set(k.proj, [...(g.get(k.proj) ?? []), k])
+  return [...g.entries()].sort((a, b) => b[1].filter(waiting).length - a[1].filter(waiting).length || Math.max(...b[1].map(k => k.last)) - Math.max(...a[1].map(k => k.last)))
+}
+
+// --- the sky: planets are projects, moons their topics; every circle is clickable
+function layout(gs) {
+  const planets = gs.map(([name, list]) => {
+    const moons = [...list].sort((a, b) => b.last - a.last).slice(0, 24)
+    const r = Math.min(48, 16 + 5 * Math.sqrt(list.length) + (list.some(k => k.star) ? 4 : 0))
+    return { name, list, moons, r, outer: r + 22 + (moons.length > 12 ? 18 : 0) + 10, x: 0, y: 0 }
+  }).sort((a, b) => b.outer - a.outer)
+  const placed = []
+  for (const p of planets) {
+    for (let t = 0; ; t++) {
+      const a = t * 0.45, d = t * 3, x = Math.cos(a) * d, y = Math.sin(a) * d * 0.75
+      if (placed.every(q => Math.hypot(q.x - x, q.y - y) >= q.outer + p.outer + 18)) { p.x = x; p.y = y; break }
+    }
+    placed.push(p)
+  }
+  return placed
+}
+function sky(gs, { labels = true } = {}) {
+  const ps = layout(gs)
+  if (!ps.length) return ''
+  const minX = Math.min(...ps.map(p => p.x - p.outer)) - 20, maxX = Math.max(...ps.map(p => p.x + p.outer)) + 20
+  const minY = Math.min(...ps.map(p => p.y - p.outer)) - 20, maxY = Math.max(...ps.map(p => p.y + p.outer)) + 34
+  const sel = S.target
+  const blink = '<animate attributeName="opacity" values="1;0.15;1" dur="0.9s" repeatCount="indefinite"/>'
+  const o = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX | 0} ${minY | 0} ${(maxX - minX) | 0} ${(maxY - minY) | 0}" preserveAspectRatio="xMidYMid meet">`,
+    `<rect x="${minX | 0}" y="${minY | 0}" width="${(maxX - minX) | 0}" height="${(maxY - minY) | 0}" fill="var(--sky)"/>`]
+  for (const p of ps) {
+    const nWait = p.list.filter(waiting).length, anyRun = p.list.some(running)
+    const ring1 = p.r + 22, ring2 = ring1 + 18
+    o.push(`<circle cx="${p.x}" cy="${p.y}" r="${ring1}" fill="none" stroke="var(--orbit)" stroke-width="0.8"/>`)
+    if (p.moons.length > 12) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${ring2}" fill="none" stroke="var(--orbit)" stroke-width="0.8"/>`)
+    p.moons.forEach((k, i) => {
+      const inner = p.moons.length <= 12 || i < 12, n = inner ? Math.min(12, p.moons.length) : p.moons.length - 12, j = inner ? i : i - 12
+      const a = -Math.PI / 2 + (j / n) * Math.PI * 2 + (inner ? 0 : Math.PI / n), R = inner ? ring1 : ring2
+      const mx = +(p.x + Math.cos(a) * R).toFixed(1), my = +(p.y + Math.sin(a) * R).toFixed(1)
+      const ex = +(p.x + Math.cos(a) * p.r).toFixed(1), ey = +(p.y + Math.sin(a) * p.r).toFixed(1)
+      const mr = +(3 + Math.min(5, Math.sqrt(k.turns) / 1.4)).toFixed(1)
+      const w = waiting(k), run = running(k), isNew = !w && !run && unread(k)
+      const fill = w ? 'var(--red)' : run ? 'var(--orange)' : 'var(--grey)'
+      const tip = `${p.name} · ${k.title}\n${w ? 'SENİ BEKLİYOR' : run ? 'Ajan çalışıyor' : isNew ? 'Okunmamış cevap' : 'Kapanmış'} · ${ago(k.last)} önce${k.need ? '\n' + k.need : ''}`
+      o.push(`<g data-k="${esc(k.id)}"><title>${esc(tip)}</title>`)
+      o.push(`<line x1="${ex}" y1="${ey}" x2="${mx}" y2="${my}" stroke="${w ? 'var(--red)' : run ? 'var(--orange)' : 'var(--mline)'}" stroke-width="${w || run ? 0.9 : 0.6}"/>`)
+      o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 7}" fill="transparent"/>`)
+      if (w) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="var(--red)" opacity="0.45"><animate attributeName="opacity" values="0.5;0;0.5" dur="0.9s" repeatCount="indefinite"/></circle>`)
+      if (run) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 6}" fill="var(--orange)" opacity="0.35"><animate attributeName="opacity" values="0.45;0.1;0.45" dur="2s" repeatCount="indefinite"/></circle>`)
+      if (isNew) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 2}" fill="none" stroke="var(--ring)" stroke-width="1.2"/>`)
+      if (k.id === sel) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 3.5}" fill="none" stroke="var(--blue)" stroke-width="1.6"/>`)
+      o.push(`<circle cx="${mx}" cy="${my}" r="${mr}" fill="${fill}">${w ? blink : ''}</circle></g>`)
+    })
+    o.push(`<g data-p="${esc(p.name)}"><title>${esc(`${p.name}: ${p.list.length} konu · ${nWait} seni bekliyor`)}</title>`)
+    if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5">${blink}</circle>`)
+    else if (anyRun) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--orange)" stroke-width="2"/>`)
+    const lively = p.list.some(k => Date.now() - k.last < 7 * DAY)
+    o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${lively ? 'var(--planet)' : 'var(--planet-dim)'}"/>`)
+    o.push(`<text x="${p.x}" y="${p.y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--planet-text)">${p.list.length}</text>`)
+    if (nWait) o.push(`<circle cx="${p.x + p.r * 0.75}" cy="${p.y - p.r * 0.75}" r="8" fill="var(--red)"/><text x="${p.x + p.r * 0.75}" y="${p.y - p.r * 0.75 + 3.5}" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">${nWait}</text>`)
+    if (labels) o.push(`<text x="${p.x}" y="${p.y + p.outer + 4}" text-anchor="middle" font-size="12" fill="var(--label)">${esc(p.name)}</text>`)
+    o.push('</g>')
+  }
+  o.push('</svg>')
+  return o.join('')
+}
+function onSkyClick(e, fallback) {
+  const m = e.target.closest('[data-k]'), p = e.target.closest('[data-p]')
+  if (m) return openCol('k:' + m.dataset.k)
+  if (p) return openCol('p:' + p.dataset.p)
+  if (fallback) fallback()
+}
+
+// --- columns on the right: 'k:<session>', 'p:<project>', 'harita'
+function openCol(c) {
+  if (c.startsWith('k:')) { setTarget(c.slice(2)); loadTalk(c.slice(2)) }
+  if (c === 'home') { setTarget(''); loadTalk('home') }
+  if (!S.cols.includes(c)) S.cols = [...S.cols, c].slice(-MAXCOLS)
+  keep('cols', S.cols); render()
+  requestAnimationFrame(() => document.querySelector(`[data-col="${CSS.escape(c)}"]`)?.scrollIntoView({ inline: 'nearest', behavior: 'smooth' }))
+}
+function closeCol(c) {
+  S.cols = S.cols.filter(x => x !== c); keep('cols', S.cols)
+  if (c === 'k:' + S.target) setTarget('')
+  render()
+}
+function setTarget(id) { S.target = id; keep('target', id || undefined); renderTarget() }
+
+async function loadTalk(id) {
+  try { S.talks[id] = (await api('/api/konu?id=' + encodeURIComponent(id))).msgs ?? [] } catch { S.talks[id] = [] }
+  renderCols()
+}
+async function closeTopic(k) {
+  try {
+    const r = await api('/api/close', { id: k.id })
+    S.cols = S.cols.filter(c => c !== 'k:' + k.id); keep('cols', S.cols)
+    if (S.target === k.id) setTarget('')
+    if (r.job) S.jobs[r.job] = { label: `Arşiv: ${cut(k.title, 30)}`, at: Date.now() }
+    toast(r.job ? 'Kapatıldı, uygulamada arşivleniyor…' : 'Kapatıldı (başka hesap: yalnız Qosmos\'den gizlendi)')
+    await refresh(true)
+  } catch (err) { toast('Kapatılamadı: ' + err.message) }
+}
+async function markRead(k) { await api('/api/read', { id: k.id }).catch(() => {}); await refresh(true) }
+async function openInApp(k) {
+  await api('/api/read', { id: k.id }).catch(() => {})
+  try { await api('/api/open', { id: k.id }); if (k.acc !== S.data.current) toast('Bu konu başka hesapta; o hesapla giriş yapınca açılır.') } catch (err) { toast('Açılamadı: ' + err.message) }
+}
+
+// --- rendering
+function render() { renderSide(); renderMini(); renderCols(); renderTarget() }
+function renderSide() {
+  const d = S.data
+  if (!d) return
+  const shown = visible(), w = shown.filter(waiting).length, r = shown.filter(running).length, n = shown.filter(k => !waiting(k) && !running(k) && unread(k)).length
+  $('#counts').innerHTML = `<span class="red">${w} seni bekliyor</span> · <span class="orange">${r} çalışıyor</span> · ${n} okunmamış`
+  $('#scaninfo').textContent = `${shown.length} konu · ${groups().length} proje · ${d.accounts.length} hesap${d.error ? ' · HATA: ' + d.error : ''}`
+  const th = document.documentElement.dataset.theme
+  $('#themes').innerHTML = [['antrasit', 'Antrasit'], ['acik', 'Açık'], ['siyah', 'Siyah']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join('')
+  $('#days').innerHTML = [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + ' gün' : 'Hepsi'}</button>`).join('')
+  const html = groups().map(([name, list]) => {
+    const open = S.open.has(name), lw = list.filter(waiting).length, lr = list.filter(running).length
+    const rows = open ? [...list].sort((a, b) => b.last - a.last).map(k => `
+      <div class="topic${S.cols.includes('k:' + k.id) ? ' on' : ''}" data-open="k:${esc(k.id)}" title="${esc(k.title)}">
+        <span class="${dotClass(k)}"></span><span class="t">${esc(k.title)}</span><span class="dim" style="font-size:11px">${ago(k.last)}</span>
+        <button class="ghost x" data-close="${esc(k.id)}" title="Konuyu kapat">✕</button>
+      </div>`).join('') : ''
+    return `<div class="proj${S.cols.includes('p:' + name) ? ' on' : ''}" data-proj="${esc(name)}"><span class="dim">${open ? '▾' : '▸'}</span><span class="name">${esc(name)}</span>${lw ? `<span class="chip r">${lw}</span>` : ''}${lr ? `<span class="chip o">${lr}</span>` : ''}<span class="chip">${list.length}</span></div>${rows}`
+  }).join('')
+  const hidden = d.hidden ?? []
+  const closed = hidden.length ? `<div class="proj" data-closed="1"><span class="dim">${S.open.has('__kapali') ? '▾' : '▸'}</span><span class="name dim">Kapatılanlar</span><span class="chip">${hidden.length}</span></div>` +
+    (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="topic"><span class="t dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="ghost" data-reopen="${esc(h.id)}">Geri aç</button></div>`).join('') : '') : ''
+  setHTML($('#tree'), html + closed)
+}
+function renderMini() {
+  const el = $('#mini')
+  const svg = sky(groups(), { labels: true })
+  if (el._svg !== svg) { el.querySelector('svg')?.remove(); el.insertAdjacentHTML('afterbegin', svg); el._svg = svg }
+}
+function renderTarget() {
+  const k = S.target && byId().get(S.target)
+  $('#target').innerHTML = k
+    ? `<span class="${dotClass(k)}"></span><span class="t">→ ${esc(k.proj)} · ${esc(k.title)}</span><button class="ghost" id="untarget" title="Ana oturuma yaz">✕</button>`
+    : `<span class="t dim">→ Qosmos (ana oturum, Claude) · bir konuya basınca ona yazar</span><button class="ghost" data-open="home" title="Ana oturumla konuşmayı göster">💬</button>`
+}
+function md(t) {
+  return esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>')
+}
+function topicBody(k) {
+  const talk = S.talks[k.id], hist = (S.data.messages ?? []).filter(m => m.sid === k.id).slice(-5).reverse()
+  const status = k.need ? `<div class="status red">Bekliyor: ${md(k.need)}</div>` : running(k) ? `<div class="status orange">Ajan çalışıyor…</div>` : k.detail ? `<div class="status">${md(k.detail)}</div>` : ''
+  const conv = talk === undefined ? '<div class="dim">Yükleniyor…</div>'
+    : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="who">${m.role === 'sen' ? 'Sen' : 'Claude'}</div><div class="txt">${md(m.text)}</div></div>`).join('')
+    : hist.length ? hist.map(m => `<div class="msg"><div class="who dim">Özet · ${ago(m.at)} önce</div><div class="txt">${md(m.text)}</div></div>`).join('')
+    : '<div class="dim">Bu Mac\'te konuşma kaydı yok (başka hesap ya da bulut).</div>'
+  return `<div class="meta dim">${esc(k.proj)} · ${accLabel(k.acc)} · ${k.turns} tur · ${ago(k.last)} önce</div>${status}
+    <div class="row">
+      <button class="${S.target === k.id ? 'primary' : ''}" data-act="target" data-id="${esc(k.id)}">${S.target === k.id ? 'Çubuk buraya yazıyor' : 'Buraya yaz'}</button>
+      <button data-act="app" data-id="${esc(k.id)}">Uygulamada aç</button>
+      <button data-act="read" data-id="${esc(k.id)}">Okundu</button>
+      <button data-act="close" data-id="${esc(k.id)}">${k.acc === S.data.current ? 'Konuyu kapat (arşivle)' : 'Konuyu kapat (gizle)'}</button>
+    </div>
+    <div class="dim" style="font-weight:600;margin-top:4px">Konuşma</div>${conv}`
+}
+function topicItem(k) {
+  return `<div class="item" data-open="k:${esc(k.id)}"><div class="line"><span class="${dotClass(k)}"></span><span class="t">${esc(k.title)}</span><span class="dim" style="font-size:12px">${ago(k.last)}</span><button class="ghost" data-close="${esc(k.id)}" title="Konuyu kapat">✕</button></div>
+    <div class="sub ${waiting(k) ? 'red' : 'dim'}">${md(cut(k.need || k.detail || 'Özet yok.', 260))}</div></div>`
+}
+function renderCols() {
+  const main = $('#main'), d = S.data
+  if (!d) return
+  const ids = byId(), gs = new Map(groups())
+  S.cols = S.cols.filter(c => c === 'harita' || c === 'home' || (c.startsWith('k:') ? ids.has(c.slice(2)) : gs.has(c.slice(2))))
+  if (!S.cols.length) {
+    main.querySelectorAll('.col').forEach(c => c.remove())
+    let inbox = main.querySelector('#inbox')
+    if (!inbox) { inbox = document.createElement('div'); inbox.id = 'inbox'; main.append(inbox) }
+    return setHTML(inbox, inboxHTML())
+  }
+  main.querySelector('#inbox')?.remove()
+  main.querySelectorAll('.col').forEach(el => { if (!S.cols.includes(el.dataset.col)) el.remove() })
+  S.cols.forEach((c, i) => {
+    let el = main.querySelector(`[data-col="${CSS.escape(c)}"]`)
+    if (!el) { el = document.createElement('section'); el.className = 'col'; el.dataset.col = c; el.innerHTML = '<header></header><div class="body"></div>' }
+    if (main.children[i] !== el) main.insertBefore(el, main.children[i] ?? null)
+    const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
+    el.classList.toggle('focus', !!k && k.id === S.target)
+    const title = k ? `<span class="${dotClass(k)}"></span><span class="t" data-act="target" data-id="${esc(k.id)}">${esc(k.title)}</span>`
+      : pname ? `<span class="t">${esc(pname)}</span>` : c === 'home' ? '<span class="dot o" style="background:var(--blue);box-shadow:none"></span><span class="t">Qosmos (ana oturum, Claude)</span>' : '<span class="t">Harita</span>'
+    setHTML(el.querySelector('header'), `${title}<button class="ghost" data-colx="${esc(c)}" title="Sütunu kapat">✕</button>`)
+    let body
+    if (k) body = topicBody(k)
+    else if (c === 'home') {
+      const talk = S.talks.home
+      body = `<div class="meta dim">Çubukta hedef seçili değilken yazdıkların buraya, Qosmos'in ana oturumuna gider. Cevaplar birkaç saniye içinde burada görünür.</div>` +
+        (talk === undefined ? '<div class="dim">Yükleniyor…</div>' : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="who">${m.role === 'sen' ? 'Sen' : 'Claude'}</div><div class="txt">${md(m.text)}</div></div>`).join('') : '<div class="dim">Henüz mesaj yok.</div>')
+    } else if (pname) {
+      const list = [...gs.get(pname)].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
+      body = `<div class="meta dim">${list.length} konu · ${list.filter(waiting).length} seni bekliyor · ${list.filter(running).length} çalışıyor</div>` + list.map(topicItem).join('')
+    } else body = `<div class="bigmap">${sky(groups())}</div><div class="dim" style="font-size:12px;margin-top:8px">Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · gri: kapanmış · beyaz halka: cevabını okumadın. Daireye bas: konu ya da proje sütunu açılır.</div>`
+    const b = el.querySelector('.body'), first = b._html === undefined
+    if (setHTML(b, body) && (k || c === 'home') && (first || c === 'home')) b.scrollTop = b.scrollHeight
+  })
+}
+function inboxHTML() {
+  const shown = visible(), wl = shown.filter(waiting).sort((a, b) => b.last - a.last), old = wl.filter(k => Date.now() - k.last > 7 * DAY)
+  const msgs = S.data.messages ?? [], ids = byId()
+  const mUnread = m => !m.read && Math.max(ids.get(m.sid)?.seen ?? 0, readAt(m.sid)) < m.at - 1000
+  const tabs = `<div class="tabs"><button data-tab="bekleyen" class="${S.tab === 'bekleyen' ? 'on' : ''}">Bekleyenler (${wl.length})</button><button data-tab="mesajlar" class="${S.tab === 'mesajlar' ? 'on' : ''}">Mesajlar (${msgs.filter(mUnread).length} yeni)</button></div>`
+  if (S.tab === 'bekleyen') {
+    const bulk = !old.length ? '' : S.confirmOld
+      ? `<div class="row"><button class="primary" data-act="old-yes">Evet, ${old.length} konuyu kapat</button><button data-act="old-no">Vazgeç</button></div>`
+      : `<div class="row"><button data-act="old">7 günden eskileri kapat (${old.length})</button></div>`
+    return tabs + bulk + (wl.length ? wl.map(k => topicItem(k).replace('<span class="t">', `<span class="t"><span class="dim">${esc(k.proj)} ·</span> `)).join('') : '<div class="dim">Seni bekleyen konu yok. Soldan bir proje ya da konu seç, ya da haritada bir daireye bas.</div>')
+  }
+  const projs = [...new Set(msgs.map(m => m.proj))].sort()
+  const list = msgs.filter(m => !S.proj || m.proj === S.proj).filter(m => S.filter === 'okunmamis' ? mUnread(m) : S.filter === 'okunmus' ? !mUnread(m) : S.filter === 'bekleyen' ? m.cat === 'blocked' : true).slice().reverse().slice(0, 150)
+  const filters = `<div class="tabs">${[['hepsi', 'Hepsi'], ['okunmamis', 'Okunmamış'], ['okunmus', 'Okunmuş'], ['bekleyen', 'Onay bekleyen']].map(([f, l]) => `<button data-filter="${f}" class="${S.filter === f ? 'on' : ''}">${l}</button>`).join('')}
+    <select id="projsel"><option value="">Bütün projeler</option>${projs.map(p => `<option ${p === S.proj ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>`
+  return tabs + filters + (list.length ? list.map(m => `<div class="item" data-open="k:${esc(m.sid)}"><div class="line"><span class="dot${m.cat === 'blocked' ? ' r' : ''}${mUnread(m) ? ' u' : ''}"></span><span class="t">${esc(m.proj)} · ${esc(m.title)}</span><span class="dim" style="font-size:12px">${ago(m.at)}</span></div><div class="sub dim">${md(cut(m.text, 300))}</div></div>`).join('') : '<div class="dim">Bu filtrede mesaj yok.</div>')
+}
+function setHTML(el, html) { if (el._html === html) return false; el.innerHTML = html; el._html = html; return true }
+
+// --- the one command bar, with the browser's speech recognition as the microphone
+async function sendBar() {
+  const box = $('#text'), text = box.value.trim()
+  if (!text) return
+  const k = S.target && byId().get(S.target)
+  try {
+    const r = await api('/api/send', { id: k ? k.id : '', text })
+    S.jobs[r.job] = { label: k ? `→ ${cut(k.title, 30)}` : '→ Qosmos', at: Date.now() }
+    box.value = ''
+    $('#barnote').textContent = 'Gönderiliyor…'
+    const tid = k ? k.id : 'home'
+    if (!k && !S.cols.includes('home')) openCol('home')
+    S.talks[tid] = [...(S.talks[tid] ?? []), { role: 'sen', text }]; renderCols()
+    for (const ms of [4000, 10000, 20000, 40000]) setTimeout(() => loadTalk(tid), ms)
+    setTimeout(() => refresh(true), 3000)
+  } catch (err) { $('#barnote').textContent = 'Gönderilemedi: ' + err.message }
+}
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+let rec = null
+function mic() {
+  if (!SR) return toast('Bu tarayıcıda konuşma tanıma yok. Chrome ya da Safari\'de açın; ya da yazı alanında 🌐 (fn) tuşuna iki kez basıp Mac dikte ile konuşun.', 7000)
+  if (rec) { rec.stop(); return }
+  rec = new SR(); rec.lang = 'tr-TR'; rec.interimResults = true; rec.continuous = true
+  const box = $('#text'), base = box.value ? box.value + ' ' : ''
+  rec.onresult = e => { box.value = base + [...e.results].map(r => r[0].transcript).join('') }
+  rec.onend = () => { rec = null; $('#mic').classList.remove('on') }
+  rec.onerror = e => toast('Mikrofon: ' + e.error)
+  rec.start(); $('#mic').classList.add('on')
+}
+
+// --- events (one delegated listener)
+document.addEventListener('click', e => {
+  const t = e.target, ids = byId()
+  const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
+  const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
+  const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Geri aç', at: Date.now() }; refresh(true) })
+  const pick = t.closest('[data-theme-pick]'); if (pick) { document.documentElement.dataset.theme = pick.dataset.themePick; keep('theme', pick.dataset.themePick); return renderSide() }
+  const days = t.closest('[data-days]'); if (days) { S.days = +days.dataset.days; keep('days', S.days); return render() }
+  const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
+  const filter = t.closest('[data-filter]'); if (filter) { S.filter = filter.dataset.filter; return renderCols() }
+  const proj = t.closest('[data-proj]'); if (proj) {
+    const n = proj.dataset.proj, c = 'p:' + n
+    if (S.open.has(n) && S.cols.includes(c)) { S.open.delete(n); S.cols = S.cols.filter(x => x !== c); keep('cols', S.cols) } else { S.open.add(n); keep('open', [...S.open]); return openCol(c) }
+    keep('open', [...S.open]); return render()
+  }
+  if (t.closest('[data-closed]')) { S.open.has('__kapali') ? S.open.delete('__kapali') : S.open.add('__kapali'); keep('open', [...S.open]); return renderSide() }
+  const act = t.closest('[data-act]'); if (act) {
+    const k = ids.get(act.dataset.id), a = act.dataset.act
+    if (a === 'target') { setTarget(k.id); return renderCols() }
+    if (a === 'app') return openInApp(k)
+    if (a === 'read') return markRead(k)
+    if (a === 'close') return closeTopic(k)
+    const old = visible().filter(waiting).filter(x => Date.now() - x.last > 7 * DAY)
+    if (a === 'old') { S.confirmOld = true; return renderCols() }
+    if (a === 'old-no') { S.confirmOld = false; return renderCols() }
+    if (a === 'old-yes') { S.confirmOld = false; return (async () => { for (const x of old) await api('/api/close', { id: x.id }).then(r => r.job && (S.jobs[r.job] = { label: 'Arşiv', at: Date.now() })).catch(() => {}); toast(`${old.length} konu kapatıldı`); refresh(true) })() }
+  }
+  if (t.id === 'untarget') { setTarget(''); return renderCols() }
+  const open = t.closest('[data-open]'); if (open) return openCol(open.dataset.open)
+})
+document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
+$('#mini').addEventListener('click', e => { e.stopPropagation(); onSkyClick(e, () => openCol('harita')) })
+$('#main').addEventListener('click', e => { if (e.target.closest('.bigmap')) onSkyClick(e) })
+$('#send').addEventListener('click', sendBar)
+$('#mic').addEventListener('click', mic)
+$('#text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendBar() } })
+if (!SR) $('#mic').title = 'Bu tarayıcıda konuşma tanıma yok; Mac dikte için 🌐 tuşuna iki kez bas'
+
+// --- data: sessions every 10 s, open conversations every 15 s; bridge results shown on the bar
+async function refresh(now) {
+  try { S.data = await api('/api/scan' + (now ? '?t=' + Date.now() : '')) } catch (err) { $('#counts').textContent = 'Sunucuya ulaşılamadı: ' + err.message; return }
+  for (const [job, { label, at }] of Object.entries(S.jobs)) {
+    const r = S.data.results?.[job]
+    if (r) { $('#barnote').textContent = `${r.ok ? '✓' : '✗'} ${label}: ${r.text || (r.ok ? 'iletildi' : 'iletilemedi')}`; delete S.jobs[job] }
+    else if (Date.now() - at > 20000) { $('#barnote').textContent = `${label}: köprü yanıt vermiyor. Qosmos eklentisinin açık olduğu Claude oturumu çalışıyor mu?`; delete S.jobs[job] }
+  }
+  render()
+}
+refresh()
+setInterval(refresh, 10000)
+const talkIds = () => S.cols.filter(c => c.startsWith('k:') || c === 'home').map(c => (c === 'home' ? 'home' : c.slice(2)))
+setInterval(() => talkIds().forEach(loadTalk), 15000)
+talkIds().forEach(loadTalk)
+</script>
+</body>
+</html>
