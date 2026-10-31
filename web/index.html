@@ -132,9 +132,6 @@
   .dot.o { background: var(--orange); }
   .dot.u { box-shadow: 0 0 0 1.5px var(--ring); background: transparent; }
   @keyframes blink { 50% { opacity: .25; } }
-  #mini { flex: none; height: 200px; border-top: 1px solid var(--line); position: relative; --sky: var(--side); }
-  #mini svg { width: 100%; height: 100%; display: block; }
-  #mini .hint { position: absolute; right: 8px; bottom: 6px; font-size: 10.5px; color: var(--dim); pointer-events: none; }
   svg [data-k], svg [data-p] { cursor: pointer; }
 
   /* Composer — one look for every bar */
@@ -214,7 +211,6 @@
     </div>
     <div id="tree" class="scroll"></div>
     <div class="composer" id="sidebar-composer" data-to="home"></div>
-    <div id="mini" title="Click a circle to open it · click empty space for the big map"><div class="hint">click empty space to enlarge</div></div>
   </aside>
   <section id="plist"><div class="rz" data-rz="plist" title="Drag to resize"></div><header></header><div class="meta"></div><div class="body scroll"></div></section>
   <main id="main"></main>
@@ -378,7 +374,7 @@ async function openInApp(k) {
 // --- rendering
 function setHTML(el, html) { if (el._html === html) return false; el.innerHTML = html; el._html = html; return true }
 const md = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>')
-function render() { renderSide(); renderPlist(); renderMini(); renderCols() }
+function render() { renderSide(); renderPlist(); renderCols() }
 function renderSide() {
   const d = S.data
   if (!d || S.drag) return
@@ -397,7 +393,7 @@ function renderSide() {
   const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
   const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>`).join('')
-  setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div>${closed}`)
+  setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div>${closed}`)
   setHTML($('#sidebar-composer .to'), '→ Qosmos (ana oturum, Claude)')
 }
 function renderPlist() {
@@ -409,10 +405,6 @@ function renderPlist() {
   setHTML(el.querySelector('.meta'), `<span class="meta" style="padding:0">${list.length} sessions · <span class="red">${list.filter(waiting).length} waiting</span> · <span style="color:var(--orange)">${list.filter(running).length} running</span></span>`)
   setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>
     <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Waiting for your answer.', 240)) : running(k) ? 'Agent working…' : md(cut(k.detail || 'No summary.', 160))}</div></div>`).join(''))
-}
-function renderMini() {
-  const el = $('#mini'), svg = sky(groups())
-  if (el._svg !== svg) { el.querySelector('svg')?.remove(); el.insertAdjacentHTML('afterbegin', svg); el._svg = svg }
 }
 const conv = (talk, hist) => talk === undefined ? '<div class="dim">Loading…</div>'
   : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="txt selectable">${md(m.text)}</div></div>`).join('')
@@ -676,7 +668,6 @@ window.addEventListener('blur', () => { if (pdrag?.moved) dragEnd(false) })
 document.addEventListener('input', e => { if (e.target.matches('.composer textarea')) { grow(e.target); e.target.closest('.composer').classList.toggle('has-text', !!e.target.value.trim()) } })
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.composer textarea')) { e.preventDefault(); send(e.target.closest('.composer')) } })
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
-$('#mini').addEventListener('click', e => { e.stopPropagation(); onSkyClick(e, () => openCol('harita')) })
 $('#main').addEventListener('click', e => { if (e.target.closest('.bigmap')) onSkyClick(e) })
 $('#sidebar-composer').innerHTML = composerHTML('Message Claude… (Enter to send)')
 
