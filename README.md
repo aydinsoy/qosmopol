@@ -11,6 +11,7 @@
 - **A full-screen web view** at `http://127.0.0.1:47321/` — click any circle to open it: a moon opens the session, a planet opens the project. Opened items sit side by side as columns (up to four). One command bar with a microphone writes to the focused session, or to the Qosmos home session itself.
 - **Close sessions** from anywhere (✕): sessions on the signed-in account are archived in the app, others are hidden from the sky. "Closed" keeps a list with *Reopen*.
 - **Old waiting items** can be closed in bulk, after a confirmation.
+- **Your own order:** drag projects up and down in the sidebar; the order is kept by the local server, so every browser and the installed app show it. Sessions started without a project folder are listed one by one under *Loose sessions*.
 
 ## Install
 

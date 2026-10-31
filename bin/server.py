@@ -33,6 +33,7 @@ ARCHIVE = os.path.join(HOME, "mesajlar.json")
 READ = os.path.join(HOME, "okundu.json")
 TOKEN_FILE = os.path.join(HOME, "token")
 SESSION = os.path.join(HOME, "oturum")
+ORDER = os.path.join(HOME, "sira.json")
 PORT = 47321
 KEEP = 1000
 LOCK = threading.Lock()
@@ -92,6 +93,7 @@ def scan():
             save(ARCHIVE, log)
         data["messages"] = log
         data["readAt"] = load(READ, {})
+        data["order"] = load(ORDER, [])
         data["results"] = load(RESULTS, {})
         data["at"] = int(time.time() * 1000)
         SCAN.update(at=time.time(), data=data)
@@ -188,6 +190,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 run("scan.py", "--ac", sid)
                 SCAN["at"] = 0
                 return self.reply(200, {"ok": True, "job": enqueue({"kind": "unarchive", "id": sid})})
+            if path == "/api/order":  # the owner's own order of projects; [] goes back to automatic
+                order = body.get("order")
+                if not isinstance(order, list) or len(order) > 300 or not all(isinstance(n, str) and len(n) <= 200 for n in order):
+                    return self.reply(400, {"error": "geçersiz sıra"})
+                with LOCK:
+                    save(ORDER, order)
+                    SCAN["at"] = 0
+                return self.reply(200, {"ok": True})
             if path == "/api/ping":
                 return self.reply(200, {"job": enqueue({"kind": "ping"})})
         except Exception as err:  # noqa: BLE001

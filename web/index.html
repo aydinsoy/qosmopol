@@ -92,6 +92,13 @@
   .row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
   .row.proj .name { color: var(--text); }
   .row.sub { padding-left: 26px; }
+  .row.proj { touch-action: none; }
+  .row.proj.dragging { opacity: .35; }
+  .row.proj.drop-before { box-shadow: inset 0 2px 0 var(--blue); border-radius: 0; }
+  .row.proj.drop-after { box-shadow: inset 0 -2px 0 var(--blue); border-radius: 0; }
+  .section { display: flex; align-items: center; }
+  .linkbtn { margin-left: auto; border: 0; background: none; color: var(--dim); font-size: 11px; padding: 0 4px; }
+  .linkbtn:hover { color: var(--text); }
   .row .age { font-size: 11px; color: var(--dim); }
   .row .chev { width: 12px; color: var(--dim); display: inline-flex; }
   .badge { font-size: 10.5px; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--btn); color: var(--dim); }
@@ -237,10 +244,13 @@ const visible = () => (S.data?.sessions ?? []).filter(k => S.days === 0 || Date.
 const dot = k => `<span class="dot${waiting(k) ? ' r' : running(k) ? ' o' : !unread(k) ? '' : ' u'}"></span>`
 const accLabel = acc => { const a = S.data.accounts; return `H${a.indexOf(acc) + 1}${acc === S.data.current ? '' : ' · başka hesap'}` }
 const byId = () => new Map((S.data?.sessions ?? []).map(k => [k.id, k]))
+const LOOSE = new Set(['Klasörsüz', '~'])  // sessions started from + New, with no project folder
+const pos = n => { const i = (S.data?.order ?? []).indexOf(n); return i < 0 ? 1e6 : i }
 function groups() {
   const g = new Map()
   for (const k of visible()) g.set(k.proj, [...(g.get(k.proj) ?? []), k])
-  return [...g.entries()].sort((a, b) => b[1].filter(waiting).length - a[1].filter(waiting).length || Math.max(...b[1].map(k => k.last)) - Math.max(...a[1].map(k => k.last)))
+  const auto = (a, b) => b[1].filter(waiting).length - a[1].filter(waiting).length || Math.max(...b[1].map(k => k.last)) - Math.max(...a[1].map(k => k.last))
+  return [...g.entries()].sort((a, b) => pos(a[0]) - pos(b[0]) || auto(a, b))
 }
 
 // --- the sky: planets are projects, moons their topics; every circle is clickable
@@ -348,20 +358,23 @@ const md = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`
 function render() { renderSide(); renderPlist(); renderMini(); renderCols() }
 function renderSide() {
   const d = S.data
-  if (!d) return
+  if (!d || S.drag) return
   const shown = visible(), w = shown.filter(waiting).length, r = shown.filter(running).length, n = shown.filter(k => !waiting(k) && !running(k) && unread(k)).length
   setHTML($('#counts'), `<span class="w"><b>${w}</b> bekliyor</span><span class="o"><b>${r}</b> çalışıyor</span><span><b>${n}</b> okunmamış</span>`)
   const th = document.documentElement.dataset.theme
   setHTML($('#days'), [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + ' gün' : 'Hepsi'}</button>`).join(''))
   setHTML($('#themes'), [['antrasit', 'Antrasit'], ['acik', 'Açık'], ['siyah', 'Siyah']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
-  const tree = groups().map(([name, list]) => {
+  const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
-    return `<div class="row proj${on ? ' on' : ''}" data-proj="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><span class="chev">${on ? ICON.right : ''}</span></div>`
+    return `<div class="row proj${on ? ' on' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><span class="chev">${on ? ICON.right : ''}</span></div>`
   }).join('')
   const hidden = d.hidden ?? []
   const closed = hidden.length ? `<div class="section">Kapatılanlar</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} konu</span></div>` +
     (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Geri aç</button></div>`).join('') : '') : ''
-  setHTML($('#tree'), `<div class="section">Projeler</div>${tree}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Ana oturum (Claude)</span></div>${closed}`)
+  const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Sırayı sıfırla: bekleyenler ve en yeniler üstte">otomatik sırala</button>' : ''
+  const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
+  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>`).join('')
+  setHTML($('#tree'), `<div class="section">Projeler ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Projesiz konular</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Ana oturum (Claude)</span></div>${closed}`)
   setHTML($('#sidebar-composer .to'), '→ Qosmos (ana oturum, Claude)')
 }
 function renderPlist() {
@@ -491,6 +504,7 @@ function mic(comp) {
 
 // --- events (delegated)
 document.addEventListener('click', e => {
+  if (S.justDragged) return  // the click that ends a drag opens nothing
   const t = e.target, ids = byId()
   const comp = t.closest('.composer')
   if (comp && t.closest('.round')) return comp.classList.contains('has-text') && !comp.classList.contains('rec') ? send(comp) : mic(comp)
@@ -506,6 +520,7 @@ document.addEventListener('click', e => {
   if (t.closest('[data-closed]')) { S.open.has('__kapali') ? S.open.delete('__kapali') : S.open.add('__kapali'); keep('open', [...S.open]); return renderSide() }
   const act = t.closest('[data-act]'); if (act) {
     const k = ids.get(act.dataset.id), a = act.dataset.act
+    if (a === 'autosort') return saveOrder([])
     if (a === 'app') return openInApp(k)
     if (a === 'read') return markRead(k)
     if (a === 'close') return closeTopic(k)
@@ -516,6 +531,44 @@ document.addEventListener('click', e => {
   }
   const open = t.closest('[data-open]'); if (open) return openCol(open.dataset.open)
 })
+// --- projects reorder by drag and drop; the order is kept by the server, so every browser and the installed app share it
+function saveOrder(names) {
+  S.data.order = names; render()
+  api('/api/order', { order: names }).catch(err => toast('Sıra kaydedilemedi: ' + err.message))
+}
+const clearDrop = () => document.querySelectorAll('.drop-before, .drop-after, .dragging').forEach(r => r.classList.remove('drop-before', 'drop-after', 'dragging'))
+// Pointer-driven, like a desktop list: under 4 px it stays a click; past that the row drags and a line shows where it lands.
+let pdrag = null
+document.addEventListener('pointerdown', e => {
+  const r = e.button === 0 && e.target.closest('.row[data-drag]'); if (!r) return
+  pdrag = { name: r.dataset.drag, y: e.clientY, row: r, moved: false }
+})
+document.addEventListener('pointermove', e => {
+  if (!pdrag) return
+  if (!pdrag.moved && Math.abs(e.clientY - pdrag.y) < 4) return
+  if (!pdrag.moved) { pdrag.moved = true; S.drag = pdrag.name; pdrag.row.classList.add('dragging'); document.body.style.cursor = 'grabbing' }
+  let over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.row[data-drag]')
+  if (over && over.parentElement !== pdrag.row.parentElement) over = null  // projects and loose sessions each keep their own list
+  document.querySelectorAll('.drop-before, .drop-after').forEach(x => x !== over && x.classList.remove('drop-before', 'drop-after'))
+  if (!over || over === pdrag.row) return
+  const after = e.clientY > over.getBoundingClientRect().top + over.offsetHeight / 2
+  over.classList.toggle('drop-after', after); over.classList.toggle('drop-before', !after)
+})
+document.addEventListener('pointerup', () => {
+  if (!pdrag) return
+  const d = pdrag; pdrag = null
+  if (!d.moved) return
+  const over = document.querySelector('.drop-before, .drop-after')
+  S.drag = null; document.body.style.cursor = ''; S.justDragged = true; setTimeout(() => (S.justDragged = false), 0)
+  const to = over?.dataset.drag, after = over?.classList.contains('drop-after')
+  const shown = [...d.row.parentElement.querySelectorAll('.row[data-drag]')].map(r => r.dataset.drag).filter(n => n !== d.name)
+  clearDrop()
+  if (!to || to === d.name) return renderSide()
+  shown.splice(shown.indexOf(to) + (after ? 1 : 0), 0, d.name)
+  const rest = (S.data.order ?? []).filter(n => !shown.includes(n))  // projects hidden by the day filter keep their place after
+  saveOrder([...shown, ...rest])
+})
+
 document.addEventListener('input', e => { if (e.target.matches('.composer textarea')) { grow(e.target); e.target.closest('.composer').classList.toggle('has-text', !!e.target.value.trim()) } })
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.composer textarea')) { e.preventDefault(); send(e.target.closest('.composer')) } })
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
