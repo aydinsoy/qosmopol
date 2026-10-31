@@ -59,6 +59,7 @@
   .btn { height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--btn); color: var(--text2); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
   .btn:hover { background: var(--btn-hover); color: var(--text); }
   .btn.danger:hover { color: var(--red); }
+  .btn:disabled { opacity: .45; }
   .icon { width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .icon:hover { background: var(--hover); color: var(--text); }
   .seg { display: inline-flex; background: var(--seg); border-radius: 7px; padding: 2px; gap: 2px; }
@@ -74,10 +75,15 @@
   #plist > header { height: 40px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   #plist > header .title { flex: 1; font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; }
   #plist .meta { padding: 10px 16px 4px; white-space: nowrap; }
-  #plist .body { flex: 1; padding: 4px 8px 12px; width: var(--plist-w, 320px); }
+  #plist .body { flex: 1; min-height: 0; padding: 4px 8px 12px; width: var(--plist-w, 320px); }
+  /* the panel ends on a footer level with the columns' composers, so the list never seems to run off the window */
+  .pfoot { flex: none; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 12px; min-height: 92px; border-top: 1px solid var(--line); width: var(--plist-w, 320px); }
   .item.on { background: var(--sel); }
   .item .sub.orange { color: var(--orange); }
   #main { flex: 1; }
+  /* when the map is the first column it docks right of the sidebar, before the project panel */
+  #mapdock { display: flex; flex: none; min-height: 0; }
+  #mapdock > .col { border-right: 1px solid var(--line); }
 
   /* Sidebar */
   #side { display: flex; flex-direction: column; min-height: 0; background: var(--side); border-right: 1px solid var(--line); }
@@ -249,7 +255,7 @@
   @media (max-width: 760px) {
     html, body { overflow: auto; }
     #app { flex-direction: column; height: auto; min-height: 100vh; }
-    #side, #plist.open, #plist .body { width: auto; }
+    #side, #plist.open, #plist .body, .pfoot { width: auto; }
     #tree { max-height: 40vh; }
     #main { flex-direction: column; overflow: visible; }
     .col { min-width: 0; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -269,7 +275,8 @@
     <div id="tree" class="scroll"></div>
     <div class="composer" id="sidebar-composer" data-to="home"></div>
   </aside>
-  <section id="plist"><div class="rz" data-rz="plist" title="Drag to resize"></div><header></header><div class="meta"></div><div class="body scroll"></div></section>
+  <div id="mapdock"></div>
+  <section id="plist"><div class="rz" data-rz="plist" title="Drag to resize"></div><header></header><div class="meta"></div><div class="body scroll"></div><div class="pfoot"></div></section>
   <main id="main"></main>
 </div>
 <div id="menu"></div>
@@ -294,7 +301,8 @@ const ICON = {
   archive: I('<rect x="2.5" y="3" width="11" height="3" rx="1"/><path d="M3.5 6v7h9V6M6.5 9h3"/>'),
 }
 
-const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: kept('cols', []).filter(c => !c.startsWith('p:')), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
+// On a first visit the map column is open (cols defaults to ['harita']).
+const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: kept('cols', ['harita']).filter(c => !c.startsWith('p:')), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined
@@ -407,7 +415,12 @@ function onSkyClick(e, fallback) {
 function openCol(c) {
   if (c.startsWith('k:')) { S.sel = c.slice(2); loadTalk(c.slice(2)); const k = byId().get(S.sel); if (k && S.pp !== k.proj) { S.pp = k.proj; keep('pp', k.proj) } }
   if (c === 'home') loadTalk('home')
-  if (!S.cols.includes(c)) S.cols = [...S.cols, c].slice(-MAXCOLS)
+  if (!S.cols.includes(c)) {
+    // the map always sits first, right of the sidebar; when columns run out, the oldest session goes, never the map
+    const cols = c === 'harita' ? [c, ...S.cols] : [...S.cols, c]
+    while (cols.length > MAXCOLS) cols.splice(cols.findIndex(x => x !== 'harita'), 1)
+    S.cols = cols
+  }
   keep('cols', S.cols); render()
   requestAnimationFrame(() => document.querySelector(`[data-col="${CSS.escape(c)}"]`)?.scrollIntoView({ inline: 'nearest', behavior: 'smooth' }))
 }
@@ -465,6 +478,8 @@ function renderPlist() {
   const sorted = [...list].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || Number(running(b)) - Number(running(a)) || b.last - a.last)
   setHTML(el.querySelector('header'), `<span class="title">${esc(S.pp)}</span><button class="icon" data-plx="1" title="Close panel">${ICON.x}</button>`)
   setHTML(el.querySelector('.meta'), `<span class="meta" style="padding:0">${list.length} sessions · <span class="red">${list.filter(waiting).length} waiting</span> · <span style="color:var(--orange)">${list.filter(running).length} running</span></span>`)
+  const pw = list.filter(waiting)
+  setHTML(el.querySelector('.pfoot'), `<button class="btn" data-pact="waiting"${pw.length ? '' : ' disabled'}>Open waiting sessions (${pw.length})</button><button class="btn" data-pact="read">Mark all as read</button>`)
   setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>
     <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Waiting for your answer.', 240)) : running(k) ? 'Agent working…' : md(cut(k.detail || 'No summary.', 160))}</div></div>`).join(''))
 }
@@ -513,22 +528,22 @@ function renderCols() {
   if (!d) return
   const ids = byId(), gs = new Map(groups())
   S.cols = S.cols.filter(c => c === 'harita' || c === 'home' || (c.startsWith('k:') ? ids.has(c.slice(2)) : gs.has(c.slice(2))))
-  if (!S.cols.length) {
-    main.querySelectorAll('.col').forEach(c => c.remove())
+  const dock = $('#mapdock'), docked = S.cols[0] === 'harita', mainCols = docked ? S.cols.slice(1) : S.cols
+  document.querySelectorAll('#mapdock > .col, #main > .col').forEach(el => { if (!S.cols.includes(el.dataset.col)) el.remove() })
+  if (!mainCols.length) {
     let inbox = main.querySelector('#inbox')
     if (!inbox) { inbox = document.createElement('div'); inbox.id = 'inbox'; inbox.innerHTML = '<div class="top"></div><div class="body scroll"></div>'; main.append(inbox) }
-    return inboxRender(inbox)
-  }
-  main.querySelector('#inbox')?.remove()
-  main.querySelectorAll('.col').forEach(el => { if (!S.cols.includes(el.dataset.col)) el.remove() })
-  S.cols.forEach((c, i) => {
-    let el = main.querySelector(`[data-col="${CSS.escape(c)}"]`)
+    inboxRender(inbox)
+  } else main.querySelector('#inbox')?.remove()
+  S.cols.forEach(c => {
+    let el = document.querySelector(`#mapdock > [data-col="${CSS.escape(c)}"], #main > [data-col="${CSS.escape(c)}"]`)
     const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
     if (!el) {
       el = document.createElement('section'); el.className = 'col'; el.dataset.col = c
       el.innerHTML = `<div class="rz" data-rz="col" title="Drag to resize"></div><header></header><div class="body scroll"></div>` + (c === 'harita' ? '' : `<div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Message this session…' : 'Message Claude…')}</div>`)
     }
-    if (main.children[i] !== el) main.insertBefore(el, main.children[i] ?? null)
+    if (c === 'harita' && docked) { if (el.parentElement !== dock) dock.append(el) }
+    else { const j = mainCols.indexOf(c); if (main.children[j] !== el) main.insertBefore(el, main.children[j] ?? null) }
     const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · home session</span>' : '<span class="title">Map</span>'
     setHTML(el.querySelector('header'), `${title}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
     if (el.querySelector('.composer')) fillMeta(el.querySelector('.composer'), false)
@@ -580,6 +595,7 @@ function applyWidths() {
   if (W.plist) document.documentElement.style.setProperty('--plist-w', W.plist + 'px')
   const cols = [...document.querySelectorAll('#main > .col')]
   cols.forEach((el, i) => { const w = i < cols.length - 1 && W['col:' + el.dataset.col]; el.style.flex = w ? `0 0 ${w}px` : '' })
+  const docked = document.querySelector('#mapdock > .col'); if (docked) docked.style.flex = `0 0 ${W['col:harita'] || 460}px`
 }
 let rz = null
 document.addEventListener('pointerdown', e => {
@@ -620,11 +636,11 @@ document.addEventListener('dblclick', e => {  // double-click a strip: back to t
 // and on release it settles in its new place. Under 4 px it stays a click; Esc cancels.
 let cdrag = null
 document.addEventListener('pointerdown', e => {
-  const hd = e.button === 0 && e.target.closest('#main > .col > header'); if (!hd || e.target.closest('button')) return
+  const hd = e.button === 0 && e.target.closest('#mapdock > .col > header, #main > .col > header'); if (!hd || e.target.closest('button')) return
   cdrag = { col: hd.parentElement, x0: e.clientX, y0: e.clientY, moved: false }
 })
 function colDragStart(e) {
-  const d = cdrag, cols = [...document.querySelectorAll('#main > .col')]
+  const d = cdrag, cols = [...document.querySelectorAll('#mapdock > .col, #main > .col')]
   d.cols = cols; d.from = cols.indexOf(d.col); d.to = d.from
   d.rects = cols.map(c => c.getBoundingClientRect())
   const r = d.rects[d.from]; d.dx = d.x0 - r.left; d.dy = d.y0 - r.top; d.vx = 0; d.lastX = e.clientX
@@ -926,6 +942,11 @@ document.addEventListener('click', e => {
   const more = t.closest('.row .more'); if (more) { e.stopPropagation(); return rowMenu(more.closest('.row'), more) }
   const proj = t.closest('[data-proj]'); if (proj) return pickProject(S.pp === proj.dataset.proj ? '' : proj.dataset.proj)
   if (t.closest('[data-plx]')) return pickProject('')
+  const pact = t.closest('[data-pact]'); if (pact) {
+    const list = new Map(groups()).get(S.pp) ?? []
+    if (pact.dataset.pact === 'waiting') return list.filter(waiting).slice(0, MAXCOLS).forEach(k => openCol('k:' + k.id))
+    return (async () => { for (const k of list) await api('/api/read', { id: k.id }).catch(() => {}); refresh(true) })()
+  }
   if (t.closest('[data-closed]')) { S.open.has('__kapali') ? S.open.delete('__kapali') : S.open.add('__kapali'); keep('open', [...S.open]); return renderSide() }
   const act = t.closest('[data-act]'); if (act) {
     const k = ids.get(act.dataset.id), a = act.dataset.act
@@ -1017,7 +1038,7 @@ window.addEventListener('blur', () => { if (pdrag?.moved) dragEnd(false) })
 document.addEventListener('input', e => { if (e.target.matches('.composer textarea')) { grow(e.target); e.target.closest('.composer').classList.toggle('has-text', !!e.target.value.trim()) } })
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.composer textarea')) { e.preventDefault(); send(e.target.closest('.composer')) } })
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
-$('#main').addEventListener('click', e => {
+$('#app').addEventListener('click', e => {
   const tool = e.target.closest('[data-map]')
   if (tool) return tool.dataset.map === 'reset' ? resetMapView() : toggleMapFull()
   if (e.target.closest('.bigmap') && !S.justDragged) onSkyClick(e)
