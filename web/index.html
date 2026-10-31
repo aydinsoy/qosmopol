@@ -391,7 +391,13 @@ function sky(gs, { labels = true } = {}) {
       if (w) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="var(--red)" opacity="0.45"><animate attributeName="opacity" values="0.5;0;0.5" dur="0.9s" repeatCount="indefinite"/></circle>`)
       if (run) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 6}" fill="var(--orange)" opacity="0.35"><animate attributeName="opacity" values="0.45;0.1;0.45" dur="2s" repeatCount="indefinite"/></circle>`)
       if (k.id === sel) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 3.5}" fill="none" stroke="var(--blue)" stroke-width="1.6"/>`)
-      o.push(`<circle cx="${mx}" cy="${my}" r="${mr}" fill="${fill}">${w ? blink : ''}</circle></g>`)
+      o.push(`<circle cx="${mx}" cy="${my}" r="${mr}" fill="${fill}">${w ? blink : ''}</circle>`)
+      // like the planets' names: the first four words of the session, small, on two lines, outside the moon
+      const words = String(k.title || '').split(/\s+/).filter(Boolean), clip = t => (t.length > 16 ? t.slice(0, 15) + '…' : t)
+      const l1 = clip(words.slice(0, 2).join(' ')), l2 = clip(words.slice(2, 4).join(' ') + (words.length > 4 ? '…' : ''))
+      const cx2 = Math.cos(a), cy2 = Math.sin(a), lx = +(mx + cx2 * (mr + 5)).toFixed(1), ly = +(my + cy2 * (mr + 5)).toFixed(1)
+      const anchor = cx2 > 0.35 ? 'start' : cx2 < -0.35 ? 'end' : 'middle', top = cy2 < -0.35 ? ly - 7 : cy2 > 0.35 ? ly + 3 : ly - 2
+      o.push(`<text x="${lx}" y="${top}" text-anchor="${anchor}" font-size="5.5" fill="var(--label)" style="pointer-events:none"><tspan x="${lx}">${esc(l1)}</tspan>${l2 ? `<tspan x="${lx}" dy="6.5">${esc(l2)}</tspan>` : ''}</text></g>`)
     })
     o.push(`<g data-p="${esc(p.name)}"><title>${esc(`${p.name}: ${p.list.length} sessions · ${nWait} waiting for you`)}</title>`)
     if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5">${blink}</circle>`)
