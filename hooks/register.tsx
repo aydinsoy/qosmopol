@@ -246,7 +246,7 @@ export const register: Register = on => {
       const r = await $.process.run(['/usr/bin/open', WEB], { timeoutMs: 10_000 })
       if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
     }
-    const toInbox = <Button key="kapat" label="Hepsini kapat" onPress={() => set(g => ({ ...g, sel: '', cols: [] }))} />
+    const toInbox = <Button key="kapat" label="Close all" onPress={() => set(g => ({ ...g, sel: '', cols: [] }))} />
     const row = (k: Konu, prefix: string) => (
       <Box key={`r-${prefix}-${k.id}`} flexDirection="row" gap={1}>
         {closeBtn(k, 't')}
@@ -340,7 +340,7 @@ export const register: Register = on => {
     // One command bar: it writes to the focused topic column, or to this Qosmos session when none is focused.
     const bar = Input && (
       <Box flexDirection="column" marginTop={1}>
-        <Text dimColor>{target ? `→ ${target.proj} · ${cut(target.title, Math.max(16, leftCols - 14))}` : '→ Qosmos (bu oturum, Claude)'}</Text>
+        <Text dimColor>{target ? `→ ${target.proj} · ${cut(target.title, Math.max(16, leftCols - 14))}` : '→ Qosmos (this session, Claude)'}</Text>
         <Input key={`bar-${target?.id ?? 'ben'}`} rows={2} placeholder="Type or dictate (press 🌐 twice)" submitLabel="Send" onSubmit={(text: string) => {
           if (!text.trim()) return
           if (target) void send(target, text)
@@ -503,7 +503,7 @@ export const register: Register = on => {
             {old.length > 0 && (
               <Box flexDirection="row" gap={1} flexWrap="wrap" marginBottom={1}>
                 {v.onay !== 'eski' && <Button key="eski" label={`Close older than 7 days (${old.length})`} onPress={() => set(g => ({ ...g, onay: 'eski' }))} />}
-                {v.onay === 'eski' && <Button key="eski-onay" variant="primary" label={`Evet, ${old.length} konuyu kapat`} onPress={async () => { await set(g => ({ ...g, onay: '' })); await closeTopics($, old, t.current) }} />}
+                {v.onay === 'eski' && <Button key="eski-onay" variant="primary" label={`Yes, close ${old.length}`} onPress={async () => { await set(g => ({ ...g, onay: '' })); await closeTopics($, old, t.current) }} />}
                 {v.onay === 'eski' && <Button key="eski-vazgec" label="Cancel" onPress={() => set(g => ({ ...g, onay: '' }))} />}
               </Box>
             )}

@@ -98,8 +98,10 @@
   .group .row { height: 32px; background: var(--card); border: 1px solid var(--input-line); border-radius: 7px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
   .group .row:hover { background: var(--btn-hover); }
   .group .row.on { background: var(--sel); border-color: color-mix(in srgb, var(--input-line), var(--text) 30%); }
+  :root[data-theme="acik"] #side .group .row.proj.on { background: #ffffff; }
   .group .row.sw, .item.sw { box-shadow: inset 3px 0 0 var(--red), 0 1px 0 rgba(0,0,0,.22); }
   .group .row.sr, .item.sr { box-shadow: inset 3px 0 0 var(--orange), 0 1px 0 rgba(0,0,0,.22); }
+  #side .group .row { border: 0; box-shadow: none; }
   .item { background: var(--card); border: 1px solid var(--input-line); border-radius: 8px; margin: 0 0 6px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
   .item:hover { background: var(--btn-hover); }
   .rz { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 20; }
@@ -111,6 +113,14 @@
   .rz:hover::before, .rz.on::before { opacity: 0; }
   body.resizing, body.resizing * { cursor: col-resize !important; }
   body.resizing #plist { transition: none; }
+  .col > header { cursor: default; touch-action: none; }
+  .col-shift { transition: transform .18s cubic-bezier(.2,.8,.2,1); }
+  .col-hole { visibility: hidden; }
+  .col-ghost { position: fixed; z-index: 60; pointer-events: none; display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
+    border: 1px solid var(--input-line); border-radius: 10px; transform: rotate(var(--tilt, 0deg)) scale(1); transition: transform .14s ease, box-shadow .14s ease; }
+  .col-ghost .rz { display: none; }
+  .col-ghost.lifted { transform: rotate(var(--tilt, 0deg)) scale(1.015); box-shadow: 0 22px 48px rgba(0,0,0,.40), 0 4px 12px rgba(0,0,0,.25); transition: transform .08s ease-out, box-shadow .14s ease; }
+  .col-ghost.settle { transition: left .18s cubic-bezier(.2,.8,.2,1), top .18s cubic-bezier(.2,.8,.2,1), transform .18s ease, box-shadow .18s ease; }
   .drag-shift { transition: transform .16s cubic-bezier(.2,.8,.2,1); }
   .drag-hole { visibility: hidden; }
   .drag-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; background: var(--btn-hover); color: var(--text); border-radius: 7px; outline: 1px solid var(--input-line); outline-offset: -1px;
@@ -394,7 +404,7 @@ function renderSide() {
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
   const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>`).join('')
   setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div>${closed}`)
-  setHTML($('#sidebar-composer .to'), '→ Qosmos (ana oturum, Claude)')
+  setHTML($('#sidebar-composer .to'), '→ Qosmos (home session, Claude)')
 }
 function renderPlist() {
   const el = $('#plist'), list = new Map(groups()).get(S.pp)
@@ -529,6 +539,69 @@ document.addEventListener('dblclick', e => {  // double-click a strip: back to t
   else delete W['col:' + h.parentElement.dataset.col]
   keep('widths', W); applyWidths()
 })
+
+// --- columns reorder by dragging their header: the column lifts and follows the pointer, the others slide aside,
+// and on release it settles in its new place. Under 4 px it stays a click; Esc cancels.
+let cdrag = null
+document.addEventListener('pointerdown', e => {
+  const hd = e.button === 0 && e.target.closest('#main > .col > header'); if (!hd || e.target.closest('button')) return
+  cdrag = { col: hd.parentElement, x0: e.clientX, y0: e.clientY, moved: false }
+})
+function colDragStart(e) {
+  const d = cdrag, cols = [...document.querySelectorAll('#main > .col')]
+  d.cols = cols; d.from = cols.indexOf(d.col); d.to = d.from
+  d.rects = cols.map(c => c.getBoundingClientRect())
+  const r = d.rects[d.from]; d.dx = d.x0 - r.left; d.dy = d.y0 - r.top; d.vx = 0; d.lastX = e.clientX
+  const g = d.ghost = d.col.cloneNode(true)
+  g.className = 'col-ghost'
+  Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', flex: 'none' })
+  document.body.append(g)
+  requestAnimationFrame(() => g.classList.add('lifted'))
+  d.col.classList.add('col-hole'); cols.forEach(c => c !== d.col && c.classList.add('col-shift'))
+  S.drag = 'col'; document.body.classList.add('grabbing')
+}
+function colDragMove(e) {
+  const d = cdrag
+  d.vx = d.vx * 0.7 + (e.clientX - d.lastX) * 0.3; d.lastX = e.clientX
+  d.ghost.style.setProperty('--tilt', Math.max(-2.5, Math.min(2.5, d.vx * 0.25)).toFixed(2) + 'deg')
+  d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px'
+  const w = d.rects[d.from].width, mid = e.clientX - d.dx + w / 2
+  let to = 0
+  d.rects.forEach((r, i) => { if (i !== d.from && r.left + r.width / 2 < mid) to++ })
+  if (to === d.to) return
+  d.to = to
+  d.cols.forEach((c, i) => {
+    if (i === d.from) return
+    const shift = d.from < to && i > d.from && i <= to ? -w : d.from > to && i >= to && i < d.from ? w : 0
+    c.style.transform = shift ? `translateX(${shift}px)` : ''
+  })
+}
+function colDragEnd(commit) {
+  const d = cdrag; cdrag = null
+  const to = commit ? d.to : d.from, w = d.rects[d.from].width
+  const left = to > d.from ? d.rects[to].right - w : d.rects[to].left
+  d.ghost.classList.remove('lifted'); d.ghost.classList.add('settle'); d.ghost.style.setProperty('--tilt', '0deg')
+  d.ghost.style.left = left + 'px'; d.ghost.style.top = d.rects[d.from].top + 'px'
+  document.body.classList.remove('grabbing')
+  S.justDragged = true; setTimeout(() => (S.justDragged = false), 0)
+  setTimeout(() => {
+    d.ghost.remove()
+    d.cols.forEach(c => { c.classList.remove('col-shift', 'col-hole'); c.style.transform = '' })
+    S.drag = null
+    if (to === d.from) return
+    const names = d.cols.map(c => c.dataset.col)
+    names.splice(to, 0, names.splice(d.from, 1)[0])
+    S.cols = names; keep('cols', S.cols); renderCols()
+  }, 190)
+}
+document.addEventListener('pointermove', e => {
+  if (!cdrag) return
+  if (!cdrag.moved) { if (Math.hypot(e.clientX - cdrag.x0, e.clientY - cdrag.y0) < 4) return; cdrag.moved = true; colDragStart(e) }
+  colDragMove(e)
+})
+document.addEventListener('pointerup', () => { if (cdrag) cdrag.moved ? colDragEnd(true) : (cdrag = null) })
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && cdrag?.moved) colDragEnd(false) })
+window.addEventListener('blur', () => { if (cdrag?.moved) colDragEnd(false) })
 
 // --- composers: the sidebar one talks to the home session, a column's to its topic (a project column: home, prefixed)
 async function send(comp) {
