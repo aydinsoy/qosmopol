@@ -93,9 +93,14 @@
   .row.proj .name { color: var(--text); }
   .row.sub { padding-left: 26px; }
   .row.proj { touch-action: none; }
-  .row.proj.dragging { opacity: .35; }
-  .row.proj.drop-before { box-shadow: inset 0 2px 0 var(--blue); border-radius: 0; }
-  .row.proj.drop-after { box-shadow: inset 0 -2px 0 var(--blue); border-radius: 0; }
+  .drag-shift { transition: transform .16s cubic-bezier(.2,.8,.2,1); }
+  .drag-hole { visibility: hidden; }
+  .drag-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; background: var(--btn-hover); color: var(--text); border-radius: 7px; outline: 1px solid var(--input-line); outline-offset: -1px;
+    transform: rotate(var(--tilt, 0deg)) scale(1); box-shadow: 0 0 0 rgba(0,0,0,0);
+    transition: transform .14s ease, box-shadow .14s ease; }
+  .drag-ghost.lifted { transform: rotate(var(--tilt, 0deg)) scale(1.035); box-shadow: 0 12px 28px rgba(0,0,0,.38), 0 3px 8px rgba(0,0,0,.25); transition: transform .08s ease-out, box-shadow .14s ease; }
+  .drag-ghost.settle { transition: left .16s cubic-bezier(.2,.8,.2,1), top .16s cubic-bezier(.2,.8,.2,1), transform .16s ease, box-shadow .16s ease; }
+  body.grabbing, body.grabbing * { cursor: grabbing !important; }
   .section { display: flex; align-items: center; }
   .linkbtn { margin-left: auto; border: 0; background: none; color: var(--dim); font-size: 11px; padding: 0 4px; }
   .linkbtn:hover { color: var(--text); }
@@ -536,38 +541,73 @@ function saveOrder(names) {
   S.data.order = names; render()
   api('/api/order', { order: names }).catch(err => toast('Sıra kaydedilemedi: ' + err.message))
 }
-const clearDrop = () => document.querySelectorAll('.drop-before, .drop-after, .dragging').forEach(r => r.classList.remove('drop-before', 'drop-after', 'dragging'))
-// Pointer-driven, like a desktop list: under 4 px it stays a click; past that the row drags and a line shows where it lands.
+// Classic list drag: the row lifts with a shadow and follows the pointer (tilting a little with sideways speed),
+// the other rows slide aside to open the slot, and on release it settles into place. Under 4 px it stays a click; Esc cancels.
 let pdrag = null
 document.addEventListener('pointerdown', e => {
   const r = e.button === 0 && e.target.closest('.row[data-drag]'); if (!r) return
-  pdrag = { name: r.dataset.drag, y: e.clientY, row: r, moved: false }
+  pdrag = { row: r, name: r.dataset.drag, x0: e.clientX, y0: e.clientY, moved: false }
 })
+function dragStart(e) {
+  const d = pdrag, rows = [...d.row.parentElement.querySelectorAll('.row[data-drag]')]
+  d.rows = rows; d.from = rows.indexOf(d.row); d.to = d.from
+  d.rects = rows.map(r => r.getBoundingClientRect()); d.h = d.rects[d.from].height
+  d.dx = d.x0 - d.rects[d.from].left; d.dy = d.y0 - d.rects[d.from].top
+  d.vx = 0; d.lastX = e.clientX; d.tilt = 0
+  const g = d.ghost = d.row.cloneNode(true)
+  g.classList.add('drag-ghost'); g.classList.remove('on')
+  Object.assign(g.style, { width: d.rects[d.from].width + 'px', left: d.rects[d.from].left + 'px', top: d.rects[d.from].top + 'px' })
+  document.body.append(g)
+  requestAnimationFrame(() => g.classList.add('lifted'))
+  d.row.classList.add('drag-hole')
+  rows.forEach(r => r !== d.row && r.classList.add('drag-shift'))
+  S.drag = d.name; document.body.classList.add('grabbing')
+}
+function dragMove(e) {
+  const d = pdrag
+  d.vx = d.vx * 0.7 + (e.clientX - d.lastX) * 0.3; d.lastX = e.clientX
+  d.tilt = Math.max(-5, Math.min(5, d.vx * 0.6))
+  d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px'
+  d.ghost.style.setProperty('--tilt', d.tilt.toFixed(2) + 'deg')
+  // the slot: how many of the other rows have their middle above the lifted row's middle
+  const mid = e.clientY - d.dy + d.h / 2
+  let to = 0
+  d.rects.forEach((r, i) => { if (i !== d.from && r.top + r.height / 2 < mid) to++ })
+  if (to === d.to) return
+  d.to = to
+  d.rows.forEach((r, i) => {
+    if (i === d.from) return
+    const shift = d.from < to && i > d.from && i <= to ? -d.h : d.from > to && i >= to && i < d.from ? d.h : 0
+    r.style.transform = shift ? `translateY(${shift}px)` : ''
+  })
+}
+function dragEnd(commit) {
+  const d = pdrag; pdrag = null
+  const slot = d.rects[commit ? d.to : d.from]
+  d.ghost.classList.remove('lifted'); d.ghost.classList.add('settle')
+  d.ghost.style.setProperty('--tilt', '0deg')
+  d.ghost.style.left = slot.left + 'px'; d.ghost.style.top = (commit && d.to > d.from ? d.rects[d.to].top : slot.top) + 'px'
+  document.body.classList.remove('grabbing')
+  S.justDragged = true; setTimeout(() => (S.justDragged = false), 0)
+  setTimeout(() => {
+    d.ghost.remove()
+    d.rows.forEach(r => { r.classList.remove('drag-shift', 'drag-hole'); r.style.transform = '' })
+    S.drag = null
+    if (!commit || d.to === d.from) return renderSide()
+    const names = d.rows.map(r => r.dataset.drag)
+    names.splice(d.to, 0, names.splice(d.from, 1)[0])
+    const rest = (S.data.order ?? []).filter(n => !names.includes(n))  // projects hidden by the day filter keep their place after
+    saveOrder([...names, ...rest])
+  }, 170)
+}
 document.addEventListener('pointermove', e => {
   if (!pdrag) return
-  if (!pdrag.moved && Math.abs(e.clientY - pdrag.y) < 4) return
-  if (!pdrag.moved) { pdrag.moved = true; S.drag = pdrag.name; pdrag.row.classList.add('dragging'); document.body.style.cursor = 'grabbing' }
-  let over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.row[data-drag]')
-  if (over && over.parentElement !== pdrag.row.parentElement) over = null  // projects and loose sessions each keep their own list
-  document.querySelectorAll('.drop-before, .drop-after').forEach(x => x !== over && x.classList.remove('drop-before', 'drop-after'))
-  if (!over || over === pdrag.row) return
-  const after = e.clientY > over.getBoundingClientRect().top + over.offsetHeight / 2
-  over.classList.toggle('drop-after', after); over.classList.toggle('drop-before', !after)
+  if (!pdrag.moved) { if (Math.hypot(e.clientX - pdrag.x0, e.clientY - pdrag.y0) < 4) return; pdrag.moved = true; dragStart(e) }
+  dragMove(e)
 })
-document.addEventListener('pointerup', () => {
-  if (!pdrag) return
-  const d = pdrag; pdrag = null
-  if (!d.moved) return
-  const over = document.querySelector('.drop-before, .drop-after')
-  S.drag = null; document.body.style.cursor = ''; S.justDragged = true; setTimeout(() => (S.justDragged = false), 0)
-  const to = over?.dataset.drag, after = over?.classList.contains('drop-after')
-  const shown = [...d.row.parentElement.querySelectorAll('.row[data-drag]')].map(r => r.dataset.drag).filter(n => n !== d.name)
-  clearDrop()
-  if (!to || to === d.name) return renderSide()
-  shown.splice(shown.indexOf(to) + (after ? 1 : 0), 0, d.name)
-  const rest = (S.data.order ?? []).filter(n => !shown.includes(n))  // projects hidden by the day filter keep their place after
-  saveOrder([...shown, ...rest])
-})
+document.addEventListener('pointerup', () => { if (pdrag) pdrag.moved ? dragEnd(true) : (pdrag = null) })
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && pdrag?.moved) dragEnd(false) })
+window.addEventListener('blur', () => { if (pdrag?.moved) dragEnd(false) })
 
 document.addEventListener('input', e => { if (e.target.matches('.composer textarea')) { grow(e.target); e.target.closest('.composer').classList.toggle('has-text', !!e.target.value.trim()) } })
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.composer textarea')) { e.preventDefault(); send(e.target.closest('.composer')) } })
