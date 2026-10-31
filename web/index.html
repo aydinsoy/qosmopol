@@ -238,6 +238,9 @@
   /* the map is a canvas: drag to pan, pinch or wheel to zoom; it stays where it was left */
   .bigmap { flex: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; align-items: stretch; position: relative; cursor: grab; touch-action: none; background: var(--sky); }  /* the sky's colour fills the whole area, so panning never shows an edge */
   .bigmap.panning { cursor: grabbing; }
+  /* session labels show only once the map is zoomed in, where they have room */
+  .bigmap [data-k] text { opacity: 0; transition: opacity .2s; }
+  .bigmap.zoomed [data-k] text { opacity: 1; }
   .mapview { height: 100%; flex: none; transform-origin: 0 0; will-change: transform; }
   .mapview svg { height: 100%; width: auto; display: block; }
   .maptools { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 3; }
@@ -1059,6 +1062,7 @@ const MV = Object.assign({ x: 0, y: 0, s: 1 }, kept('mapView', {}))
 function applyMapView() {
   const v = document.querySelector('.mapview'); if (!v) return
   v.style.transform = `translate(${MV.x}px, ${MV.y}px) scale(${MV.s})`
+  v.parentElement.classList.toggle('zoomed', MV.s >= 1.5)
 }
 const saveMapView = () => keep('mapView', { x: Math.round(MV.x), y: Math.round(MV.y), s: +MV.s.toFixed(3) })
 function resetMapView() { MV.x = 0; MV.y = 0; MV.s = 1; applyMapView(); saveMapView(); refresh(true) }
