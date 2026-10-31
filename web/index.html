@@ -61,6 +61,7 @@
   .btn:hover { background: var(--btn-hover); color: var(--text); }
   .btn.danger:hover { color: var(--red); }
   .btn:disabled { opacity: .45; }
+  .col > header .hbtn { height: 24px; padding: 0 8px; flex: none; white-space: nowrap; }
   .icon { width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .icon:hover { background: var(--hover); color: var(--text); }
   .seg { display: flex; background: var(--seg); border-radius: 7px; padding: 2px; gap: 2px; }
@@ -151,6 +152,8 @@
     transform: rotate(var(--tilt, 0deg)) scale(1); box-shadow: 0 0 0 rgba(0,0,0,0);
     transition: transform .14s ease, box-shadow .14s ease; }
   .drag-ghost.lifted { transform: rotate(var(--tilt, 0deg)) scale(1.035); box-shadow: 0 12px 28px rgba(0,0,0,.38), 0 3px 8px rgba(0,0,0,.25); transition: transform .08s ease-out, box-shadow .14s ease; }
+  .item.drag-ghost { border-radius: 16px; background: var(--card); }
+  .item.drag-ghost.lifted { transform: rotate(var(--tilt, 0deg)) scale(1.015); }
   .drag-ghost.settle { transition: left .3s var(--spring), top .3s var(--spring), transform .16s ease, box-shadow .16s ease; }
   body.grabbing, body.grabbing * { cursor: grabbing !important; }
   .section { display: flex; align-items: center; }
@@ -484,7 +487,7 @@ function renderSide() {
   const hidden = d.hidden ?? []
   const closed = hidden.length ? `<div class="section">Closed</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} sessions</span></div>` +
     (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Reopen</button></div>`).join('') : '') : ''
-  const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
+  const custom = (d.order ?? []).some(n => !n.startsWith('s:')) ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
   const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`).join('')
   setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div><div class="row${S.cols.includes('inbox') ? ' on' : ''}" data-open="inbox"><span class="dot${visible().some(waiting) ? ' r' : ''}"></span><span class="name">Inbox</span>${visible().filter(waiting).length ? `<span class="badge r" style="margin-left:auto">${visible().filter(waiting).length}</span>` : ''}</div>${closed}`)
@@ -494,12 +497,15 @@ function renderPlist() {
   const el = $('#plist'), list = new Map(groups()).get(S.pp)
   el.classList.toggle('open', !!list)
   if (!list) return
-  const sorted = [...list].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || Number(running(b)) - Number(running(a)) || b.last - a.last)
+  // the owner's own order of a project's sessions ('s:<id>' in the shared order); sessions not placed yet come first, automatically sorted
+  const auto = (a, b) => Number(waiting(b)) - Number(waiting(a)) || Number(running(b)) - Number(running(a)) || b.last - a.last
+  const ord = S.data.order ?? [], pos = k => ord.indexOf('s:' + k.id), placed = list.some(k => pos(k) >= 0)
+  const sorted = [...list].sort((a, b) => { const ia = pos(a), ib = pos(b); return (ia < 0) !== (ib < 0) ? (ia < 0 ? -1 : 1) : ia < 0 ? auto(a, b) : ia - ib })
   setHTML(el.querySelector('header'), `<span class="title">${esc(S.pp)}</span><button class="icon" data-plx="1" title="Close panel">${ICON.x}</button>`)
-  setHTML(el.querySelector('.meta'), `<span class="meta" style="padding:0">${list.length} sessions · <span class="red">${list.filter(waiting).length} waiting</span> · <span style="color:var(--orange)">${list.filter(running).length} running</span></span>`)
+  setHTML(el.querySelector('.meta'), `<span class="meta" style="padding:0">${list.length} sessions · <span class="red">${list.filter(waiting).length} waiting</span> · <span style="color:var(--orange)">${list.filter(running).length} running</span></span>${placed ? '<button class="linkbtn" data-act="pauto" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''}`)
   const pw = list.filter(waiting)
   setHTML(el.querySelector('.pfoot'), `<button class="btn" data-pact="waiting"${pw.length ? '' : ' disabled'}>Open waiting sessions (${pw.length})</button><button class="btn" data-pact="read">Mark all as read</button>`)
-  setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>
+  setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="s:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="icon" data-close="${esc(k.id)}" title="Close session (undoable)">${ICON.x}</button></div>
     <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Waiting for your answer.', 240)) : running(k) ? 'Agent working…' : md(cut(k.detail || 'No summary.', 160))}</div></div>`).join(''))
 }
 const conv = (talk, hist) => talk === undefined ? '<div class="dim">Loading…</div>'
@@ -511,7 +517,6 @@ function topicBody(k) {
   const status = waiting(k) ? `<div class="waitbox selectable"><b>Waiting:</b> ${md(k.need || k.detail || 'an answer from you')}</div>` : running(k) ? `<div class="runbox">Agent working…</div>` : k.detail ? `<div class="infobox selectable">${md(k.detail)}</div>` : ''
   return `<div class="meta">${esc(k.proj)} · ${accLabel(k.acc)} · ${k.turns} turns · ${ago(k.last)} ago</div>${status}
     <div class="actions">
-      <button class="btn" data-act="app" data-id="${esc(k.id)}">${ICON.app}Open in app</button>
       <button class="btn" data-act="read" data-id="${esc(k.id)}">${ICON.check}Mark read</button>
       <button class="btn danger" data-act="close" data-id="${esc(k.id)}">${ICON.archive}Close session</button>
     </div>
@@ -562,7 +567,10 @@ function renderCols() {
     if (c === 'harita' && docked) { if (el.parentElement !== dock) dock.append(el) }
     else { const j = mainCols.indexOf(c); if (main.children[j] !== el) main.insertBefore(el, main.children[j] ?? null) }
     const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · home session</span>' : c === 'inbox' ? '<span class="title">Inbox</span>' : '<span class="title">Map</span>'
-    setHTML(el.querySelector('header'), `${title}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
+    // the session itself, with the app's own side panes (browser, changes, terminal), lives in the Claude window
+    const inApp = k || (c === 'home' ? homeRow() : null)
+    const appBtn = inApp ? `<button class="btn hbtn" data-act="app" data-id="${esc(inApp.id)}" data-tip="Open in the Claude app: its browser, changes and terminal panes open there, beside the session">${ICON.app}Open in app</button>` : ''
+    setHTML(el.querySelector('header'), `${title}${appBtn}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
     if (el.querySelector('.composer')) fillMeta(el.querySelector('.composer'), false)
     let body
     if (k) body = topicBody(k)
@@ -746,7 +754,7 @@ const TR = {
   'Graphite': 'Antrasit', 'Light': 'Açık', 'Black': 'Siyah', 'Projects': 'Projeler', 'auto-sort': 'otomatik sırala',
   'Loose sessions': 'Projesiz konular', 'Closed': 'Kapatılanlar', 'Home session (Claude)': 'Ana oturum (Claude)', 'Map': 'Harita',
   'Qosmos · home session': 'Qosmos · ana oturum', 'Waiting:': 'Bekliyor:', 'waiting': 'bekliyor', 'running': 'çalışıyor', 'unread': 'okunmamış',
-  'Open in app': 'Uygulamada aç', 'Mark read': 'Okundu', 'Close session': 'Konuyu kapat', 'Conversation': 'Konuşma', 'Loading…': 'Yükleniyor…',
+  'Open in app': 'Uygulamada aç', 'Open in the Claude app: its browser, changes and terminal panes open there, beside the session': 'Claude uygulamasında aç: tarayıcı, değişiklikler ve terminal panelleri orada, konunun yanında açılır', 'Mark read': 'Okundu', 'Close session': 'Konuyu kapat', 'Conversation': 'Konuşma', 'Loading…': 'Yükleniyor…',
   'No transcript on this Mac (another account or the cloud).': "Bu Mac'te konuşma kaydı yok (başka hesap ya da bulut).",
   'No summary.': 'Özet yok.', 'Waiting for your answer.': 'Cevabını bekliyor.', 'Agent working…': 'Ajan çalışıyor…', 'Agent working': 'Ajan çalışıyor',
   'Nothing is waiting for you. Pick a project or session on the left, or click a circle on the map.': 'Seni bekleyen konu yok. Soldan bir proje ya da konu seç, ya da haritada bir daireye bas.',
@@ -972,7 +980,8 @@ document.addEventListener('click', e => {
   if (t.closest('[data-closed]')) { S.open.has('__kapali') ? S.open.delete('__kapali') : S.open.add('__kapali'); keep('open', [...S.open]); return renderSide() }
   const act = t.closest('[data-act]'); if (act) {
     const k = ids.get(act.dataset.id), a = act.dataset.act
-    if (a === 'autosort') return saveOrder([])
+    if (a === 'autosort') return saveOrder((S.data.order ?? []).filter(n => n.startsWith('s:')))
+    if (a === 'pauto') { const mine = new Set((new Map(groups()).get(S.pp) ?? []).map(x => 's:' + x.id)); return saveOrder((S.data.order ?? []).filter(n => !mine.has(n))) }
     if (a === 'app') return openInApp(k)
     if (a === 'read') return markRead(k)
     if (a === 'close') return closeTopic(k)
@@ -992,14 +1001,14 @@ function saveOrder(names) {
 // the other rows slide aside to open the slot, and on release it settles into place. Under 4 px it stays a click; Esc cancels.
 let pdrag = null
 document.addEventListener('pointerdown', e => {
-  const r = e.button === 0 && !e.target.closest('.more') && e.target.closest('.row[data-drag]'); if (!r) return
+  const r = e.button === 0 && !e.target.closest('.more, button') && e.target.closest('.row[data-drag], .item[data-drag]'); if (!r) return
   pdrag = { row: r, name: r.dataset.drag, x0: e.clientX, y0: e.clientY, moved: false }
 })
 function dragStart(e) {
-  const d = pdrag, rows = [...d.row.parentElement.querySelectorAll('.row[data-drag]')]
+  const d = pdrag, rows = [...d.row.parentElement.querySelectorAll(d.row.classList.contains('item') ? '.item[data-drag]' : '.row[data-drag]')]
   d.rows = rows; d.from = rows.indexOf(d.row); d.to = d.from
   d.rects = rows.map(r => r.getBoundingClientRect()); d.h = d.rects[d.from].height
-  d.step = rows.length > 1 ? d.rects[1].top - d.rects[0].top : d.h
+  d.step = d.h + (rows.length > 1 ? d.rects[1].top - d.rects[0].bottom : 0)  // the others move by the lifted one's height, so cards of any height work
   d.dx = d.x0 - d.rects[d.from].left; d.dy = d.y0 - d.rects[d.from].top
   d.vx = 0; d.lastX = e.clientX; d.tilt = 0
   const g = d.ghost = d.row.cloneNode(true)
@@ -1034,7 +1043,7 @@ function dragEnd(commit) {
   const slot = d.rects[commit ? d.to : d.from]
   d.ghost.classList.remove('lifted'); d.ghost.classList.add('settle')
   d.ghost.style.setProperty('--tilt', '0deg')
-  d.ghost.style.left = slot.left + 'px'; d.ghost.style.top = (commit && d.to > d.from ? d.rects[d.to].top : slot.top) + 'px'
+  d.ghost.style.left = slot.left + 'px'; d.ghost.style.top = (commit && d.to > d.from ? d.rects[d.to].bottom - d.h : slot.top) + 'px'
   document.body.classList.remove('grabbing')
   S.justDragged = true; setTimeout(() => (S.justDragged = false), 0)
   setTimeout(() => {
@@ -1044,7 +1053,7 @@ function dragEnd(commit) {
     if (!commit || d.to === d.from) return renderSide()
     const names = d.rows.map(r => r.dataset.drag)
     names.splice(d.to, 0, names.splice(d.from, 1)[0])
-    const rest = (S.data.order ?? []).filter(n => !names.includes(n))  // projects hidden by the day filter keep their place after
+    const rest = (S.data.order ?? []).filter(n => !names.includes(n))  // projects hidden by the day filter, and the other lists' orders, keep their place after
     saveOrder([...names, ...rest])
   }, 320)
 }

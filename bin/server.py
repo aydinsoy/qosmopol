@@ -204,7 +204,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.reply(200, {"ok": True, "job": enqueue({"kind": "unarchive", "id": sid})})
             if path == "/api/order":  # the owner's own order of projects; [] goes back to automatic
                 order = body.get("order")
-                if not isinstance(order, list) or len(order) > 300 or not all(isinstance(n, str) and len(n) <= 200 for n in order):
+                if not isinstance(order, list) or len(order) > 1000 or not all(isinstance(n, str) and len(n) <= 200 for n in order):
                     return self.reply(400, {"error": "invalid order"})
                 with LOCK:
                     save(ORDER, order)
