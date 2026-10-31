@@ -93,6 +93,14 @@
   .row.proj .name { color: var(--text); }
   .row.sub { padding-left: 26px; }
   .row.proj { touch-action: none; }
+  .group { display: flex; flex-direction: column; gap: 4px; padding: 0 2px; }
+  .group .row { height: 32px; background: var(--card); border: 1px solid var(--input-line); border-radius: 7px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
+  .group .row:hover { background: var(--btn-hover); }
+  .group .row.on { background: var(--sel); border-color: color-mix(in srgb, var(--input-line), var(--text) 30%); }
+  .group .row.sw, .item.sw { box-shadow: inset 3px 0 0 var(--red), 0 1px 0 rgba(0,0,0,.22); }
+  .group .row.sr, .item.sr { box-shadow: inset 3px 0 0 var(--orange), 0 1px 0 rgba(0,0,0,.22); }
+  .item { background: var(--card); border: 1px solid var(--input-line); border-radius: 8px; margin: 0 0 6px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
+  .item:hover { background: var(--btn-hover); }
   .drag-shift { transition: transform .16s cubic-bezier(.2,.8,.2,1); }
   .drag-hole { visibility: hidden; }
   .drag-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; background: var(--btn-hover); color: var(--text); border-radius: 7px; outline: 1px solid var(--input-line); outline-offset: -1px;
@@ -371,14 +379,14 @@ function renderSide() {
   setHTML($('#themes'), [['antrasit', 'Antrasit'], ['acik', 'Açık'], ['siyah', 'Siyah']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
-    return `<div class="row proj${on ? ' on' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><span class="chev">${on ? ICON.right : ''}</span></div>`
+    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><span class="chev">${on ? ICON.right : ''}</span></div>`
   }).join('')
   const hidden = d.hidden ?? []
   const closed = hidden.length ? `<div class="section">Kapatılanlar</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} konu</span></div>` +
     (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Geri aç</button></div>`).join('') : '') : ''
   const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Sırayı sıfırla: bekleyenler ve en yeniler üstte">otomatik sırala</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
-  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>`).join('')
+  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>`).join('')
   setHTML($('#tree'), `<div class="section">Projeler ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Projesiz konular</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Ana oturum (Claude)</span></div>${closed}`)
   setHTML($('#sidebar-composer .to'), '→ Qosmos (ana oturum, Claude)')
 }
@@ -389,7 +397,7 @@ function renderPlist() {
   const sorted = [...list].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || Number(running(b)) - Number(running(a)) || b.last - a.last)
   setHTML(el.querySelector('header'), `<span class="title">${esc(S.pp)}</span><button class="icon" data-plx="1" title="Paneli kapat">${ICON.x}</button>`)
   setHTML(el.querySelector('.meta'), `<span class="meta" style="padding:0">${list.length} konu · <span class="red">${list.filter(waiting).length} bekliyor</span> · <span style="color:var(--orange)">${list.filter(running).length} çalışıyor</span></span>`)
-  setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>
+  setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>
     <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Senden bir cevap bekliyor.', 240)) : running(k) ? 'Ajan çalışıyor…' : md(cut(k.detail || 'Özet yok.', 160))}</div></div>`).join(''))
 }
 function renderMini() {
@@ -412,7 +420,7 @@ function topicBody(k) {
     <div class="label">Konuşma</div>${conv(S.talks[k.id], hist)}`
 }
 function topicItem(k, withProj) {
-  return `<div class="item" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${withProj ? `<span class="p">${esc(k.proj)} · </span>` : ''}${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="icon" data-close="${esc(k.id)}" title="Konuyu kapat (geri alınabilir)">${ICON.x}</button></div>
+  return `<div class="item${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${withProj ? `<span class="p">${esc(k.proj)} · </span>` : ''}${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="icon" data-close="${esc(k.id)}" title="Konuyu kapat (geri alınabilir)">${ICON.x}</button></div>
     <div class="sub${waiting(k) ? ' red' : ''}">${md(cut(k.need || k.detail || 'Özet yok.', 280))}</div></div>`
 }
 function composerHTML(placeholder) {
@@ -552,6 +560,7 @@ function dragStart(e) {
   const d = pdrag, rows = [...d.row.parentElement.querySelectorAll('.row[data-drag]')]
   d.rows = rows; d.from = rows.indexOf(d.row); d.to = d.from
   d.rects = rows.map(r => r.getBoundingClientRect()); d.h = d.rects[d.from].height
+  d.step = rows.length > 1 ? d.rects[1].top - d.rects[0].top : d.h
   d.dx = d.x0 - d.rects[d.from].left; d.dy = d.y0 - d.rects[d.from].top
   d.vx = 0; d.lastX = e.clientX; d.tilt = 0
   const g = d.ghost = d.row.cloneNode(true)
@@ -577,7 +586,7 @@ function dragMove(e) {
   d.to = to
   d.rows.forEach((r, i) => {
     if (i === d.from) return
-    const shift = d.from < to && i > d.from && i <= to ? -d.h : d.from > to && i >= to && i < d.from ? d.h : 0
+    const shift = d.from < to && i > d.from && i <= to ? -d.step : d.from > to && i >= to && i < d.from ? d.step : 0
     r.style.transform = shift ? `translateY(${shift}px)` : ''
   })
 }
