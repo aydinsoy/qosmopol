@@ -176,6 +176,9 @@
   .cmeta .spacer { flex: 1; }
   .cmeta .wait { white-space: nowrap; color: var(--text2); }
   .cmeta .wait .dot { display: inline-block; margin-right: 5px; vertical-align: 1px; }
+  #tip { position: fixed; z-index: 80; pointer-events: none; background: var(--round); color: var(--round-fg); font-size: 11.5px; font-weight: 500; padding: 4px 9px; border-radius: 8px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.18); opacity: 0; transform: translateY(3px); transition: opacity .1s, transform .1s; }
+  #tip.on { opacity: 1; transform: none; }
+  [data-tip] { cursor: default; }
   #menu { position: fixed; z-index: 70; min-width: 180px; background: var(--toast); color: var(--text); border: 1px solid var(--input-line); border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px rgba(0,0,0,.22); display: none; }
   #menu.on { display: block; }
   #menu button { display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 6px; font-size: 13px; }
@@ -254,6 +257,7 @@
   <main id="main"></main>
 </div>
 <div id="menu"></div>
+<div id="tip"></div>
 <div id="toast"><span id="toast-text"></span><button class="btn" id="toast-undo">Geri al</button></div>
 <script>
 'use strict'
@@ -301,7 +305,8 @@ const unread = k => Math.max(k.seen, readAt(k.id)) < k.last - 1000
 const fresh = k => !waiting(k) && !running(k) && unread(k) && Date.now() - k.last < DAY
 const ago = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 60 ? `${m}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d` }
 const visible = () => (S.data?.sessions ?? []).filter(k => S.days === 0 || Date.now() - k.last < S.days * DAY || (waiting(k) && Date.now() - k.last < 30 * DAY))
-const dot = k => `<span class="dot${waiting(k) ? ' r' : running(k) ? ' o' : fresh(k) ? ' b' : !unread(k) ? '' : ' u'}"></span>`
+const dot = k => `<span class="dot${waiting(k) ? ' r' : running(k) ? ' o' : fresh(k) ? ' b' : !unread(k) ? '' : ' u'}" data-tip="${waiting(k) ? 'Waiting for you' : running(k) ? 'Agent working' : fresh(k) ? 'New reply in the last 24 hours' : unread(k) ? 'Unread reply' : 'Nothing new'}"></span>`
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`
 const accLabel = acc => { const a = S.data.accounts; return `H${a.indexOf(acc) + 1}${acc === S.data.current ? '' : ' · other account'}` }
 const byId = () => new Map((S.data?.sessions ?? []).map(k => [k.id, k]))
 const LOOSE = new Set(['No folder', '~'])  // sessions started from + New, with no project folder
@@ -426,14 +431,14 @@ function renderSide() {
   setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
-    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : list.some(fresh) ? ' b' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><button class="more" title="More">${ICON.more}</button></div>`
+    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : list.some(fresh) ? ' b' : ''}" data-tip="${lw ? 'Waiting for you' : lr ? 'Agent working' : list.some(fresh) ? 'New reply in the last 24 hours' : 'Nothing new'}"></span><span class="name" data-tip="${esc(name)} · ${plural(list.length, 'session')} ${S.days ? `in the last ${plural(S.days, 'day')}` : 'in total'}${lw ? ` · ${lw} waiting for you` : ''}${lr ? ` · ${lr} running` : ''}">${esc(name)}</span>${lw ? `<span class="badge r" data-tip="${plural(lw, 'session')} waiting for you">${lw}</span>` : ''}${lr ? `<span class="badge o" data-tip="${plural(lr, 'session')} running">${lr}</span>` : ''}<span class="badge" data-tip="${plural(list.length, 'session')} ${S.days ? `in the last ${plural(S.days, 'day')}` : 'in total'}">${list.length}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`
   }).join('')
   const hidden = d.hidden ?? []
   const closed = hidden.length ? `<div class="section">Closed</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} sessions</span></div>` +
     (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Reopen</button></div>`).join('') : '') : ''
   const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
-  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" title="More">${ICON.more}</button></div>`).join('')
+  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`).join('')
   setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div>${closed}`)
   fillMeta($('#sidebar-composer'), true)
 }
@@ -651,6 +656,26 @@ document.addEventListener('pointermove', e => {
 document.addEventListener('pointerup', () => { if (cdrag) cdrag.moved ? colDragEnd(true) : (cdrag = null) })
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && cdrag?.moved) colDragEnd(false) })
 window.addEventListener('blur', () => { if (cdrag?.moved) colDragEnd(false) })
+
+// --- instant badge-style tips for dots and numbers
+// They appear after a short rest on the dot or number (about a third of a second) and go as soon as the pointer leaves.
+let tipTimer = 0, tipEl = null
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]'), tip = $('#tip')
+  if (el === tipEl) return
+  tipEl = el; clearTimeout(tipTimer); tip.classList.remove('on')
+  if (el) tipTimer = setTimeout(() => showTip(el), 350)
+})
+function showTip(el) {
+  const tip = $('#tip')
+  if (!el.isConnected) return
+  tip.textContent = el.dataset.tip
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth
+  tip.style.left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2)) + 'px'
+  tip.style.top = (r.top - tip.offsetHeight - 8) + 'px'
+  tip.classList.add('on')
+}
+document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true)
 
 // --- small popover menus for the composer's + and its chips
 let MENU = []
