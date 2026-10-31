@@ -96,6 +96,20 @@
   #brand img { border-radius: 7px; flex: none; }
   #brand .bname { font-size: 15px; font-weight: 650; letter-spacing: .2px; color: var(--text); line-height: 1.2; }
   #brand .btag { font-size: 11.5px; color: var(--dim); line-height: 1.3; }
+  #brand > div { flex: 1; min-width: 0; }
+  #brand #sidetog .i { width: 17px; height: 17px; }
+  #sidetog:hover { background: var(--btn-hover); color: var(--text); }
+  /* the sidebar folds to a 1 cm rail that keeps only its own toggle */
+  #side { transition: width .18s ease; }
+  body.resizing #side, #side.still { transition: none; }
+  #side.folding { overflow: hidden; }  /* while it slides, its content stays inside instead of running under the map */
+  @media (min-width: 761px) {
+    html.sidecol #side { width: 40px; }
+    html.sidecol #side > :not(#brand) { display: none; }
+    html.sidecol #brand { padding: 9px 0 0; justify-content: center; }
+    html.sidecol #brand > :not(#sidetog) { display: none; }
+  }
+  @media (max-width: 760px) { #sidetog { display: none; } }
   #head { padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
   #counts { display: flex; flex-wrap: wrap; row-gap: 2px; gap: 12px; font-size: 12px; color: var(--text2); }
   #counts b { font-weight: 600; }
@@ -282,7 +296,7 @@
 <body>
 <div id="app">
   <aside id="side"><div class="rz" data-rz="side" title="Drag to resize"></div>
-    <div id="brand"><img src="/icon.png" alt="" width="26" height="26"><div><div class="bname">Qosmos</div><div class="btag">Sessions map for Claude Code</div></div></div>
+    <div id="brand"><img src="/icon.png" alt="" width="26" height="26"><div><div class="bname">Qosmos</div><div class="btag">Sessions map for Claude Code</div></div><button class="icon" id="sidetog" data-tip="Hide sidebar"><svg class="i" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2.2"/><path d="M6.2 2.8v10.4"/><path d="M3.4 5.3h1.3M3.4 7.3h1.3M3.4 9.3h1.3" stroke-linecap="round"/></svg></button></div>
     <div id="head">
       <div id="counts">Scanning…</div>
       <div class="seg" id="days"></div>
@@ -625,7 +639,7 @@ function applyWidths() {
   const dock = $('#mapdock'), docked = dock.querySelector('.col'), want = W['col:harita'] || 460
   let dw = want
   if (docked && getComputedStyle($('#app')).flexDirection === 'row') {
-    const room = innerWidth - $('#side').getBoundingClientRect().width - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
+    const room = innerWidth - (document.documentElement.classList.contains('sidecol') ? 40 : W.side || 272) - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
     const forCols = Math.max(0, Math.min(cols.length * 440, room - 300))
     dw = Math.max(300, Math.min(want, room - forCols))
   }
@@ -634,6 +648,21 @@ function applyWidths() {
   $('#app').scrollLeft = 0  // a column scrolled into view must never push the sidebar off screen
 }
 addEventListener('resize', () => applyWidths())
+// the sidebar toggle at the right of the brand: fold to a 1 cm rail and back, remembered in this browser
+function setSideCol(on, animate) {
+  const side = $('#side')
+  side.classList.add(animate ? 'folding' : 'still'); clearTimeout(setSideCol.t)
+  setSideCol.t = setTimeout(() => side.classList.remove('folding', 'still'), 240)
+  document.documentElement.classList.toggle('sidecol', on); keep('sideCol', on || undefined)
+  $('#sidetog').dataset.tip = on ? 'Show sidebar' : 'Hide sidebar'
+  applyWidths()
+}
+setSideCol(kept('sideCol', false))
+document.addEventListener('click', e => {
+  if (!e.target.closest('#sidetog')) return
+  clearTimeout(tipTimer); $('#tip').classList.remove('on')  // the old tip would point at the wrong state
+  setSideCol(!document.documentElement.classList.contains('sidecol'), true)
+})
 let rz = null
 document.addEventListener('pointerdown', e => {
   const h = e.button === 0 && e.target.closest('.rz'); if (!h) return
@@ -770,7 +799,7 @@ const TR = {
   'Unread': 'Okunmamış', 'Read': 'Okunmuş', 'Waiting': 'Bekleyen', 'All projects': 'Bütün projeler', 'No messages for this filter.': 'Bu filtrede mesaj yok.',
   'Close': 'Kapat', 'Cancel': 'Vazgeç', 'Undo': 'Geri al', 'Sending…': 'Gönderiliyor…', 'Session reopened': 'Konu geri açıldı',
   'Message Claude… (home session)': "Claude'a yaz… (ana oturum)", 'Message this session…': 'Bu konuya yaz…', 'Message Claude…': "Claude'a yaz…",
-  'Actions': 'İşlemler', 'Dictate': 'Sesle yaz', 'Send (Enter)': 'Gönder (Enter)', 'Drag to resize': 'Genişlik için sürükle', 'Close column': 'Sütunu kapat',
+  'Actions': 'İşlemler', 'Dictate': 'Sesle yaz', 'Send (Enter)': 'Gönder (Enter)', 'Drag to resize': 'Genişlik için sürükle', 'Close column': 'Sütunu kapat', 'Hide sidebar': 'Kenar çubuğunu gizle', 'Show sidebar': 'Kenar çubuğunu göster',
   'Close panel': 'Paneli kapat', 'More options': 'Diğer seçenekler', 'Close session (undoable)': 'Konuyu kapat (geri alınabilir)',
   'Reset the order: waiting and most recent first': 'Sırayı sıfırla: bekleyenler ve en yeniler üstte',
   'Waiting for you': 'Seni bekliyor', 'New reply in the last 24 hours': 'Son 24 saatte yeni cevap', 'Nothing new': 'Yeni bir şey yok', 'Unread reply': 'Okunmamış cevap',
