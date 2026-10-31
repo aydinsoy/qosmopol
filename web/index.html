@@ -95,14 +95,14 @@
   .row.sub { padding-left: 26px; }
   .row.proj { touch-action: none; }
   .group { display: flex; flex-direction: column; gap: 4px; padding: 0 2px; }
-  .group .row { height: 32px; background: var(--card); border: 1px solid var(--input-line); border-radius: 7px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
+  .group .row { height: 32px; background: var(--card); border: 1px solid var(--input-line); border-radius: var(--box-r, 0); box-shadow: 0 1px 0 rgba(0,0,0,.22); }
   .group .row:hover { background: var(--btn-hover); }
   .group .row.on { background: var(--sel); border-color: color-mix(in srgb, var(--input-line), var(--text) 30%); }
   :root[data-theme="acik"] #side .group .row.proj.on { background: #ffffff; }
   .group .row.sw, .item.sw { box-shadow: inset 3px 0 0 var(--red), 0 1px 0 rgba(0,0,0,.22); }
   .group .row.sr, .item.sr { box-shadow: inset 3px 0 0 var(--orange), 0 1px 0 rgba(0,0,0,.22); }
   #side .group .row { border: 0; box-shadow: none; }
-  .item { background: var(--card); border: 1px solid var(--input-line); border-radius: 8px; margin: 0 0 6px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
+  .item { background: var(--card); border: 1px solid var(--input-line); border-radius: var(--box-r, 0); margin: 0 0 6px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
   .item:hover { background: var(--btn-hover); }
   .rz { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 20; }
   /* VS Code-style sash: a three-dot grip in the middle, a blue line on hover and while dragging */
@@ -218,6 +218,7 @@
       <div id="counts">Scanning…</div>
       <div class="seg" id="days"></div>
       <div class="seg" id="themes"></div>
+      <div class="seg" id="corners"></div>
     </div>
     <div id="tree" class="scroll"></div>
     <div class="composer" id="sidebar-composer" data-to="home"></div>
@@ -229,6 +230,9 @@
 <script>
 'use strict'
 try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('theme') || '"antrasit"') } catch { document.documentElement.dataset.theme = 'antrasit' }
+// Box corners on trial: square, or the composer's 16 px round
+const setCorners = v => { document.documentElement.style.setProperty('--box-r', v === 'round' ? '16px' : '0px'); document.documentElement.dataset.corners = v }
+try { setCorners(JSON.parse(localStorage.getItem('corners') || '"square"')) } catch { setCorners('square') }
 const TOKEN = '__QOSMOS_TOKEN__'
 const DAY = 86400000
 const MAXCOLS = 4
@@ -392,6 +396,8 @@ function renderSide() {
   setHTML($('#counts'), `<span class="w"><b>${w}</b> waiting</span><span class="o"><b>${r}</b> running</span><span><b>${n}</b> unread</span>`)
   const th = document.documentElement.dataset.theme
   setHTML($('#days'), [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + (x === 1 ? ' day' : ' days') : 'All'}</button>`).join(''))
+  const cn = document.documentElement.dataset.corners
+  setHTML($('#corners'), [['square', 'Square'], ['round', 'Round']].map(([v, l]) => `<button data-corners="${v}" class="${cn === v ? 'on' : ''}">${l}</button>`).join(''))
   setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
@@ -644,6 +650,7 @@ document.addEventListener('click', e => {
   const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
   const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
   const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Reopen', at: Date.now() }; toast('Session reopened'); refresh(true) })
+  const corner = t.closest('[data-corners]'); if (corner) { setCorners(corner.dataset.corners); keep('corners', corner.dataset.corners); return renderSide() }
   const pick = t.closest('[data-theme-pick]'); if (pick) { document.documentElement.dataset.theme = pick.dataset.themePick; keep('theme', pick.dataset.themePick); return renderSide() }
   const days = t.closest('[data-days]'); if (days) { S.days = +days.dataset.days; keep('days', S.days); return render() }
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
