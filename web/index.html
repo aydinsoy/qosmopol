@@ -332,7 +332,8 @@ const ICON = {
 }
 
 // On a first visit the map and the inbox are open.
-const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: kept('cols', ['harita']).filter(c => !c.startsWith('p:')), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
+// cols: the map comes back on every load, even after it was closed
+const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: (c => c.includes('harita') ? c : ['harita', ...c])(kept('cols', ['harita']).filter(c => !c.startsWith('p:'))), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined
@@ -508,6 +509,7 @@ function renderSide() {
   fillMeta($('#sidebar-composer'), true)
 }
 function renderPlist() {
+  if (S.drag) return  // a refresh mid-drag would replace the cards under the pointer
   const el = $('#plist'), list = new Map(groups()).get(S.pp)
   el.classList.toggle('open', !!list)
   if (!list) return
@@ -1042,6 +1044,15 @@ document.addEventListener('pointerdown', e => {
   const r = e.button === 0 && !e.target.closest('.more, button') && e.target.closest('.row[data-drag], .item[data-drag]'); if (!r) return
   pdrag = { row: r, name: r.dataset.drag, x0: e.clientX, y0: e.clientY, moved: false }
 })
+// The lifted copy lives on the page itself, out of its list's styles: give it, and every part inside it, the sizes,
+// fonts and corners the original shows, so it does not shrink when it leaves the list.
+const LOOK = ['display', 'align-items', 'justify-content', 'gap', 'flex', 'width', 'height', 'min-width', 'padding', 'margin', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'color', 'border-radius', 'white-space', 'overflow', 'text-overflow', 'opacity', 'visibility']
+function copyLook(from, to, root) {
+  const cs = getComputedStyle(from)
+  for (const k of LOOK) if (!(root && (k === 'margin' || k === 'width' || k === 'height'))) to.style.setProperty(k, cs.getPropertyValue(k))
+  if (!root) { to.style.backgroundColor = cs.backgroundColor; to.style.border = cs.border; to.style.boxSizing = cs.boxSizing }
+  for (let i = 0; i < from.children.length; i++) if (to.children[i]) copyLook(from.children[i], to.children[i], false)
+}
 function dragStart(e) {
   const d = pdrag, rows = [...d.row.parentElement.querySelectorAll(d.row.classList.contains('item') ? '.item[data-drag]' : '.row[data-drag]')]
   d.rows = rows; d.from = rows.indexOf(d.row); d.to = d.from
@@ -1051,7 +1062,8 @@ function dragStart(e) {
   d.vx = 0; d.lastX = e.clientX; d.tilt = 0
   const g = d.ghost = d.row.cloneNode(true)
   g.classList.add('drag-ghost'); g.classList.remove('on')
-  Object.assign(g.style, { width: d.rects[d.from].width + 'px', left: d.rects[d.from].left + 'px', top: d.rects[d.from].top + 'px' })
+  Object.assign(g.style, { width: d.rects[d.from].width + 'px', height: d.h + 'px', boxSizing: 'border-box', margin: '0', left: d.rects[d.from].left + 'px', top: d.rects[d.from].top + 'px' })
+  copyLook(d.row, g, true)
   document.body.append(g)
   requestAnimationFrame(() => g.classList.add('lifted'))
   d.row.classList.add('drag-hole')
