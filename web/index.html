@@ -230,12 +230,13 @@
   .item .sub.red { color: var(--red); }
   .item .icon { visibility: hidden; }
   .item:hover .icon { visibility: visible; }
-  #inbox { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  #inbox .top { height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--line); }
-  #inbox .body { flex: 1; padding: 10px 12px; }
+  .col[data-col="inbox"] > .body { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .ibx-top { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .ibx-list { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; }
+  #empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 13px; padding: 24px; text-align: center; }
   .col[data-col="harita"] > .body { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
   /* the map is a canvas: drag to pan, pinch or wheel to zoom; it stays where it was left */
-  .bigmap { flex: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; align-items: stretch; position: relative; cursor: grab; touch-action: none; }
+  .bigmap { flex: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; align-items: stretch; position: relative; cursor: grab; touch-action: none; background: var(--sky); }  /* the sky's colour fills the whole area, so panning never shows an edge */
   .bigmap.panning { cursor: grabbing; }
   .mapview { height: 100%; flex: none; transform-origin: 0 0; will-change: transform; }
   .mapview svg { height: 100%; width: auto; display: block; }
@@ -301,8 +302,8 @@ const ICON = {
   archive: I('<rect x="2.5" y="3" width="11" height="3" rx="1"/><path d="M3.5 6v7h9V6M6.5 9h3"/>'),
 }
 
-// On a first visit the map column is open (cols defaults to ['harita']).
-const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: kept('cols', ['harita']).filter(c => !c.startsWith('p:')), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
+// On a first visit the map and the inbox are open.
+const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: kept('cols', ['harita', 'inbox']).filter(c => !c.startsWith('p:')), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined
@@ -468,7 +469,7 @@ function renderSide() {
   const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
   const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`).join('')
-  setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div>${closed}`)
+  setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div><div class="row${S.cols.includes('inbox') ? ' on' : ''}" data-open="inbox"><span class="dot${visible().some(waiting) ? ' r' : ''}"></span><span class="name">Inbox</span>${visible().filter(waiting).length ? `<span class="badge r" style="margin-left:auto">${visible().filter(waiting).length}</span>` : ''}</div>${closed}`)
   fillMeta($('#sidebar-composer'), true)
 }
 function renderPlist() {
@@ -527,24 +528,22 @@ function renderCols() {
   const main = $('#main'), d = S.data
   if (!d) return
   const ids = byId(), gs = new Map(groups())
-  S.cols = S.cols.filter(c => c === 'harita' || c === 'home' || (c.startsWith('k:') ? ids.has(c.slice(2)) : gs.has(c.slice(2))))
+  S.cols = S.cols.filter(c => c === 'harita' || c === 'home' || c === 'inbox' || (c.startsWith('k:') ? ids.has(c.slice(2)) : gs.has(c.slice(2))))
   const dock = $('#mapdock'), docked = S.cols[0] === 'harita', mainCols = docked ? S.cols.slice(1) : S.cols
   document.querySelectorAll('#mapdock > .col, #main > .col').forEach(el => { if (!S.cols.includes(el.dataset.col)) el.remove() })
   if (!mainCols.length) {
-    let inbox = main.querySelector('#inbox')
-    if (!inbox) { inbox = document.createElement('div'); inbox.id = 'inbox'; inbox.innerHTML = '<div class="top"></div><div class="body scroll"></div>'; main.append(inbox) }
-    inboxRender(inbox)
-  } else main.querySelector('#inbox')?.remove()
+    if (!main.querySelector('#empty')) main.insertAdjacentHTML('beforeend', '<div id="empty">Open a project, a session, the map or the inbox from the left.</div>')
+  } else main.querySelector('#empty')?.remove()
   S.cols.forEach(c => {
     let el = document.querySelector(`#mapdock > [data-col="${CSS.escape(c)}"], #main > [data-col="${CSS.escape(c)}"]`)
     const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
     if (!el) {
       el = document.createElement('section'); el.className = 'col'; el.dataset.col = c
-      el.innerHTML = `<div class="rz" data-rz="col" title="Drag to resize"></div><header></header><div class="body scroll"></div>` + (c === 'harita' ? '' : `<div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Message this session…' : 'Message Claude…')}</div>`)
+      el.innerHTML = `<div class="rz" data-rz="col" title="Drag to resize"></div><header></header><div class="body scroll"></div>` + (c === 'harita' || c === 'inbox' ? '' : `<div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Message this session…' : 'Message Claude…')}</div>`)
     }
     if (c === 'harita' && docked) { if (el.parentElement !== dock) dock.append(el) }
     else { const j = mainCols.indexOf(c); if (main.children[j] !== el) main.insertBefore(el, main.children[j] ?? null) }
-    const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · home session</span>' : '<span class="title">Map</span>'
+    const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · home session</span>' : c === 'inbox' ? '<span class="title">Inbox</span>' : '<span class="title">Map</span>'
     setHTML(el.querySelector('header'), `${title}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
     if (el.querySelector('.composer')) fillMeta(el.querySelector('.composer'), false)
     let body
@@ -553,7 +552,8 @@ function renderCols() {
     else if (pname) {
       const list = [...gs.get(pname)].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
       body = `<div class="meta">${list.length} sessions · ${list.filter(waiting).length} waiting · ${list.filter(running).length} running</div><div style="margin:8px -8px 0">${list.map(x => topicItem(x)).join('')}</div>`
-    } else {
+    } else if (c === 'inbox') body = inboxHTML()
+    else {
       // height sets the scale (the viewBox ratio gives the width), so a narrower column crops both sides evenly
       const svg = sky(groups()), vb = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
       const full = el.classList.contains('mapfull')
@@ -565,7 +565,7 @@ function renderCols() {
   })
   applyWidths()
 }
-function inboxRender(inbox) {
+function inboxHTML() {
   const shown = visible(), wl = shown.filter(waiting).sort((a, b) => b.last - a.last), old = wl.filter(k => Date.now() - k.last > 7 * DAY)
   const msgs = S.data.messages ?? [], ids = byId()
   const mUnread = m => !m.read && Math.max(ids.get(m.sid)?.seen ?? 0, readAt(m.sid)) < m.at - 1000
@@ -583,8 +583,7 @@ function inboxRender(inbox) {
       <select id="projsel"><option value="">All projects</option>${projs.map(p => `<option ${p === S.proj ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`
     body = list.length ? list.map(m => `<div class="item" data-open="k:${esc(m.sid)}"><div class="line"><span class="dot${m.cat === 'blocked' ? ' r' : ''}${mUnread(m) ? ' u' : ''}"></span><span class="t"><span class="p">${esc(m.proj)} · </span>${esc(m.title)}</span><span class="age">${ago(m.at)}</span></div><div class="sub${m.cat === 'blocked' ? ' red' : ''}">${md(cut(m.text, 300))}</div></div>`).join('') : '<div class="dim" style="padding:8px">No messages for this filter.</div>'
   }
-  setHTML(inbox.querySelector('.top'), top)
-  setHTML(inbox.querySelector('.body'), body)
+  return `<div class="ibx-top">${top}</div><div class="ibx-list">${body}</div>`
 }
 
 // --- resizable panels: the sidebar, the project panel and every column, by the strip on their right edge.
@@ -724,7 +723,7 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // conversations and agents' summaries are never touched.
 let LANG = /^tr/i.test(navigator.language || '') ? 'tr' : 'en'
 const TR = {
-  'Scanning…': 'Taranıyor…', 'Center and reset zoom': 'Ortala ve yakınlaştırmayı sıfırla', 'Full screen': 'Tam ekran', 'Exit full screen': 'Tam ekrandan çık', 'No folder (temporary workspace)': 'Klasör yok (geçici çalışma alanı)', 'Show folder in Finder': "Klasörü Finder'da göster", 'Copy folder path': 'Klasör yolunu kopyala', 'Folder path copied': 'Klasör yolu kopyalandı', 'Sessions map for Claude Code': 'Claude Code oturum haritası', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
+  'Scanning…': 'Taranıyor…', 'Inbox': 'Gelen kutusu', 'Open a project, a session, the map or the inbox from the left.': 'Soldan bir proje, konu, harita ya da gelen kutusunu aç.', 'Center and reset zoom': 'Ortala ve yakınlaştırmayı sıfırla', 'Full screen': 'Tam ekran', 'Exit full screen': 'Tam ekrandan çık', 'No folder (temporary workspace)': 'Klasör yok (geçici çalışma alanı)', 'Show folder in Finder': "Klasörü Finder'da göster", 'Copy folder path': 'Klasör yolunu kopyala', 'Folder path copied': 'Klasör yolu kopyalandı', 'Sessions map for Claude Code': 'Claude Code oturum haritası', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
   'Graphite': 'Antrasit', 'Light': 'Açık', 'Black': 'Siyah', 'Projects': 'Projeler', 'auto-sort': 'otomatik sırala',
   'Loose sessions': 'Projesiz konular', 'Closed': 'Kapatılanlar', 'Home session (Claude)': 'Ana oturum (Claude)', 'Map': 'Harita',
   'Qosmos · home session': 'Qosmos · ana oturum', 'Waiting:': 'Bekliyor:', 'waiting': 'bekliyor', 'running': 'çalışıyor', 'unread': 'okunmamış',
@@ -778,7 +777,7 @@ function tr(s, whole = true) {
   return out
 }
 const USER_TEXT = '.txt, .sub, .waitbox, .infobox, script, style'
-const NAME_UI = new Set(['Home session (Claude)', 'Map', 'Qosmos · home session'])
+const NAME_UI = new Set(['Home session (Claude)', 'Map', 'Inbox', 'Qosmos · home session'])
 function translateDOM() {
   document.documentElement.lang = LANG
   if (LANG !== 'tr') return
