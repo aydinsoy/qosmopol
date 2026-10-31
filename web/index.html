@@ -315,7 +315,7 @@ const ICON = {
 }
 
 // On a first visit the map and the inbox are open.
-const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: kept('cols', ['harita', 'inbox']).filter(c => !c.startsWith('p:')), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
+const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: kept('cols', ['harita']).filter(c => !c.startsWith('p:')), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined
@@ -412,7 +412,7 @@ function sky(gs, { labels = true } = {}) {
       o.push(`<text x="${lx}" y="${top}" text-anchor="${anchor}" font-size="5.5" fill="var(--label)" style="pointer-events:none"><tspan x="${lx}">${esc(l1)}</tspan>${l2 ? `<tspan x="${lx}" dy="6.5">${esc(l2)}</tspan>` : ''}</text></g>`)
     })
     o.push(`<g data-p="${esc(p.name)}" data-c="${p.x},${p.y},${p.r}" data-tip="${esc(`${p.name}\n${p.list.length} sessions · ${nWait} waiting for you`)}" data-tipbig="1">`)
-    if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5">${blink}</circle>`)
+    if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5"/>`)
     else if (anyRun) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--orange)" stroke-width="2"/>`)
     const lively = p.list.some(k => Date.now() - k.last < 7 * DAY)
     o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${lively ? 'var(--planet)' : 'var(--planet-dim)'}"/>`)
@@ -1083,13 +1083,19 @@ function lensState(g) {
   }
   return st
 }
-function lensStep() {
+let lensLast = 0, lensAcc = 0
+function lensStep(now) {
+  // fixed 60 Hz steps, so the motion takes the same time on a 60 Hz and a 120 Hz screen
+  lensAcc = Math.min(lensAcc + (lensLast ? now - lensLast : 16.7), 100); lensLast = now
+  const steps = Math.floor(lensAcc / 16.7); lensAcc -= steps * 16.7
   let moving = false
   for (const [g, st] of LENS) {
     if (!g.isConnected) { LENS.delete(g); continue }
     for (const [p, v, t] of [['x', 'vx', 'tx'], ['y', 'vy', 'ty'], ['s', 'vs', 'ts']]) {
-      st[v] = (st[v] + (st[t] - st[p]) * 0.16) * 0.74  // stiffness, damping: a soft spring with a little overshoot
-      st[p] += st[v]
+      for (let i = 0; i < steps; i++) {
+        st[v] = (st[v] + (st[t] - st[p]) * 0.025) * 0.80  // stiffness, damping: 95% in ~0.35 s, a 3% overshoot
+        st[p] += st[v]
+      }
       if (Math.abs(st[v]) > 0.002 || Math.abs(st[t] - st[p]) > 0.002) moving = true
       else { st[p] = st[t]; st[v] = 0 }
     }
@@ -1100,6 +1106,7 @@ function lensStep() {
     if (st.line) { st.line.setAttribute('x2', (st.x2 + st.x).toFixed(2)); st.line.setAttribute('y2', (st.y2 + st.y).toFixed(2)) }
   }
   lensRaf = moving ? requestAnimationFrame(lensStep) : 0
+  if (!moving) lensLast = lensAcc = 0
 }
 function hoverMap(g) {
   if (g === hovG) return
@@ -1118,9 +1125,13 @@ function hoverMap(g) {
   for (const p of planets) lensState(p).ts = p === g ? 1.12 : 1
   if (!lensRaf) lensRaf = requestAnimationFrame(lensStep)
 }
+// a short hover intent, so sweeping the pointer across the map does not stir every circle on the way
+let lensTimer = 0
 document.addEventListener('mouseover', e => {
   if (mpan?.moved) return
-  hoverMap(e.target.closest ? e.target.closest('.bigmap [data-k], .bigmap [data-p]') : null)
+  const g = e.target.closest ? e.target.closest('.bigmap [data-k], .bigmap [data-p]') : null
+  clearTimeout(lensTimer)
+  lensTimer = setTimeout(() => hoverMap(g), g ? 110 : 60)
 })
 function applyMapView() {
   hovG = null; LENS.clear()  // a redraw replaced the circles
