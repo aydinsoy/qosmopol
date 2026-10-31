@@ -81,6 +81,10 @@
 
   /* Sidebar */
   #side { display: flex; flex-direction: column; min-height: 0; background: var(--side); border-right: 1px solid var(--line); }
+  #brand { display: flex; align-items: center; gap: 10px; padding: 14px 14px 2px; }
+  #brand img { border-radius: 7px; flex: none; }
+  #brand .bname { font-size: 15px; font-weight: 650; letter-spacing: .2px; color: var(--text); line-height: 1.2; }
+  #brand .btag { font-size: 11.5px; color: var(--dim); line-height: 1.3; }
   #head { padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
   #counts { display: flex; gap: 12px; font-size: 12px; color: var(--text2); }
   #counts b { font-weight: 600; }
@@ -248,6 +252,7 @@
 <body>
 <div id="app">
   <aside id="side"><div class="rz" data-rz="side" title="Drag to resize"></div>
+    <div id="brand"><img src="/icon.png" alt="" width="26" height="26"><div><div class="bname">Qosmos</div><div class="btag">Sessions map for Claude Code</div></div></div>
     <div id="head">
       <div id="counts">Scanning…</div>
       <div class="seg" id="days"></div>
@@ -689,7 +694,7 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // conversations and agents' summaries are never touched.
 let LANG = /^tr/i.test(navigator.language || '') ? 'tr' : 'en'
 const TR = {
-  'Scanning…': 'Taranıyor…', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
+  'Scanning…': 'Taranıyor…', 'Sessions map for Claude Code': 'Claude Code oturum haritası', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
   'Graphite': 'Antrasit', 'Light': 'Açık', 'Black': 'Siyah', 'Projects': 'Projeler', 'auto-sort': 'otomatik sırala',
   'Loose sessions': 'Projesiz konular', 'Closed': 'Kapatılanlar', 'Home session (Claude)': 'Ana oturum (Claude)', 'Map': 'Harita',
   'Qosmos · home session': 'Qosmos · ana oturum', 'Waiting:': 'Bekliyor:', 'waiting': 'bekliyor', 'running': 'çalışıyor', 'unread': 'okunmamış',
