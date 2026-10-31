@@ -206,8 +206,6 @@
   .composer.rec .cbox .micbtn { display: inline-flex; color: #fff; background: var(--red); animation: blink 1.2s infinite; }
   .cmeta .chip { border: 0; background: none; color: var(--text2); font-size: 12.5px; height: 22px; padding: 0 6px; border-radius: 6px; white-space: nowrap; }
   .cmeta .chip:hover { background: var(--hover); color: var(--text); }
-  .cmeta .chip.ro { cursor: default; }
-  .cmeta .chip.ro:hover { background: none; color: var(--text2); }
   .cmeta .spacer { flex: 1; }
   .cmeta .wait { white-space: nowrap; color: var(--text2); }
   .cmeta .wait .dot { display: inline-block; margin-right: 5px; vertical-align: 1px; }
@@ -564,7 +562,8 @@ function fillMeta(comp, withWait) {
   setHTML(comp.querySelector('[data-chip=mode]'), k ? `${MODES[k.mode] || (k.mode === 'bypassPermissions' ? 'Bypass permissions' : 'Default')} ▾` : '')
   const model = comp.querySelector('[data-chip=model]'), effort = comp.querySelector('[data-chip=effort]')
   setHTML(model, k ? modelName(k.model) : ''); setHTML(effort, k ? (EFFORTS[k.effort] || 'Default effort') : '')
-  for (const c of [model, effort]) { c.classList.toggle('ro', isHome); c.title = isHome ? "The home session's model and effort change in the Claude app's own menu" : 'Change for this session' }
+  // a session may not change its own model or effort: for the home session these open it in the Claude app, where its menus are
+  for (const c of [model, effort]) { c.classList.toggle('ro', isHome); c.removeAttribute('title'); c.dataset.tip = isHome ? 'Opens the home session in the Claude app, where its model and effort menus are' : 'Change for this session' }
   if (withWait) { const n = visible().filter(waiting).length; setHTML(comp.querySelector('.wait'), `<span class="dot${n ? ' r' : ''}"></span>${n} waiting`) }
 }
 function renderCols() {
@@ -800,7 +799,7 @@ const TR = {
   'Graphite': 'Antrasit', 'Light': 'Açık', 'Black': 'Siyah', 'Projects': 'Projeler', 'auto-sort': 'otomatik sırala',
   'Loose sessions': 'Projesiz konular', 'Closed': 'Kapatılanlar', 'Home session (Claude)': 'Ana oturum (Claude)', 'Map': 'Harita',
   'Qosmos · home session': 'Qosmos · ana oturum', 'Waiting:': 'Bekliyor:', 'waiting': 'bekliyor', 'running': 'çalışıyor', 'unread': 'okunmamış',
-  'Open in app': 'Uygulamada aç', 'Open in the Claude app: its browser, changes and terminal panes open there, beside the session': 'Claude uygulamasında aç: tarayıcı, değişiklikler ve terminal panelleri orada, konunun yanında açılır', 'Mark read': 'Okundu', 'Close session': 'Konuyu kapat', 'Conversation': 'Konuşma', 'Loading…': 'Yükleniyor…',
+  'Open in app': 'Uygulamada aç', 'Opens the home session in the Claude app, where its model and effort menus are': 'Ana oturumu Claude uygulamasında açar; model ve efor menüleri orada', 'Open in the Claude app: its browser, changes and terminal panes open there, beside the session': 'Claude uygulamasında aç: tarayıcı, değişiklikler ve terminal panelleri orada, konunun yanında açılır', 'Mark read': 'Okundu', 'Close session': 'Konuyu kapat', 'Conversation': 'Konuşma', 'Loading…': 'Yükleniyor…',
   'No transcript on this Mac (another account or the cloud).': "Bu Mac'te konuşma kaydı yok (başka hesap ya da bulut).",
   'No summary.': 'Özet yok.', 'Waiting for your answer.': 'Cevabını bekliyor.', 'Agent working…': 'Ajan çalışıyor…', 'Agent working': 'Ajan çalışıyor',
   'Nothing is waiting for you. Pick a project or session on the left, or click a circle on the map.': 'Seni bekleyen konu yok. Soldan bir proje ya da konu seç, ya da haritada bir daireye bas.',
@@ -1005,7 +1004,7 @@ document.addEventListener('click', e => {
   if (comp && t.closest('.round')) return send(comp)
   if (comp && t.closest('.micbtn')) return mic(comp)
   if (comp && t.closest('.plus')) return plusMenu(comp, t.closest('.plus'))
-  const chip = comp && t.closest('[data-chip]'); if (chip && !chip.classList.contains('ro')) return chipMenu(comp, chip)
+  const chip = comp && t.closest('[data-chip]'); if (chip) return chip.classList.contains('ro') ? homeRow() && openInApp(homeRow()) : chipMenu(comp, chip)
   const mi = t.closest('#menu [data-mi]'); if (mi) { const f = MENU[+mi.dataset.mi]; closeMenu(); return f && f() }
   if (!t.closest('#menu')) closeMenu()
   const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
