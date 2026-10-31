@@ -28,6 +28,15 @@ Then, in the Claude Code session you want as the home, run:
 
 That session opens the pane, starts the local web server and becomes the **home**: messages you send from the web view to "Qosmos" arrive there, and it relays your messages, archive and reopen actions to the app. Keep it open (a small pop-out window works well).
 
+## Use it as a desktop app
+
+The web view installs like any desktop app, with its own window and Dock icon:
+
+- **Chrome:** open `http://127.0.0.1:47321/`, then ⋮ → *Cast, save, and share* → *Install page as app…*
+- **Safari:** open the page, then *File* → *Add to Dock…*
+
+The microphone works in both (Chrome and Safari speech recognition, Turkish by default).
+
 ## How it works
 
 - `bin/scan.py` reads the desktop app's own session records (`~/Library/Application Support/Claude/claude-code-sessions`). Waiting = the end-of-turn report says the session is blocked on you, or a turn is paused on a permission. Working = the session's transcript was written in the last 90 seconds.

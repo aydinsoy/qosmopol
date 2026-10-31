@@ -124,6 +124,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         url = urllib.parse.urlparse(self.path)
+        static = {"/icon.png": "image/png", "/icon-192.png": "image/png", "/icon.svg": "image/svg+xml", "/manifest.webmanifest": "application/manifest+json", "/sw.js": "text/javascript"}
+        if url.path in static:  # the app icon and manifest: no token, nothing private
+            with open(os.path.join(WEB, url.path[1:]), "rb") as f:
+                return self.reply(200, f.read(), static[url.path])
         if url.path in ("/", "/index.html"):
             html = open(os.path.join(WEB, "index.html"), encoding="utf-8").read().replace("__QOSMOS_TOKEN__", TOKEN)
             return self.reply(200, html.encode(), "text/html")

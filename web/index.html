@@ -3,115 +3,173 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Qosmos">
+<meta name="theme-color" content="#181818">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="icon" href="/icon.png">
 <title>Qosmos</title>
 <style>
   :root, :root[data-theme="antrasit"] {
-    --bg: #181818; --side: #141414; --card: #1f1f1f; --line: #2b2b2b; --text: #cccccc; --dim: #8b8b8b;
-    --btn: #313131; --btn-line: #3c3c3c; --btn-hover: #3c3c3c; --hover: #2a2d2e; --sel: #04395e; --chip: #2b2b2b;
-    --input: #313131; --input-line: #3c3c3c; --on-bg: #cccccc; --on-fg: #181818; --toast: #252526;
-    --red: #f14c4c; --orange: #f0a030; --blue: #0078d4; --grey: #858585;
-    --sky: #181818; --orbit: #2b2b2b; --mline: #474747; --planet: #e6e6e6; --planet-dim: #9a9a9a; --planet-text: #181818; --label: #cccccc; --ring: #ffffff;
+    --bg: #181818; --side: #141414; --card: #232323; --line: #262626; --text: #d4d4d4; --text2: #a3a3a3; --dim: #7a7a7a;
+    --hover: rgba(255,255,255,.045); --sel: rgba(255,255,255,.085); --btn: #262626; --btn-hover: #2f2f2f;
+    --input: #212121; --input-line: #333; --round: #e8e8e8; --round-fg: #141414; --toast: #262626; --seg: #1d1d1d;
+    --red: #f14c4c; --orange: #e8a33d; --blue: #4d9bf0; --grey: #6f6f6f;
+    --sky: #181818; --orbit: #2a2a2a; --mline: #444; --planet: #e4e4e4; --planet-dim: #8f8f8f; --planet-text: #181818; --label: #a8a8a8; --ring: #ffffff;
+    --thumb: rgba(255,255,255,.12);
   }
   :root[data-theme="acik"] {
-    --bg: #f7f7f8; --side: #efeff1; --card: #ffffff; --line: #e1e1e4; --text: #1f1f22; --dim: #6b6b72;
-    --btn: #ffffff; --btn-line: #d4d4d8; --btn-hover: #ececef; --hover: #e6e6ea; --sel: #dbe8fb; --chip: #e2e2e6;
-    --input: #ffffff; --input-line: #d4d4d8; --on-bg: #1f1f22; --on-fg: #ffffff; --toast: #ffffff;
-    --red: #e5121b; --orange: #e87400; --blue: #1a73e8; --grey: #a8a8ae;
-    --sky: #f7f7f8; --orbit: #e0e0e4; --mline: #c4c4ca; --planet: #3b3b40; --planet-dim: #8b8b92; --planet-text: #ffffff; --label: #333338; --ring: #1f1f22;
+    --bg: #fbfbfb; --side: #f3f3f4; --card: #efeff0; --line: #e4e4e6; --text: #1f1f22; --text2: #4a4a50; --dim: #8a8a90;
+    --hover: rgba(0,0,0,.04); --sel: rgba(0,0,0,.07); --btn: #ececee; --btn-hover: #e2e2e5;
+    --input: #ffffff; --input-line: #dcdcdf; --round: #1f1f22; --round-fg: #fff; --toast: #ffffff; --seg: #e9e9eb;
+    --red: #d9161e; --orange: #d47800; --blue: #1a73e8; --grey: #a8a8ae;
+    --sky: #f3f3f4; --orbit: #dedee2; --mline: #c4c4ca; --planet: #3b3b40; --planet-dim: #8b8b92; --planet-text: #fff; --label: #55555b; --ring: #1f1f22;
+    --thumb: rgba(0,0,0,.15);
   }
   :root[data-theme="siyah"] {
-    --bg: #000; --side: #08080a; --card: #0f0f12; --line: #1e1e22; --text: #e9e9ea; --dim: #8b8b90;
-    --btn: #1a1a1f; --btn-line: #2a2a30; --btn-hover: #24242a; --hover: #15151a; --sel: #1b2433; --chip: #1c1c21;
-    --input: #121216; --input-line: #2a2a30; --on-bg: #e9e9ea; --on-fg: #000; --toast: #1f1f25;
-    --red: #ff2020; --orange: #ff8a00; --blue: #4da3ff; --grey: #8c8c8c;
-    --sky: #000; --orbit: #1d1d1d; --mline: #3a3a3a; --planet: #ffffff; --planet-dim: #9a9a9a; --planet-text: #000; --label: #dddddd; --ring: #ffffff;
+    --bg: #000; --side: #060606; --card: #161616; --line: #1c1c1c; --text: #e2e2e2; --text2: #a8a8a8; --dim: #777;
+    --hover: rgba(255,255,255,.05); --sel: rgba(255,255,255,.09); --btn: #1a1a1a; --btn-hover: #242424;
+    --input: #111; --input-line: #2a2a2a; --round: #e8e8e8; --round-fg: #000; --toast: #1a1a1a; --seg: #0e0e0e;
+    --red: #ff3030; --orange: #ff9a20; --blue: #4da3ff; --grey: #707070;
+    --sky: #000; --orbit: #1d1d1d; --mline: #3a3a3a; --planet: #fff; --planet-dim: #9a9a9a; --planet-text: #000; --label: #bbb; --ring: #fff;
+    --thumb: rgba(255,255,255,.12);
   }
+
+  /* An app, not a page: no text selection in the chrome, no hand cursor, no rubber-band scroll. */
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
-  button, textarea, select { font: inherit; color: inherit; }
-  button { background: var(--btn); border: 1px solid var(--btn-line); border-radius: 7px; padding: 4px 10px; cursor: pointer; }
-  button:hover { background: var(--btn-hover); }
-  button.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
-  button.ghost { background: none; border: none; padding: 2px 4px; color: var(--dim); }
-  button.ghost:hover { color: var(--text); }
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: var(--bg); color: var(--text);
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; cursor: default; }
+  textarea, select, .selectable, .selectable * { -webkit-user-select: text; user-select: text; }
+  textarea { cursor: text; }
+  button, select, textarea { font: inherit; color: inherit; }
+  :focus { outline: none; }
+  :focus-visible { outline: 1.5px solid var(--blue); outline-offset: 1px; border-radius: 6px; }
+  .scroll { overflow: auto; }
+  .scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scroll::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+  .scroll::-webkit-scrollbar-track { background: transparent; }
   .dim { color: var(--dim); }
   .red { color: var(--red); }
-  .orange { color: var(--orange); }
-  #app { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+  svg.i { width: 14px; height: 14px; flex: none; }
+
+  /* Buttons: quiet, fixed height, no borders — like a desktop toolbar. */
+  .btn { height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--btn); color: var(--text2); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--btn-hover); color: var(--text); }
+  .btn.danger:hover { color: var(--red); }
+  .icon { width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .icon:hover { background: var(--hover); color: var(--text); }
+  .seg { display: inline-flex; background: var(--seg); border-radius: 7px; padding: 2px; gap: 2px; }
+  .seg button { height: 22px; padding: 0 9px; border: 0; border-radius: 5px; background: none; color: var(--dim); font-size: 11.5px; }
+  .seg button:hover { color: var(--text); }
+  .seg button.on { background: var(--btn-hover); color: var(--text); }
+
+  #app { display: flex; height: 100vh; }
+  #side { width: 272px; flex: none; }
+  #plist { width: 0; flex: none; overflow: hidden; display: flex; flex-direction: column; min-height: 0; background: var(--bg); border-right: 1px solid transparent; transition: width .16s ease; }
+  #plist.open { width: 320px; border-right-color: var(--line); }
+  #plist > header { height: 40px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  #plist > header .title { flex: 1; font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; }
+  #plist .meta { padding: 10px 16px 4px; white-space: nowrap; }
+  #plist .body { flex: 1; padding: 4px 8px 12px; width: 320px; }
+  .item.on { background: var(--sel); }
+  .item .sub.orange { color: var(--orange); }
+  #main { flex: 1; }
+
+  /* Sidebar */
   #side { display: flex; flex-direction: column; min-height: 0; background: var(--side); border-right: 1px solid var(--line); }
-  #head { padding: 12px 12px 8px; }
-  #counts { font-weight: 600; }
-  #days { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
-  #days button { padding: 2px 8px; font-size: 12px; }
-  #days button.on, #themes button.on { background: var(--on-bg); color: var(--on-fg); }
-  #themes { display: flex; gap: 4px; margin-top: 6px; }
-  #themes button { padding: 1px 8px; font-size: 11px; }
-  #tree { flex: 1; overflow: auto; padding: 4px 6px 8px; min-height: 80px; }
-  .proj { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; }
-  .proj:hover, .topic:hover { background: var(--hover); }
-  .proj .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chip { font-size: 11px; padding: 0 6px; border-radius: 9px; background: var(--chip); }
-  .chip.r { background: var(--red); color: #fff; }
-  .chip.o { background: var(--orange); color: #1f1f1f; }
-  .topic { display: flex; align-items: center; gap: 6px; padding: 3px 6px 3px 22px; border-radius: 6px; cursor: pointer; }
-  .topic .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .topic.on, .proj.on { background: var(--sel); }
-  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--grey); }
-  .dot.r { background: var(--red); animation: blink 0.9s infinite; }
-  .dot.o { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
-  .dot.u { box-shadow: 0 0 0 1.5px var(--ring); }
-  @keyframes blink { 50% { opacity: 0.2; } }
-  .x { visibility: hidden; }
-  .topic:hover .x { visibility: visible; }
-  #bar { border-top: 1px solid var(--line); padding: 8px; }
-  #target { display: flex; align-items: center; gap: 4px; font-size: 12px; margin-bottom: 4px; min-height: 20px; }
-  #target .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #box { display: flex; align-items: flex-end; gap: 6px; background: var(--input); border: 1px solid var(--input-line); border-radius: 10px; padding: 6px; }
-  #box:focus-within { border-color: var(--blue); }
-  #text { flex: 1; resize: none; background: none; border: none; outline: none; min-height: 38px; max-height: 160px; }
-  #mic.on, .cmic.on { background: var(--red); border-color: var(--red); color: #fff; }
-  .cbar { flex: none; border-top: 1px solid var(--line); padding: 8px; background: var(--bg); }
-  .cbar .to { font-size: 11px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cbox { display: flex; align-items: flex-end; gap: 6px; background: var(--input); border: 1px solid var(--input-line); border-radius: 10px; padding: 6px; }
-  .cbox:focus-within { border-color: var(--blue); }
-  .cbox textarea { flex: 1; resize: none; background: none; border: none; outline: none; min-height: 36px; max-height: 140px; }
-  .cnote { font-size: 11px; margin-top: 4px; min-height: 14px; }
-  #barnote { font-size: 11px; margin-top: 4px; min-height: 14px; }
-  #mini { --sky: var(--side); border-top: 1px solid var(--line); height: 230px; flex: none; position: relative; cursor: pointer; }
+  #head { padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
+  #counts { display: flex; gap: 12px; font-size: 12px; color: var(--text2); }
+  #counts b { font-weight: 600; }
+  #counts .w b { color: var(--red); }
+  #counts .o b { color: var(--orange); }
+  .section { font-size: 11.5px; color: var(--dim); padding: 12px 10px 4px; }
+  #tree { flex: 1; min-height: 60px; padding: 0 6px 8px; }
+  .row { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 6px; color: var(--text2); white-space: nowrap; }
+  .row:hover { background: var(--hover); color: var(--text); }
+  .row.on { background: var(--sel); color: var(--text); }
+  .row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .row.proj .name { color: var(--text); }
+  .row.sub { padding-left: 26px; }
+  .row .age { font-size: 11px; color: var(--dim); }
+  .row .chev { width: 12px; color: var(--dim); display: inline-flex; }
+  .badge { font-size: 10.5px; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--btn); color: var(--dim); }
+  .badge.r { background: var(--red); color: #fff; }
+  .badge.o { background: transparent; color: var(--orange); box-shadow: inset 0 0 0 1px var(--orange); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--grey); }
+  .dot.r { background: var(--red); animation: blink 1s infinite; }
+  .dot.o { background: var(--orange); }
+  .dot.u { box-shadow: 0 0 0 1.5px var(--ring); background: transparent; }
+  @keyframes blink { 50% { opacity: .25; } }
+  #mini { flex: none; height: 200px; border-top: 1px solid var(--line); position: relative; --sky: var(--side); }
   #mini svg { width: 100%; height: 100%; display: block; }
-  #mini .hint { position: absolute; right: 6px; bottom: 4px; font-size: 11px; color: var(--dim); pointer-events: none; }
-  #main { display: flex; min-width: 0; min-height: 0; overflow-x: auto; }
-  .col { flex: 1 1 0; min-width: 330px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
-  .col.focus { box-shadow: inset 0 2px 0 var(--blue); }
-  .col { background: var(--bg); }
-  #side { color: var(--text); }
-  .col > header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-  .col > header .t { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-  .col > .body { flex: 1; overflow: auto; padding: 12px; }
-  .meta { font-size: 12px; }
-  .status { margin: 6px 0 10px; }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; }
-  .msg { margin: 10px 0; }
-  .msg .who { font-size: 12px; font-weight: 700; }
-  .msg.sen .who { color: var(--blue); }
-  .msg .txt { white-space: pre-wrap; word-wrap: break-word; }
-  .item { padding: 8px 6px; border-bottom: 1px solid var(--line); cursor: pointer; }
-  .item:hover { background: var(--hover); }
-  .item .line { display: flex; align-items: center; gap: 6px; }
-  .item .line .t { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .item .sub { font-size: 13px; margin: 2px 0 0 15px; }
-  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-  .tabs button.on { background: var(--on-bg); color: var(--on-fg); }
-  #inbox { flex: 1; overflow: auto; padding: 16px; }
-  #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--toast); border: 1px solid var(--btn-line); padding: 8px 14px; border-radius: 9px; display: none; z-index: 9; max-width: 80vw; }
-  .bigmap svg { width: 100%; height: auto; display: block; }
+  #mini .hint { position: absolute; right: 8px; bottom: 6px; font-size: 10.5px; color: var(--dim); pointer-events: none; }
   svg [data-k], svg [data-p] { cursor: pointer; }
-  svg [data-k]:hover circle:last-of-type { stroke: var(--ring); stroke-width: 1.5; }
+
+  /* Composer — one look for every bar */
+  .composer { flex: none; padding: 10px 12px 10px; }
+  .cbox { display: flex; align-items: flex-end; gap: 8px; background: var(--input); border: 1px solid var(--input-line); border-radius: 16px; padding: 6px 6px 6px 14px; }
+  .cbox:focus-within { border-color: color-mix(in srgb, var(--input-line), var(--text) 25%); }
+  .cbox textarea { flex: 1; resize: none; background: none; border: 0; padding: 5px 0; min-height: 24px; max-height: 160px; line-height: 1.45; color: var(--text); }
+  .cbox textarea::placeholder { color: var(--dim); }
+  .round { width: 28px; height: 28px; border-radius: 50%; border: 0; background: var(--round); color: var(--round-fg); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .round:hover { filter: brightness(1.08); }
+  .round .send { display: none; }
+  .composer.has-text .round .send { display: block; }
+  .composer.has-text .round .mic { display: none; }
+  .composer.rec .round { background: var(--red); color: #fff; animation: blink 1.2s infinite; }
+  .cmeta { display: flex; gap: 8px; align-items: center; margin: 6px 4px 0; font-size: 11.5px; color: var(--dim); min-height: 16px; }
+  .cmeta .to { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmeta .note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+
+  /* Main area: inbox or columns */
+  #main { display: flex; min-width: 0; min-height: 0; overflow-x: auto; }
+  .col { flex: 1 1 0; min-width: 340px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--bg); }
+  .col:last-child { border-right: 0; }
+  .col > header { height: 40px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); }
+  .col > header .title { flex: 1; font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col > .body { flex: 1; padding: 14px 16px 6px; }
+  .meta { font-size: 11.5px; color: var(--dim); }
+  .waitbox { margin: 10px 0 4px; color: var(--red); font-size: 13px; }
+  .waitbox b { font-weight: 600; }
+  .runbox { margin: 10px 0 4px; color: var(--orange); font-size: 12.5px; }
+  .infobox { margin: 10px 0 4px; color: var(--text2); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 6px; }
+  .label { font-size: 11.5px; color: var(--dim); margin: 18px 0 6px; }
+  .msg { margin: 0 0 14px; }
+  .msg .txt { white-space: pre-wrap; word-wrap: break-word; color: var(--text); }
+  .msg.sen { display: flex; justify-content: flex-end; }
+  .msg.sen .txt { background: var(--card); border-radius: 10px; padding: 7px 11px; max-width: 88%; }
+  .msg code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--card); padding: 1px 4px; border-radius: 4px; }
+  .item { display: block; padding: 8px 8px; border-radius: 8px; }
+  .item:hover { background: var(--hover); }
+  .item .line { display: flex; align-items: center; gap: 8px; height: 20px; }
+  .item .line .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .item .line .p { color: var(--dim); }
+  .item .line .age { font-size: 11px; color: var(--dim); }
+  .item .sub { font-size: 12.5px; margin: 2px 0 0 15px; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .item .sub.red { color: var(--red); }
+  .item .icon { visibility: hidden; }
+  .item:hover .icon { visibility: visible; }
+  #inbox { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #inbox .top { height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+  #inbox .body { flex: 1; padding: 10px 12px; }
+  .bigmap svg { width: 100%; height: auto; display: block; }
+  select { height: 24px; border-radius: 6px; border: 0; background: var(--btn); color: var(--text2); padding: 0 6px; font-size: 12px; }
+
+  /* Toast with undo */
+  #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--toast); color: var(--text); border: 1px solid var(--input-line); box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    padding: 8px 8px 8px 14px; border-radius: 10px; display: none; align-items: center; gap: 12px; z-index: 9; max-width: 80vw; font-size: 12.5px; }
+  #toast.on { display: flex; }
+
   @media (max-width: 760px) {
-    #app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
+    html, body { overflow: auto; }
+    #app { flex-direction: column; height: auto; min-height: 100vh; }
+    #side, #plist.open, #plist .body { width: auto; }
     #tree { max-height: 40vh; }
     #main { flex-direction: column; overflow: visible; }
-    .col { min-width: 0; border-right: none; border-bottom: 1px solid var(--line); }
+    .col { min-width: 0; border-right: 0; border-bottom: 1px solid var(--line); }
     .col > .body { max-height: 70vh; }
   }
 </style>
@@ -121,25 +179,17 @@
   <aside id="side">
     <div id="head">
       <div id="counts">Taranıyor…</div>
-      <div id="scaninfo" class="dim" style="font-size:12px"></div>
-      <div id="days"></div>
-      <div id="themes"></div>
+      <div class="seg" id="days"></div>
+      <div class="seg" id="themes"></div>
     </div>
-    <div id="tree"></div>
-    <div id="bar">
-      <div id="target"></div>
-      <div id="box">
-        <textarea id="text" rows="2" placeholder="Yaz ya da 🎤 ile konuş… (Enter gönderir)"></textarea>
-        <button id="mic" title="Konuşarak yaz">🎤</button>
-        <button id="send" class="primary" title="Gönder">↑</button>
-      </div>
-      <div id="barnote" class="dim"></div>
-    </div>
-    <div id="mini" title="Daireye bas: konu ya da proje açılır · boşluğa bas: büyük harita"><div class="hint">⤢ büyüt</div></div>
+    <div id="tree" class="scroll"></div>
+    <div class="composer" id="sidebar-composer" data-to="home"></div>
+    <div id="mini" title="Daireye bas: konu ya da proje açılır · boşluğa bas: büyük harita"><div class="hint">büyütmek için boşluğa bas</div></div>
   </aside>
+  <section id="plist"><header></header><div class="meta"></div><div class="body scroll"></div></section>
   <main id="main"></main>
 </div>
-<div id="toast"></div>
+<div id="toast"><span id="toast-text"></span><button class="btn" id="toast-undo">Geri al</button></div>
 <script>
 'use strict'
 try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('theme') || '"antrasit"') } catch { document.documentElement.dataset.theme = 'antrasit' }
@@ -151,11 +201,15 @@ const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').re
 const cut = (s, n) => (s = String(s ?? ''), s.length > n ? s.slice(0, n - 1) + '…' : s)
 const keep = (k, v) => { try { v === undefined ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)) } catch {} }
 const kept = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d } catch { return d } }
-
-const S = {
-  data: null, days: kept('days', 7), open: new Set(kept('open', [])), cols: kept('cols', []), target: kept('target', ''),
-  tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false,
+const I = (d, cls = '') => `<svg class="i ${cls}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`
+const ICON = {
+  right: I('<path d="M6 4l4 4-4 4"/>'), down: I('<path d="M4 6l4 4 4-4"/>'), x: I('<path d="M4 4l8 8M12 4l-8 8"/>'),
+  mic: I('<rect x="6" y="2" width="4" height="8" rx="2"/><path d="M3.5 8a4.5 4.5 0 009 0M8 12.5V14"/>', 'mic'),
+  send: I('<path d="M8 13V3M4 7l4-4 4 4"/>', 'send'), app: I('<path d="M9 3h4v4M13 3L7 9M11 9v4H3V5h4"/>'), check: I('<path d="M3 8.5l3 3 7-7"/>'),
+  archive: I('<rect x="2.5" y="3" width="11" height="3" rx="1"/><path d="M3.5 6v7h9V6M6.5 9h3"/>'),
 }
+
+const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: kept('cols', []).filter(c => !c.startsWith('p:')), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined
@@ -165,20 +219,23 @@ async function api(path, body) {
   if (!r.ok) throw new Error(d.error || r.status)
   return d
 }
-function toast(t, ms = 3500) {
-  const el = $('#toast'); el.textContent = t; el.style.display = 'block'
-  clearTimeout(toast.h); toast.h = setTimeout(() => (el.style.display = 'none'), ms)
+function toast(t, undo, ms = 6000) {
+  $('#toast-text').textContent = t
+  $('#toast-undo').style.display = undo ? '' : 'none'
+  $('#toast-undo').onclick = () => { $('#toast').classList.remove('on'); undo && undo() }
+  $('#toast').classList.add('on')
+  clearTimeout(toast.h); toast.h = setTimeout(() => $('#toast').classList.remove('on'), ms)
 }
 
-// --- status rules (same as the pane): red = the owner must act, orange = the agent works
+// --- status rules: red = the owner must act, orange = the agent works
 const waiting = k => !!k.ask || (k.cat === 'blocked' && !k.busy)
 const running = k => !!k.busy && !k.ask
-const readAt = id => Math.max(S.data?.readAt?.[id] ?? 0, 0)
+const readAt = id => S.data?.readAt?.[id] ?? 0
 const unread = k => Math.max(k.seen, readAt(k.id)) < k.last - 1000
 const ago = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 60 ? `${m} dk` : m < 2880 ? `${Math.round(m / 60)} sa` : `${Math.round(m / 1440)} g` }
 const visible = () => (S.data?.sessions ?? []).filter(k => S.days === 0 || Date.now() - k.last < S.days * DAY || (waiting(k) && Date.now() - k.last < 30 * DAY))
-const dotClass = k => 'dot' + (waiting(k) ? ' r' : running(k) ? ' o' : '') + (!waiting(k) && !running(k) && unread(k) ? ' u' : '')
-const accLabel = acc => { const a = S.data.accounts; return `H${a.indexOf(acc) + 1}${acc === S.data.current ? '' : '·başka'}` }
+const dot = k => `<span class="dot${waiting(k) ? ' r' : running(k) ? ' o' : !unread(k) ? '' : ' u'}"></span>`
+const accLabel = acc => { const a = S.data.accounts; return `H${a.indexOf(acc) + 1}${acc === S.data.current ? '' : ' · başka hesap'}` }
 const byId = () => new Map((S.data?.sessions ?? []).map(k => [k.id, k]))
 function groups() {
   const g = new Map()
@@ -208,7 +265,7 @@ function sky(gs, { labels = true } = {}) {
   if (!ps.length) return ''
   const minX = Math.min(...ps.map(p => p.x - p.outer)) - 20, maxX = Math.max(...ps.map(p => p.x + p.outer)) + 20
   const minY = Math.min(...ps.map(p => p.y - p.outer)) - 20, maxY = Math.max(...ps.map(p => p.y + p.outer)) + 34
-  const sel = S.target
+  const sel = S.sel
   const blink = '<animate attributeName="opacity" values="1;0.15;1" dur="0.9s" repeatCount="indefinite"/>'
   const o = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX | 0} ${minY | 0} ${(maxX - minX) | 0} ${(maxY - minY) | 0}" preserveAspectRatio="xMidYMid meet">`,
     `<rect x="${minX | 0}" y="${minY | 0}" width="${(maxX - minX) | 0}" height="${(maxY - minY) | 0}" fill="var(--sky)"/>`]
@@ -251,36 +308,31 @@ function sky(gs, { labels = true } = {}) {
 function onSkyClick(e, fallback) {
   const m = e.target.closest('[data-k]'), p = e.target.closest('[data-p]')
   if (m) return openCol('k:' + m.dataset.k)
-  if (p) return openCol('p:' + p.dataset.p)
+  if (p) return pickProject(p.dataset.p)
   if (fallback) fallback()
 }
 
-// --- columns on the right: 'k:<session>', 'p:<project>', 'harita'
+// --- columns: 'k:<session>', 'p:<project>', 'home' (the Qosmos session), 'harita'
 function openCol(c) {
-  if (c.startsWith('k:')) { setTarget(c.slice(2)); loadTalk(c.slice(2)) }
-  if (c === 'home') { setTarget(''); loadTalk('home') }
+  if (c.startsWith('k:')) { S.sel = c.slice(2); loadTalk(c.slice(2)); const k = byId().get(S.sel); if (k && S.pp !== k.proj) { S.pp = k.proj; keep('pp', k.proj) } }
+  if (c === 'home') loadTalk('home')
   if (!S.cols.includes(c)) S.cols = [...S.cols, c].slice(-MAXCOLS)
   keep('cols', S.cols); render()
   requestAnimationFrame(() => document.querySelector(`[data-col="${CSS.escape(c)}"]`)?.scrollIntoView({ inline: 'nearest', behavior: 'smooth' }))
 }
-function closeCol(c) {
-  S.cols = S.cols.filter(x => x !== c); keep('cols', S.cols)
-  if (c === 'k:' + S.target) setTarget('')
-  render()
-}
-function setTarget(id) { S.target = id; keep('target', id || undefined); renderTarget() }
-
+function pickProject(name) { S.pp = name; keep('pp', name || undefined); render() }
+function closeCol(c) { S.cols = S.cols.filter(x => x !== c); keep('cols', S.cols); render() }
 async function loadTalk(id) {
   try { S.talks[id] = (await api('/api/konu?id=' + encodeURIComponent(id))).msgs ?? [] } catch { S.talks[id] = [] }
   renderCols()
 }
+// Closing is always undoable for a few seconds, so a stray click costs nothing.
 async function closeTopic(k) {
   try {
     const r = await api('/api/close', { id: k.id })
     S.cols = S.cols.filter(c => c !== 'k:' + k.id); keep('cols', S.cols)
-    if (S.target === k.id) setTarget('')
     if (r.job) S.jobs[r.job] = { label: `Arşiv: ${cut(k.title, 30)}`, at: Date.now() }
-    toast(r.job ? 'Kapatıldı, uygulamada arşivleniyor…' : 'Kapatıldı (başka hesap: yalnız Qosmos\'den gizlendi)')
+    toast(`“${cut(k.title, 40)}” kapatıldı`, () => api('/api/reopen', { id: k.id }).then(x => { S.jobs[x.job] = { label: 'Geri aç', at: Date.now() }; refresh(true) }))
     await refresh(true)
   } catch (err) { toast('Kapatılamadı: ' + err.message) }
 }
@@ -291,63 +343,62 @@ async function openInApp(k) {
 }
 
 // --- rendering
-function render() { renderSide(); renderMini(); renderCols(); renderTarget() }
+function setHTML(el, html) { if (el._html === html) return false; el.innerHTML = html; el._html = html; return true }
+const md = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>')
+function render() { renderSide(); renderPlist(); renderMini(); renderCols() }
 function renderSide() {
   const d = S.data
   if (!d) return
   const shown = visible(), w = shown.filter(waiting).length, r = shown.filter(running).length, n = shown.filter(k => !waiting(k) && !running(k) && unread(k)).length
-  $('#counts').innerHTML = `<span class="red">${w} seni bekliyor</span> · <span class="orange">${r} çalışıyor</span> · ${n} okunmamış`
-  $('#scaninfo').textContent = `${shown.length} konu · ${groups().length} proje · ${d.accounts.length} hesap${d.error ? ' · HATA: ' + d.error : ''}`
+  setHTML($('#counts'), `<span class="w"><b>${w}</b> bekliyor</span><span class="o"><b>${r}</b> çalışıyor</span><span><b>${n}</b> okunmamış</span>`)
   const th = document.documentElement.dataset.theme
-  $('#themes').innerHTML = [['antrasit', 'Antrasit'], ['acik', 'Açık'], ['siyah', 'Siyah']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join('')
-  $('#days').innerHTML = [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + ' gün' : 'Hepsi'}</button>`).join('')
-  const html = groups().map(([name, list]) => {
-    const open = S.open.has(name), lw = list.filter(waiting).length, lr = list.filter(running).length
-    const rows = open ? [...list].sort((a, b) => b.last - a.last).map(k => `
-      <div class="topic${S.cols.includes('k:' + k.id) ? ' on' : ''}" data-open="k:${esc(k.id)}" title="${esc(k.title)}">
-        <span class="${dotClass(k)}"></span><span class="t">${esc(k.title)}</span><span class="dim" style="font-size:11px">${ago(k.last)}</span>
-        <button class="ghost x" data-close="${esc(k.id)}" title="Konuyu kapat">✕</button>
-      </div>`).join('') : ''
-    return `<div class="proj${S.cols.includes('p:' + name) ? ' on' : ''}" data-proj="${esc(name)}"><span class="dim">${open ? '▾' : '▸'}</span><span class="name">${esc(name)}</span>${lw ? `<span class="chip r">${lw}</span>` : ''}${lr ? `<span class="chip o">${lr}</span>` : ''}<span class="chip">${list.length}</span></div>${rows}`
+  setHTML($('#days'), [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + ' gün' : 'Hepsi'}</button>`).join(''))
+  setHTML($('#themes'), [['antrasit', 'Antrasit'], ['acik', 'Açık'], ['siyah', 'Siyah']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
+  const tree = groups().map(([name, list]) => {
+    const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
+    return `<div class="row proj${on ? ' on' : ''}" data-proj="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><span class="chev">${on ? ICON.right : ''}</span></div>`
   }).join('')
   const hidden = d.hidden ?? []
-  const closed = hidden.length ? `<div class="proj" data-closed="1"><span class="dim">${S.open.has('__kapali') ? '▾' : '▸'}</span><span class="name dim">Kapatılanlar</span><span class="chip">${hidden.length}</span></div>` +
-    (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="topic"><span class="t dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="ghost" data-reopen="${esc(h.id)}">Geri aç</button></div>`).join('') : '') : ''
-  setHTML($('#tree'), html + closed)
+  const closed = hidden.length ? `<div class="section">Kapatılanlar</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} konu</span></div>` +
+    (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Geri aç</button></div>`).join('') : '') : ''
+  setHTML($('#tree'), `<div class="section">Projeler</div>${tree}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Ana oturum (Claude)</span></div>${closed}`)
+  setHTML($('#sidebar-composer .to'), '→ Qosmos (ana oturum, Claude)')
+}
+function renderPlist() {
+  const el = $('#plist'), list = new Map(groups()).get(S.pp)
+  el.classList.toggle('open', !!list)
+  if (!list) return
+  const sorted = [...list].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || Number(running(b)) - Number(running(a)) || b.last - a.last)
+  setHTML(el.querySelector('header'), `<span class="title">${esc(S.pp)}</span><button class="icon" data-plx="1" title="Paneli kapat">${ICON.x}</button>`)
+  setHTML(el.querySelector('.meta'), `<span class="meta" style="padding:0">${list.length} konu · <span class="red">${list.filter(waiting).length} bekliyor</span> · <span style="color:var(--orange)">${list.filter(running).length} çalışıyor</span></span>`)
+  setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>
+    <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Senden bir cevap bekliyor.', 240)) : running(k) ? 'Ajan çalışıyor…' : md(cut(k.detail || 'Özet yok.', 160))}</div></div>`).join(''))
 }
 function renderMini() {
-  const el = $('#mini')
-  const svg = sky(groups(), { labels: true })
+  const el = $('#mini'), svg = sky(groups())
   if (el._svg !== svg) { el.querySelector('svg')?.remove(); el.insertAdjacentHTML('afterbegin', svg); el._svg = svg }
 }
-function renderTarget() {
-  const k = S.target && byId().get(S.target)
-  $('#target').innerHTML = k
-    ? `<span class="${dotClass(k)}"></span><span class="t">→ ${esc(k.proj)} · ${esc(k.title)}</span><button class="ghost" id="untarget" title="Ana oturuma yaz">✕</button>`
-    : `<span class="t dim">→ Qosmos (ana oturum, Claude) · bir konuya basınca ona yazar</span><button class="ghost" data-open="home" title="Ana oturumla konuşmayı göster">💬</button>`
-}
-function md(t) {
-  return esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>')
-}
+const conv = (talk, hist) => talk === undefined ? '<div class="dim">Yükleniyor…</div>'
+  : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="txt selectable">${md(m.text)}</div></div>`).join('')
+  : hist.length ? hist.map(m => `<div class="msg"><div class="meta">Özet · ${ago(m.at)} önce</div><div class="txt selectable">${md(m.text)}</div></div>`).join('')
+  : '<div class="dim">Bu Mac\'te konuşma kaydı yok (başka hesap ya da bulut).</div>'
 function topicBody(k) {
-  const talk = S.talks[k.id], hist = (S.data.messages ?? []).filter(m => m.sid === k.id).slice(-5).reverse()
-  const status = k.need ? `<div class="status red">Bekliyor: ${md(k.need)}</div>` : running(k) ? `<div class="status orange">Ajan çalışıyor…</div>` : k.detail ? `<div class="status">${md(k.detail)}</div>` : ''
-  const conv = talk === undefined ? '<div class="dim">Yükleniyor…</div>'
-    : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="who">${m.role === 'sen' ? 'Sen' : 'Claude'}</div><div class="txt">${md(m.text)}</div></div>`).join('')
-    : hist.length ? hist.map(m => `<div class="msg"><div class="who dim">Özet · ${ago(m.at)} önce</div><div class="txt">${md(m.text)}</div></div>`).join('')
-    : '<div class="dim">Bu Mac\'te konuşma kaydı yok (başka hesap ya da bulut).</div>'
-  return `<div class="meta dim">${esc(k.proj)} · ${accLabel(k.acc)} · ${k.turns} tur · ${ago(k.last)} önce</div>${status}
-    <div class="row">
-      <button class="${S.target === k.id ? 'primary' : ''}" data-act="target" data-id="${esc(k.id)}">${S.target === k.id ? 'Çubuk buraya yazıyor' : 'Buraya yaz'}</button>
-      <button data-act="app" data-id="${esc(k.id)}">Uygulamada aç</button>
-      <button data-act="read" data-id="${esc(k.id)}">Okundu</button>
-      <button data-act="close" data-id="${esc(k.id)}">${k.acc === S.data.current ? 'Konuyu kapat (arşivle)' : 'Konuyu kapat (gizle)'}</button>
+  const hist = (S.data.messages ?? []).filter(m => m.sid === k.id).slice(-5).reverse()
+  const status = waiting(k) ? `<div class="waitbox selectable"><b>Bekliyor:</b> ${md(k.need || k.detail || 'senden bir cevap')}</div>` : running(k) ? `<div class="runbox">Ajan çalışıyor…</div>` : k.detail ? `<div class="infobox selectable">${md(k.detail)}</div>` : ''
+  return `<div class="meta">${esc(k.proj)} · ${accLabel(k.acc)} · ${k.turns} tur · ${ago(k.last)} önce</div>${status}
+    <div class="actions">
+      <button class="btn" data-act="app" data-id="${esc(k.id)}">${ICON.app}Uygulamada aç</button>
+      <button class="btn" data-act="read" data-id="${esc(k.id)}">${ICON.check}Okundu</button>
+      <button class="btn danger" data-act="close" data-id="${esc(k.id)}">${ICON.archive}Konuyu kapat</button>
     </div>
-    <div class="dim" style="font-weight:600;margin-top:4px">Konuşma</div>${conv}`
+    <div class="label">Konuşma</div>${conv(S.talks[k.id], hist)}`
 }
-function topicItem(k) {
-  return `<div class="item" data-open="k:${esc(k.id)}"><div class="line"><span class="${dotClass(k)}"></span><span class="t">${esc(k.title)}</span><span class="dim" style="font-size:12px">${ago(k.last)}</span><button class="ghost" data-close="${esc(k.id)}" title="Konuyu kapat">✕</button></div>
-    <div class="sub ${waiting(k) ? 'red' : 'dim'}">${md(cut(k.need || k.detail || 'Özet yok.', 260))}</div></div>`
+function topicItem(k, withProj) {
+  return `<div class="item" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${withProj ? `<span class="p">${esc(k.proj)} · </span>` : ''}${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="icon" data-close="${esc(k.id)}" title="Konuyu kapat (geri alınabilir)">${ICON.x}</button></div>
+    <div class="sub${waiting(k) ? ' red' : ''}">${md(cut(k.need || k.detail || 'Özet yok.', 280))}</div></div>`
+}
+function composerHTML(placeholder) {
+  return `<div class="cbox"><textarea rows="1" placeholder="${placeholder}"></textarea><button class="round" title="Boşken: konuşarak yaz · doluyken: gönder">${ICON.mic}${ICON.send}</button></div><div class="cmeta"><span class="to"></span><span class="note"></span></div>`
 }
 function renderCols() {
   const main = $('#main'), d = S.data
@@ -357,67 +408,65 @@ function renderCols() {
   if (!S.cols.length) {
     main.querySelectorAll('.col').forEach(c => c.remove())
     let inbox = main.querySelector('#inbox')
-    if (!inbox) { inbox = document.createElement('div'); inbox.id = 'inbox'; main.append(inbox) }
-    return setHTML(inbox, inboxHTML())
+    if (!inbox) { inbox = document.createElement('div'); inbox.id = 'inbox'; inbox.innerHTML = '<div class="top"></div><div class="body scroll"></div>'; main.append(inbox) }
+    return inboxRender(inbox)
   }
   main.querySelector('#inbox')?.remove()
   main.querySelectorAll('.col').forEach(el => { if (!S.cols.includes(el.dataset.col)) el.remove() })
   S.cols.forEach((c, i) => {
     let el = main.querySelector(`[data-col="${CSS.escape(c)}"]`)
+    const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
     if (!el) {
       el = document.createElement('section'); el.className = 'col'; el.dataset.col = c
-      el.innerHTML = `<header></header><div class="body"></div><div class="cbar"><div class="to dim"></div><div class="cbox"><textarea rows="2" placeholder="Yaz ya da 🎤 ile konuş… (Enter gönderir)"></textarea><button class="cmic" title="Konuşarak yaz">🎤</button><button class="primary csend" title="Gönder">↑</button></div><div class="cnote dim"></div></div>`
+      el.innerHTML = `<header></header><div class="body scroll"></div><div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Bu konuya yaz…' : 'Claude\'a yaz…')}</div>`
     }
     if (main.children[i] !== el) main.insertBefore(el, main.children[i] ?? null)
-    const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
-    el.classList.toggle('focus', !!k && k.id === S.target)
-    const title = k ? `<span class="${dotClass(k)}"></span><span class="t" data-act="target" data-id="${esc(k.id)}">${esc(k.title)}</span>`
-      : pname ? `<span class="t">${esc(pname)}</span>` : c === 'home' ? '<span class="dot o" style="background:var(--blue);box-shadow:none"></span><span class="t">Qosmos (ana oturum, Claude)</span>' : '<span class="t">Harita</span>'
-    setHTML(el.querySelector('header'), `${title}<button class="ghost" data-colx="${esc(c)}" title="Sütunu kapat">✕</button>`)
-    setHTML(el.querySelector('.cbar .to'), k ? `→ ${esc(k.proj)} · ${esc(k.title)}` : pname ? `→ Qosmos (ana oturum) · [${esc(pname)}] diye başlar` : '→ Qosmos (ana oturum, Claude)')
+    const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · ana oturum</span>' : '<span class="title">Harita</span>'
+    setHTML(el.querySelector('header'), `${title}<button class="icon" data-colx="${esc(c)}" title="Sütunu kapat">${ICON.x}</button>`)
+    setHTML(el.querySelector('.cmeta .to'), k ? `→ ${esc(k.proj)} · ${esc(cut(k.title, 60))}` : pname ? `→ Claude (ana oturum) · “[${esc(pname)}]” ile başlar` : '→ Claude (ana oturum)')
     let body
     if (k) body = topicBody(k)
-    else if (c === 'home') {
-      const talk = S.talks.home
-      body = `<div class="meta dim">Çubukta hedef seçili değilken yazdıkların buraya, Qosmos'in ana oturumuna gider. Cevaplar birkaç saniye içinde burada görünür.</div>` +
-        (talk === undefined ? '<div class="dim">Yükleniyor…</div>' : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="who">${m.role === 'sen' ? 'Sen' : 'Claude'}</div><div class="txt">${md(m.text)}</div></div>`).join('') : '<div class="dim">Henüz mesaj yok.</div>')
-    } else if (pname) {
+    else if (c === 'home') body = `<div class="meta">Soldaki çubuktan ya da bu sütundan yazdıkların Qosmos'in ana oturumuna gider; cevaplar burada görünür.</div><div class="label">Konuşma</div>${conv(S.talks.home, [])}`
+    else if (pname) {
       const list = [...gs.get(pname)].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
-      body = `<div class="meta dim">${list.length} konu · ${list.filter(waiting).length} seni bekliyor · ${list.filter(running).length} çalışıyor</div>` + list.map(topicItem).join('')
-    } else body = `<div class="bigmap">${sky(groups())}</div><div class="dim" style="font-size:12px;margin-top:8px">Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · gri: kapanmış · beyaz halka: cevabını okumadın. Daireye bas: konu ya da proje sütunu açılır.</div>`
+      body = `<div class="meta">${list.length} konu · ${list.filter(waiting).length} bekliyor · ${list.filter(running).length} çalışıyor</div><div style="margin:8px -8px 0">${list.map(x => topicItem(x)).join('')}</div>`
+    } else body = `<div class="bigmap">${sky(groups())}</div><div class="meta" style="margin-top:8px">Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · gri: kapanmış · halka: okunmamış. Daireye bas: sütunu açılır.</div>`
     const b = el.querySelector('.body'), first = b._html === undefined
     if (setHTML(b, body) && (k || c === 'home') && (first || c === 'home')) b.scrollTop = b.scrollHeight
   })
 }
-function inboxHTML() {
+function inboxRender(inbox) {
   const shown = visible(), wl = shown.filter(waiting).sort((a, b) => b.last - a.last), old = wl.filter(k => Date.now() - k.last > 7 * DAY)
   const msgs = S.data.messages ?? [], ids = byId()
   const mUnread = m => !m.read && Math.max(ids.get(m.sid)?.seen ?? 0, readAt(m.sid)) < m.at - 1000
-  const tabs = `<div class="tabs"><button data-tab="bekleyen" class="${S.tab === 'bekleyen' ? 'on' : ''}">Bekleyenler (${wl.length})</button><button data-tab="mesajlar" class="${S.tab === 'mesajlar' ? 'on' : ''}">Mesajlar (${msgs.filter(mUnread).length} yeni)</button></div>`
+  let top = `<div class="seg"><button data-tab="bekleyen" class="${S.tab === 'bekleyen' ? 'on' : ''}">Bekleyenler ${wl.length}</button><button data-tab="mesajlar" class="${S.tab === 'mesajlar' ? 'on' : ''}">Mesajlar ${msgs.filter(mUnread).length}</button></div>`
+  let body
   if (S.tab === 'bekleyen') {
-    const bulk = !old.length ? '' : S.confirmOld
-      ? `<div class="row"><button class="primary" data-act="old-yes">Evet, ${old.length} konuyu kapat</button><button data-act="old-no">Vazgeç</button></div>`
-      : `<div class="row"><button data-act="old">7 günden eskileri kapat (${old.length})</button></div>`
-    return tabs + bulk + (wl.length ? wl.map(k => topicItem(k).replace('<span class="t">', `<span class="t"><span class="dim">${esc(k.proj)} ·</span> `)).join('') : '<div class="dim">Seni bekleyen konu yok. Soldan bir proje ya da konu seç, ya da haritada bir daireye bas.</div>')
+    if (old.length) top += S.confirmOld
+      ? `<span class="dim" style="margin-left:auto">${old.length} eski konu kapatılsın mı?</span><button class="btn danger" data-act="old-yes">Kapat</button><button class="btn" data-act="old-no">Vazgeç</button>`
+      : `<button class="btn" style="margin-left:auto" data-act="old">7 günden eskileri kapat (${old.length})</button>`
+    body = wl.length ? wl.map(k => topicItem(k, true)).join('') : '<div class="dim" style="padding:8px">Seni bekleyen konu yok. Soldan bir proje ya da konu seç, ya da haritada bir daireye bas.</div>'
+  } else {
+    const projs = [...new Set(msgs.map(m => m.proj))].sort()
+    const list = msgs.filter(m => !S.proj || m.proj === S.proj).filter(m => S.filter === 'okunmamis' ? mUnread(m) : S.filter === 'okunmus' ? !mUnread(m) : S.filter === 'bekleyen' ? m.cat === 'blocked' : true).slice().reverse().slice(0, 150)
+    top += `<div class="seg">${[['hepsi', 'Hepsi'], ['okunmamis', 'Okunmamış'], ['okunmus', 'Okunmuş'], ['bekleyen', 'Onay bekleyen']].map(([f, l]) => `<button data-filter="${f}" class="${S.filter === f ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <select id="projsel"><option value="">Bütün projeler</option>${projs.map(p => `<option ${p === S.proj ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`
+    body = list.length ? list.map(m => `<div class="item" data-open="k:${esc(m.sid)}"><div class="line"><span class="dot${m.cat === 'blocked' ? ' r' : ''}${mUnread(m) ? ' u' : ''}"></span><span class="t"><span class="p">${esc(m.proj)} · </span>${esc(m.title)}</span><span class="age">${ago(m.at)}</span></div><div class="sub${m.cat === 'blocked' ? ' red' : ''}">${md(cut(m.text, 300))}</div></div>`).join('') : '<div class="dim" style="padding:8px">Bu filtrede mesaj yok.</div>'
   }
-  const projs = [...new Set(msgs.map(m => m.proj))].sort()
-  const list = msgs.filter(m => !S.proj || m.proj === S.proj).filter(m => S.filter === 'okunmamis' ? mUnread(m) : S.filter === 'okunmus' ? !mUnread(m) : S.filter === 'bekleyen' ? m.cat === 'blocked' : true).slice().reverse().slice(0, 150)
-  const filters = `<div class="tabs">${[['hepsi', 'Hepsi'], ['okunmamis', 'Okunmamış'], ['okunmus', 'Okunmuş'], ['bekleyen', 'Onay bekleyen']].map(([f, l]) => `<button data-filter="${f}" class="${S.filter === f ? 'on' : ''}">${l}</button>`).join('')}
-    <select id="projsel"><option value="">Bütün projeler</option>${projs.map(p => `<option ${p === S.proj ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>`
-  return tabs + filters + (list.length ? list.map(m => `<div class="item" data-open="k:${esc(m.sid)}"><div class="line"><span class="dot${m.cat === 'blocked' ? ' r' : ''}${mUnread(m) ? ' u' : ''}"></span><span class="t">${esc(m.proj)} · ${esc(m.title)}</span><span class="dim" style="font-size:12px">${ago(m.at)}</span></div><div class="sub dim">${md(cut(m.text, 300))}</div></div>`).join('') : '<div class="dim">Bu filtrede mesaj yok.</div>')
+  setHTML(inbox.querySelector('.top'), top)
+  setHTML(inbox.querySelector('.body'), body)
 }
-function setHTML(el, html) { if (el._html === html) return false; el.innerHTML = html; el._html = html; return true }
 
-// --- sending: a topic column (or the sidebar bar with a topic picked) writes to that topic; everything else to the home session
-async function sendText(col, text, box, note) {
-  text = text.trim()
+// --- composers: the sidebar one talks to the home session, a column's to its topic (a project column: home, prefixed)
+async function send(comp) {
+  const box = comp.querySelector('textarea'), text = box.value.trim(), to = comp.dataset.to, note = comp.querySelector('.note')
   if (!text) return
-  const ids = byId(), k = col.startsWith('k:') ? ids.get(col.slice(2)) : null
-  const body = col.startsWith('p:') ? `[${col.slice(2)}] ${text}` : text
+  const k = to.startsWith('k:') ? byId().get(to.slice(2)) : null
+  const body = to.startsWith('p:') ? `[${to.slice(2)}] ${text}` : text
   try {
     const r = await api('/api/send', { id: k ? k.id : '', text: body })
-    S.jobs[r.job] = { label: k ? `→ ${cut(k.title, 30)}` : '→ Qosmos', at: Date.now(), note }
-    box.value = ''
+    S.jobs[r.job] = { label: k ? cut(k.title, 30) : 'Claude', at: Date.now(), note }
+    box.value = ''; grow(box); comp.classList.remove('has-text')
     note.textContent = 'Gönderiliyor…'
     const tid = k ? k.id : 'home'
     if (!k && !S.cols.includes('home')) openCol('home')
@@ -426,41 +475,37 @@ async function sendText(col, text, box, note) {
     setTimeout(() => refresh(true), 3000)
   } catch (err) { note.textContent = 'Gönderilemedi: ' + err.message }
 }
-function sendBar() { sendText(S.target ? 'k:' + S.target : 'home', $('#text').value, $('#text'), $('#barnote')) }
-function sendCol(colEl) { const box = colEl.querySelector('.cbar textarea'); sendText(colEl.dataset.col, box.value, box, colEl.querySelector('.cnote')) }
+const grow = t => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 160) + 'px' }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition
 let rec = null
-// One recognizer at a time; it writes into the bar whose 🎤 was pressed.
-function mic(box = $('#text'), btn = $('#mic')) {
-  if (!SR) return toast('Bu tarayıcıda konuşma tanıma yok. Chrome ya da Safari\'de açın; ya da yazı alanında 🌐 (fn) tuşuna iki kez basıp Mac dikte ile konuşun.', 7000)
-  if (rec) { const same = rec.btn === btn; rec.stop(); if (same) return }
-  const r = new SR(); r.lang = 'tr-TR'; r.interimResults = true; r.continuous = true; r.btn = btn
-  const base = box.value ? box.value + ' ' : ''
-  r.onresult = e => { box.value = base + [...e.results].map(x => x[0].transcript).join('') }
-  r.onend = () => { if (rec === r) rec = null; btn.classList.remove('on') }
+function mic(comp) {
+  if (!SR) return toast('Bu tarayıcıda konuşma tanıma yok. Yazı alanında 🌐 (fn) tuşuna iki kez basıp Mac dikte ile konuşabilirsin.')
+  if (rec) { const same = rec.comp === comp; rec.stop(); if (same) return }
+  const box = comp.querySelector('textarea'), base = box.value ? box.value + ' ' : ''
+  const r = new SR(); r.lang = 'tr-TR'; r.interimResults = true; r.continuous = true; r.comp = comp
+  r.onresult = e => { box.value = base + [...e.results].map(x => x[0].transcript).join(''); grow(box) }
+  r.onend = () => { if (rec === r) rec = null; comp.classList.remove('rec'); comp.classList.toggle('has-text', !!box.value.trim()) }
   r.onerror = e => toast('Mikrofon: ' + e.error)
-  rec = r; r.start(); btn.classList.add('on'); box.focus()
+  rec = r; r.start(); comp.classList.add('rec'); box.focus()
 }
 
-// --- events (one delegated listener)
+// --- events (delegated)
 document.addEventListener('click', e => {
   const t = e.target, ids = byId()
+  const comp = t.closest('.composer')
+  if (comp && t.closest('.round')) return comp.classList.contains('has-text') && !comp.classList.contains('rec') ? send(comp) : mic(comp)
   const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
   const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
-  const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Geri aç', at: Date.now() }; refresh(true) })
+  const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Geri aç', at: Date.now() }; toast('Konu geri açıldı'); refresh(true) })
   const pick = t.closest('[data-theme-pick]'); if (pick) { document.documentElement.dataset.theme = pick.dataset.themePick; keep('theme', pick.dataset.themePick); return renderSide() }
   const days = t.closest('[data-days]'); if (days) { S.days = +days.dataset.days; keep('days', S.days); return render() }
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
   const filter = t.closest('[data-filter]'); if (filter) { S.filter = filter.dataset.filter; return renderCols() }
-  const proj = t.closest('[data-proj]'); if (proj) {
-    const n = proj.dataset.proj, c = 'p:' + n
-    if (S.open.has(n) && S.cols.includes(c)) { S.open.delete(n); S.cols = S.cols.filter(x => x !== c); keep('cols', S.cols) } else { S.open.add(n); keep('open', [...S.open]); return openCol(c) }
-    keep('open', [...S.open]); return render()
-  }
+  const proj = t.closest('[data-proj]'); if (proj) return pickProject(S.pp === proj.dataset.proj ? '' : proj.dataset.proj)
+  if (t.closest('[data-plx]')) return pickProject('')
   if (t.closest('[data-closed]')) { S.open.has('__kapali') ? S.open.delete('__kapali') : S.open.add('__kapali'); keep('open', [...S.open]); return renderSide() }
   const act = t.closest('[data-act]'); if (act) {
     const k = ids.get(act.dataset.id), a = act.dataset.act
-    if (a === 'target') { setTarget(k.id); return renderCols() }
     if (a === 'app') return openInApp(k)
     if (a === 'read') return markRead(k)
     if (a === 'close') return closeTopic(k)
@@ -469,36 +514,26 @@ document.addEventListener('click', e => {
     if (a === 'old-no') { S.confirmOld = false; return renderCols() }
     if (a === 'old-yes') { S.confirmOld = false; return (async () => { for (const x of old) await api('/api/close', { id: x.id }).then(r => r.job && (S.jobs[r.job] = { label: 'Arşiv', at: Date.now() })).catch(() => {}); toast(`${old.length} konu kapatıldı`); refresh(true) })() }
   }
-  if (t.id === 'untarget') { setTarget(''); return renderCols() }
   const open = t.closest('[data-open]'); if (open) return openCol(open.dataset.open)
 })
-document.addEventListener('click', e => {
-  const col = e.target.closest('.col'); if (!col) return
-  if (e.target.closest('.csend')) sendCol(col)
-  else if (e.target.closest('.cmic')) mic(col.querySelector('.cbar textarea'), e.target.closest('.cmic'))
-})
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.cbar textarea')) { e.preventDefault(); sendCol(e.target.closest('.col')) }
-})
+document.addEventListener('input', e => { if (e.target.matches('.composer textarea')) { grow(e.target); e.target.closest('.composer').classList.toggle('has-text', !!e.target.value.trim()) } })
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.composer textarea')) { e.preventDefault(); send(e.target.closest('.composer')) } })
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
 $('#mini').addEventListener('click', e => { e.stopPropagation(); onSkyClick(e, () => openCol('harita')) })
 $('#main').addEventListener('click', e => { if (e.target.closest('.bigmap')) onSkyClick(e) })
-$('#send').addEventListener('click', sendBar)
-$('#mic').addEventListener('click', () => mic())
-$('#text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendBar() } })
-if (!SR) $('#mic').title = 'Bu tarayıcıda konuşma tanıma yok; Mac dikte için 🌐 tuşuna iki kez bas'
+$('#sidebar-composer').innerHTML = composerHTML('Claude\'a yaz… (Enter gönderir)')
 
-// --- data: sessions every 10 s, open conversations every 15 s; bridge results shown on the bar
+// --- data: sessions every 10 s, open conversations every 15 s; bridge results show under the bar that sent them
 async function refresh(now) {
   try { S.data = await api('/api/scan' + (now ? '?t=' + Date.now() : '')) } catch (err) { $('#counts').textContent = 'Sunucuya ulaşılamadı: ' + err.message; return }
-  for (const [job, { label, at }] of Object.entries(S.jobs)) {
-    const r = S.data.results?.[job]
-    const out = (S.jobs[job].note && S.jobs[job].note.isConnected) ? S.jobs[job].note : $('#barnote')
-    if (r) { out.textContent = `${r.ok ? '✓ iletildi' : '✗ iletilemedi'} ${label}${r.ok ? '' : ': ' + r.text}`; delete S.jobs[job] }
-    else if (Date.now() - at > 20000) { out.textContent = `${label}: köprü yanıt vermiyor. Qosmos eklentisinin açık olduğu Claude oturumu çalışıyor mu?`; delete S.jobs[job] }
+  for (const [job, j] of Object.entries(S.jobs)) {
+    const r = S.data.results?.[job], out = j.note?.isConnected ? j.note : $('#sidebar-composer .note')
+    if (r) { out.textContent = r.ok ? `✓ iletildi · ${j.label}` : `✗ iletilemedi · ${j.label}: ${r.text}`; delete S.jobs[job] }
+    else if (Date.now() - j.at > 20000) { out.textContent = `${j.label}: köprü yanıt vermiyor — ana oturum açık mı?`; delete S.jobs[job] }
   }
   render()
 }
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {})
 refresh()
 setInterval(refresh, 10000)
 const talkIds = () => S.cols.filter(c => c.startsWith('k:') || c === 'home').map(c => (c === 'home' ? 'home' : c.slice(2)))
