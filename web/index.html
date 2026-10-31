@@ -69,7 +69,13 @@
   #box { display: flex; align-items: flex-end; gap: 6px; background: var(--input); border: 1px solid var(--input-line); border-radius: 10px; padding: 6px; }
   #box:focus-within { border-color: var(--blue); }
   #text { flex: 1; resize: none; background: none; border: none; outline: none; min-height: 38px; max-height: 160px; }
-  #mic.on { background: var(--red); border-color: var(--red); color: #fff; }
+  #mic.on, .cmic.on { background: var(--red); border-color: var(--red); color: #fff; }
+  .cbar { flex: none; border-top: 1px solid var(--line); padding: 8px; background: var(--bg); }
+  .cbar .to { font-size: 11px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cbox { display: flex; align-items: flex-end; gap: 6px; background: var(--input); border: 1px solid var(--input-line); border-radius: 10px; padding: 6px; }
+  .cbox:focus-within { border-color: var(--blue); }
+  .cbox textarea { flex: 1; resize: none; background: none; border: none; outline: none; min-height: 36px; max-height: 140px; }
+  .cnote { font-size: 11px; margin-top: 4px; min-height: 14px; }
   #barnote { font-size: 11px; margin-top: 4px; min-height: 14px; }
   #mini { --sky: var(--side); border-top: 1px solid var(--line); height: 230px; flex: none; position: relative; cursor: pointer; }
   #mini svg { width: 100%; height: 100%; display: block; }
@@ -358,13 +364,17 @@ function renderCols() {
   main.querySelectorAll('.col').forEach(el => { if (!S.cols.includes(el.dataset.col)) el.remove() })
   S.cols.forEach((c, i) => {
     let el = main.querySelector(`[data-col="${CSS.escape(c)}"]`)
-    if (!el) { el = document.createElement('section'); el.className = 'col'; el.dataset.col = c; el.innerHTML = '<header></header><div class="body"></div>' }
+    if (!el) {
+      el = document.createElement('section'); el.className = 'col'; el.dataset.col = c
+      el.innerHTML = `<header></header><div class="body"></div><div class="cbar"><div class="to dim"></div><div class="cbox"><textarea rows="2" placeholder="Yaz ya da 🎤 ile konuş… (Enter gönderir)"></textarea><button class="cmic" title="Konuşarak yaz">🎤</button><button class="primary csend" title="Gönder">↑</button></div><div class="cnote dim"></div></div>`
+    }
     if (main.children[i] !== el) main.insertBefore(el, main.children[i] ?? null)
     const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
     el.classList.toggle('focus', !!k && k.id === S.target)
     const title = k ? `<span class="${dotClass(k)}"></span><span class="t" data-act="target" data-id="${esc(k.id)}">${esc(k.title)}</span>`
       : pname ? `<span class="t">${esc(pname)}</span>` : c === 'home' ? '<span class="dot o" style="background:var(--blue);box-shadow:none"></span><span class="t">Qosmos (ana oturum, Claude)</span>' : '<span class="t">Harita</span>'
     setHTML(el.querySelector('header'), `${title}<button class="ghost" data-colx="${esc(c)}" title="Sütunu kapat">✕</button>`)
+    setHTML(el.querySelector('.cbar .to'), k ? `→ ${esc(k.proj)} · ${esc(k.title)}` : pname ? `→ Qosmos (ana oturum) · [${esc(pname)}] diye başlar` : '→ Qosmos (ana oturum, Claude)')
     let body
     if (k) body = topicBody(k)
     else if (c === 'home') {
@@ -398,34 +408,38 @@ function inboxHTML() {
 }
 function setHTML(el, html) { if (el._html === html) return false; el.innerHTML = html; el._html = html; return true }
 
-// --- the one command bar, with the browser's speech recognition as the microphone
-async function sendBar() {
-  const box = $('#text'), text = box.value.trim()
+// --- sending: a topic column (or the sidebar bar with a topic picked) writes to that topic; everything else to the home session
+async function sendText(col, text, box, note) {
+  text = text.trim()
   if (!text) return
-  const k = S.target && byId().get(S.target)
+  const ids = byId(), k = col.startsWith('k:') ? ids.get(col.slice(2)) : null
+  const body = col.startsWith('p:') ? `[${col.slice(2)}] ${text}` : text
   try {
-    const r = await api('/api/send', { id: k ? k.id : '', text })
-    S.jobs[r.job] = { label: k ? `→ ${cut(k.title, 30)}` : '→ Qosmos', at: Date.now() }
+    const r = await api('/api/send', { id: k ? k.id : '', text: body })
+    S.jobs[r.job] = { label: k ? `→ ${cut(k.title, 30)}` : '→ Qosmos', at: Date.now(), note }
     box.value = ''
-    $('#barnote').textContent = 'Gönderiliyor…'
+    note.textContent = 'Gönderiliyor…'
     const tid = k ? k.id : 'home'
     if (!k && !S.cols.includes('home')) openCol('home')
-    S.talks[tid] = [...(S.talks[tid] ?? []), { role: 'sen', text }]; renderCols()
+    S.talks[tid] = [...(S.talks[tid] ?? []), { role: 'sen', text: body }]; renderCols()
     for (const ms of [4000, 10000, 20000, 40000]) setTimeout(() => loadTalk(tid), ms)
     setTimeout(() => refresh(true), 3000)
-  } catch (err) { $('#barnote').textContent = 'Gönderilemedi: ' + err.message }
+  } catch (err) { note.textContent = 'Gönderilemedi: ' + err.message }
 }
+function sendBar() { sendText(S.target ? 'k:' + S.target : 'home', $('#text').value, $('#text'), $('#barnote')) }
+function sendCol(colEl) { const box = colEl.querySelector('.cbar textarea'); sendText(colEl.dataset.col, box.value, box, colEl.querySelector('.cnote')) }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition
 let rec = null
-function mic() {
+// One recognizer at a time; it writes into the bar whose 🎤 was pressed.
+function mic(box = $('#text'), btn = $('#mic')) {
   if (!SR) return toast('Bu tarayıcıda konuşma tanıma yok. Chrome ya da Safari\'de açın; ya da yazı alanında 🌐 (fn) tuşuna iki kez basıp Mac dikte ile konuşun.', 7000)
-  if (rec) { rec.stop(); return }
-  rec = new SR(); rec.lang = 'tr-TR'; rec.interimResults = true; rec.continuous = true
-  const box = $('#text'), base = box.value ? box.value + ' ' : ''
-  rec.onresult = e => { box.value = base + [...e.results].map(r => r[0].transcript).join('') }
-  rec.onend = () => { rec = null; $('#mic').classList.remove('on') }
-  rec.onerror = e => toast('Mikrofon: ' + e.error)
-  rec.start(); $('#mic').classList.add('on')
+  if (rec) { const same = rec.btn === btn; rec.stop(); if (same) return }
+  const r = new SR(); r.lang = 'tr-TR'; r.interimResults = true; r.continuous = true; r.btn = btn
+  const base = box.value ? box.value + ' ' : ''
+  r.onresult = e => { box.value = base + [...e.results].map(x => x[0].transcript).join('') }
+  r.onend = () => { if (rec === r) rec = null; btn.classList.remove('on') }
+  r.onerror = e => toast('Mikrofon: ' + e.error)
+  rec = r; r.start(); btn.classList.add('on'); box.focus()
 }
 
 // --- events (one delegated listener)
@@ -458,11 +472,19 @@ document.addEventListener('click', e => {
   if (t.id === 'untarget') { setTarget(''); return renderCols() }
   const open = t.closest('[data-open]'); if (open) return openCol(open.dataset.open)
 })
+document.addEventListener('click', e => {
+  const col = e.target.closest('.col'); if (!col) return
+  if (e.target.closest('.csend')) sendCol(col)
+  else if (e.target.closest('.cmic')) mic(col.querySelector('.cbar textarea'), e.target.closest('.cmic'))
+})
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.cbar textarea')) { e.preventDefault(); sendCol(e.target.closest('.col')) }
+})
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
 $('#mini').addEventListener('click', e => { e.stopPropagation(); onSkyClick(e, () => openCol('harita')) })
 $('#main').addEventListener('click', e => { if (e.target.closest('.bigmap')) onSkyClick(e) })
 $('#send').addEventListener('click', sendBar)
-$('#mic').addEventListener('click', mic)
+$('#mic').addEventListener('click', () => mic())
 $('#text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendBar() } })
 if (!SR) $('#mic').title = 'Bu tarayıcıda konuşma tanıma yok; Mac dikte için 🌐 tuşuna iki kez bas'
 
@@ -471,8 +493,9 @@ async function refresh(now) {
   try { S.data = await api('/api/scan' + (now ? '?t=' + Date.now() : '')) } catch (err) { $('#counts').textContent = 'Sunucuya ulaşılamadı: ' + err.message; return }
   for (const [job, { label, at }] of Object.entries(S.jobs)) {
     const r = S.data.results?.[job]
-    if (r) { $('#barnote').textContent = `${r.ok ? '✓' : '✗'} ${label}: ${r.text || (r.ok ? 'iletildi' : 'iletilemedi')}`; delete S.jobs[job] }
-    else if (Date.now() - at > 20000) { $('#barnote').textContent = `${label}: köprü yanıt vermiyor. Qosmos eklentisinin açık olduğu Claude oturumu çalışıyor mu?`; delete S.jobs[job] }
+    const out = (S.jobs[job].note && S.jobs[job].note.isConnected) ? S.jobs[job].note : $('#barnote')
+    if (r) { out.textContent = `${r.ok ? '✓ iletildi' : '✗ iletilemedi'} ${label}${r.ok ? '' : ': ' + r.text}`; delete S.jobs[job] }
+    else if (Date.now() - at > 20000) { out.textContent = `${label}: köprü yanıt vermiyor. Qosmos eklentisinin açık olduğu Claude oturumu çalışıyor mu?`; delete S.jobs[job] }
   }
   render()
 }
