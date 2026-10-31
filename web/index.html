@@ -82,7 +82,7 @@
   .item .sub.orange { color: var(--orange); }
   #main { flex: 1; }
   /* when the map is the first column it docks right of the sidebar, before the project panel */
-  #mapdock { display: flex; flex: none; min-height: 0; }
+  #mapdock { display: flex; flex: none; min-height: 0; overflow: hidden; }
   #mapdock > .col { border-right: 1px solid var(--line); }
 
   /* Sidebar */
@@ -595,7 +595,10 @@ function applyWidths() {
   if (W.plist) document.documentElement.style.setProperty('--plist-w', W.plist + 'px')
   const cols = [...document.querySelectorAll('#main > .col')]
   cols.forEach((el, i) => { const w = i < cols.length - 1 && W['col:' + el.dataset.col]; el.style.flex = w ? `0 0 ${w}px` : '' })
-  const docked = document.querySelector('#mapdock > .col'); if (docked) docked.style.flex = `0 0 ${W['col:harita'] || 460}px`
+  // Safari sizes a flex box by its content (the map's own width); pin the dock to the column's width instead
+  const dock = $('#mapdock'), docked = dock.querySelector('.col'), dw = W['col:harita'] || 460
+  if (docked) docked.style.flex = `0 0 ${dw}px`
+  dock.style.width = docked ? dw + 'px' : '0px'
 }
 let rz = null
 document.addEventListener('pointerdown', e => {
@@ -615,6 +618,7 @@ document.addEventListener('pointermove', e => {
     const d = rz.next ? Math.max(260 - rz.w, Math.min(rz.nw - 260, dx)) : Math.max(260 - rz.w, dx)
     W['col:' + rz.panel.dataset.col] = Math.round(rz.w + d)
     rz.panel.style.flex = `0 0 ${Math.round(rz.w + d)}px`
+    if (rz.panel.parentElement.id === 'mapdock') rz.panel.parentElement.style.width = Math.round(rz.w + d) + 'px'
     const last = rz.next && !rz.next.nextElementSibling
     if (rz.next && !last) { W['col:' + rz.next.dataset.col] = Math.round(rz.nw - d); rz.next.style.flex = `0 0 ${Math.round(rz.nw - d)}px` }
   }
