@@ -129,7 +129,6 @@
   .group .row .more { visibility: hidden; width: 26px; height: 26px; margin-right: -6px; border: 0; border-radius: 8px; background: none; color: var(--text2); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .group .row:hover .more, .group .row.on .more, .group .row .more.open { visibility: visible; }
   .group .row .more:hover, .group .row .more.open { background: color-mix(in srgb, var(--input), var(--text) 12%); color: var(--text); }
-  .udot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex: none; }
   .drag-shift { transition: transform .16s cubic-bezier(.2,.8,.2,1); }
   .drag-hole { visibility: hidden; }
   .drag-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; background: var(--btn-hover); color: var(--text); border-radius: 7px; outline: 1px solid var(--input-line); outline-offset: -1px;
@@ -149,6 +148,7 @@
   .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--grey); }
   .dot.r { background: var(--red); animation: blink 1s infinite; }
   .dot.o { background: var(--orange); }
+  .dot.b { background: var(--blue); }
   .dot.u { box-shadow: 0 0 0 1.5px var(--ring); background: transparent; }
   @keyframes blink { 50% { opacity: .25; } }
   svg [data-k], svg [data-p] { cursor: pointer; }
@@ -295,9 +295,11 @@ const waiting = k => !!k.ask || (k.cat === 'blocked' && !k.busy)
 const running = k => !!k.busy && !k.ask
 const readAt = id => S.data?.readAt?.[id] ?? 0
 const unread = k => Math.max(k.seen, readAt(k.id)) < k.last - 1000
+// Blue, like Claude's sidebar: a reply you have not read, from the last 24 hours
+const fresh = k => !waiting(k) && !running(k) && unread(k) && Date.now() - k.last < DAY
 const ago = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 60 ? `${m}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d` }
 const visible = () => (S.data?.sessions ?? []).filter(k => S.days === 0 || Date.now() - k.last < S.days * DAY || (waiting(k) && Date.now() - k.last < 30 * DAY))
-const dot = k => `<span class="dot${waiting(k) ? ' r' : running(k) ? ' o' : !unread(k) ? '' : ' u'}"></span>`
+const dot = k => `<span class="dot${waiting(k) ? ' r' : running(k) ? ' o' : fresh(k) ? ' b' : !unread(k) ? '' : ' u'}"></span>`
 const accLabel = acc => { const a = S.data.accounts; return `H${a.indexOf(acc) + 1}${acc === S.data.current ? '' : ' · other account'}` }
 const byId = () => new Map((S.data?.sessions ?? []).map(k => [k.id, k]))
 const LOOSE = new Set(['No folder', '~'])  // sessions started from + New, with no project folder
@@ -422,14 +424,14 @@ function renderSide() {
   setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
-    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${list.some(fresh) ? '<span class="udot" title="New reply in the last 24 hours"></span>' : ''}${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><button class="more" title="More">${ICON.more}</button></div>`
+    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : list.some(fresh) ? ' b' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><button class="more" title="More">${ICON.more}</button></div>`
   }).join('')
   const hidden = d.hidden ?? []
   const closed = hidden.length ? `<div class="section">Closed</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} sessions</span></div>` +
     (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Reopen</button></div>`).join('') : '') : ''
   const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
-  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span>${fresh(k) ? '<span class="udot" title="New reply in the last 24 hours"></span>' : ''}<span class="age">${ago(k.last)}</span><button class="more" title="More">${ICON.more}</button></div>`).join('')
+  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" title="More">${ICON.more}</button></div>`).join('')
   setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div>${closed}`)
   fillMeta($('#sidebar-composer'), true)
 }
@@ -473,8 +475,6 @@ function modelName(m) {
   const x = /^claude-([a-z]+)-(\d+)(?:-(\d))?(?:-\d{8})?(\[1m\])?$/.exec(m || '')
   return x ? `${x[1][0].toUpperCase()}${x[1].slice(1)} ${x[2]}${x[3] ? '.' + x[3] : ''}${x[4] ? ' · 1M' : ''}` : (m || 'Default model')
 }
-// Blue dot, like Claude's sidebar: a reply you have not read, from the last 24 hours
-const fresh = k => !waiting(k) && !running(k) && unread(k) && Date.now() - k.last < DAY
 const homeRow = () => (S.data?.sessions ?? []).find(x => x.home)
 function targetOf(comp) { const to = comp.dataset.to; return to.startsWith('k:') ? byId().get(to.slice(2)) : homeRow() }
 function fillMeta(comp, withWait) {
