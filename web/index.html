@@ -95,7 +95,7 @@
   .row.sub { padding-left: 26px; }
   .row.proj { touch-action: none; }
   .group { display: flex; flex-direction: column; gap: 4px; padding: 0 2px; }
-  .group .row { height: 32px; background: var(--card); border: 1px solid var(--input-line); border-radius: 16px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
+  .group .row { height: 40px; font-size: 14px; padding: 0 12px; gap: 10px; background: var(--card); border: 1px solid var(--input-line); border-radius: 16px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
   .group .row:hover { background: var(--btn-hover); }
   .group .row.on { background: var(--sel); border-color: color-mix(in srgb, var(--input-line), var(--text) 30%); }
   :root[data-theme="acik"] #side .group .row.proj.on { background: #ffffff; }
@@ -121,6 +121,9 @@
   .col-ghost .rz { display: none; }
   .col-ghost.lifted { transform: rotate(var(--tilt, 0deg)) scale(1.015); box-shadow: 0 22px 48px rgba(0,0,0,.40), 0 4px 12px rgba(0,0,0,.25); transition: transform .08s ease-out, box-shadow .14s ease; }
   .col-ghost.settle { transition: left .18s cubic-bezier(.2,.8,.2,1), top .18s cubic-bezier(.2,.8,.2,1), transform .18s ease, box-shadow .18s ease; }
+  .group .row .badge { font-size: 11.5px; min-width: 19px; height: 19px; border-radius: 10px; }
+  .group .row .dot { width: 8px; height: 8px; }
+  .group .row .age { font-size: 12px; }
   .drag-shift { transition: transform .16s cubic-bezier(.2,.8,.2,1); }
   .drag-hole { visibility: hidden; }
   .drag-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; background: var(--btn-hover); color: var(--text); border-radius: 7px; outline: 1px solid var(--input-line); outline-offset: -1px;
