@@ -112,6 +112,8 @@
   .sideopen .i { width: 17px; height: 17px; }
   .sideopen:hover { background: var(--btn-hover); color: var(--text); }
   #empty { position: relative; }
+  /* a narrow sidebar: its bar drops the waiting count (the counts at the top already say it), so Opus and the effort stay whole */
+  @container (max-width: 320px) { #sidebar-composer .cmeta .wait { display: none; } }
   #empty .sideopen { position: absolute; top: 8px; left: 14px; margin: 0; }
   @media (max-width: 760px) { #sidetog { display: none; } }
   #head { padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
