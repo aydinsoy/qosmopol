@@ -189,6 +189,8 @@
   .cmeta .wait .dot { display: inline-block; margin-right: 5px; vertical-align: 1px; }
   #tip { position: fixed; z-index: 80; pointer-events: none; background: var(--round); color: var(--round-fg); font-size: 11.5px; font-weight: 500; padding: 4px 9px; border-radius: 8px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.18); opacity: 0; transform: translateY(3px); transition: opacity .1s, transform .1s; }
   #tip.on { opacity: 1; transform: none; }
+  /* the map's card: roomier, a light grey-white card, lines kept */
+  #tip.big { background: #f3f3f5; color: #1f1f22; font-size: 13px; line-height: 1.45; padding: 8px 12px; border-radius: 10px; white-space: pre-line; max-width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,.28); border: 1px solid rgba(0,0,0,.06); }
   [data-tip] { cursor: default; }
   #menu { position: fixed; z-index: 70; min-width: 180px; background: var(--toast); color: var(--text); border: 1px solid var(--input-line); border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px rgba(0,0,0,.22); display: none; }
   #menu.on { display: block; }
@@ -393,7 +395,7 @@ function sky(gs, { labels = true } = {}) {
       // closed moons have no ring and fade 10% a day after their last activity, gone after ten days
       const fade = w || run || isNew ? 1 : Math.max(0, 1 - (Date.now() - k.last) / (10 * DAY))
       const tip = `${p.name} · ${k.title}\n${w ? 'WAITING FOR YOU' : run ? 'Agent working' : isNew ? 'New reply' : 'Closed'} · ${ago(k.last)} ago${k.need ? '\n' + k.need : ''}`
-      o.push(`<g data-k="${esc(k.id)}" data-c="${mx},${my}" data-l="${ex},${ey}" opacity="${fade.toFixed(2)}"><title>${esc(tip)}</title>`)
+      o.push(`<g data-k="${esc(k.id)}" data-c="${mx},${my}" data-l="${ex},${ey}" opacity="${fade.toFixed(2)}" data-tip="${esc(tip)}" data-tipbig="1">`)
       o.push(`<line x1="${ex}" y1="${ey}" x2="${mx}" y2="${my}" stroke="${w ? 'var(--red)' : run ? 'var(--orange)' : 'var(--mline)'}" stroke-width="${w || run ? 0.9 : 0.6}"/>`)
       o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 7}" fill="transparent"/>`)
       if (w) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="var(--red)" opacity="0.45"><animate attributeName="opacity" values="0.5;0;0.5" dur="0.9s" repeatCount="indefinite"/></circle>`)
@@ -407,7 +409,7 @@ function sky(gs, { labels = true } = {}) {
       const anchor = cx2 > 0.35 ? 'start' : cx2 < -0.35 ? 'end' : 'middle', top = cy2 < -0.35 ? ly - 7 : cy2 > 0.35 ? ly + 3 : ly - 2
       o.push(`<text x="${lx}" y="${top}" text-anchor="${anchor}" font-size="5.5" fill="var(--label)" style="pointer-events:none"><tspan x="${lx}">${esc(l1)}</tspan>${l2 ? `<tspan x="${lx}" dy="6.5">${esc(l2)}</tspan>` : ''}</text></g>`)
     })
-    o.push(`<g data-p="${esc(p.name)}" data-c="${p.x},${p.y},${p.r}"><title>${esc(`${p.name}: ${p.list.length} sessions · ${nWait} waiting for you`)}</title>`)
+    o.push(`<g data-p="${esc(p.name)}" data-c="${p.x},${p.y},${p.r}" data-tip="${esc(`${p.name}\n${p.list.length} sessions · ${nWait} waiting for you`)}" data-tipbig="1">`)
     if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5">${blink}</circle>`)
     else if (anyRun) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--orange)" stroke-width="2"/>`)
     const lively = p.list.some(k => Date.now() - k.last < 7 * DAY)
@@ -719,12 +721,13 @@ document.addEventListener('mouseover', e => {
   const el = e.target.closest && e.target.closest('[data-tip]'), tip = $('#tip')
   if (el === tipEl) return
   tipEl = el; clearTimeout(tipTimer); tip.classList.remove('on')
-  if (el) tipTimer = setTimeout(() => showTip(el), 350)
+  if (el) tipTimer = setTimeout(() => showTip(el), el.dataset.tipbig ? 180 : 350)
 })
 function showTip(el) {
   const tip = $('#tip')
   if (!el.isConnected) return
   tip.textContent = tr(el.dataset.tip)
+  tip.classList.toggle('big', !!el.dataset.tipbig)
   const r = el.getBoundingClientRect(), w = tip.offsetWidth
   tip.style.left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2)) + 'px'
   tip.style.top = (r.top - tip.offsetHeight - 8) + 'px'
@@ -775,7 +778,7 @@ const TR_WHOLE = [  // a whole text that carries numbers
 const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map titles)
   [/(\d+)m ago/g, '$1 dk önce'], [/(\d+)h ago/g, '$1 sa önce'], [/(\d+)d ago/g, '$1 g önce'], [/ (\d+) turns? ·/g, ' $1 tur ·'], [/ · other account/g, ' · başka hesap'],
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
-  [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '],
+  [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
   [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
@@ -1121,6 +1124,7 @@ let mpan = null
 document.addEventListener('pointerdown', e => {
   const m = e.button === 0 && e.target.closest('.bigmap'); if (!m || e.target.closest('.maptools')) return
   mpan = { x0: e.clientX, y0: e.clientY, x: MV.x, y: MV.y, moved: false, el: m }
+  clearTimeout(tipTimer); $('#tip').classList.remove('on')
 })
 document.addEventListener('pointermove', e => {
   if (!mpan) return
