@@ -63,13 +63,16 @@
   .btn:disabled { opacity: .45; }
   .icon { width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .icon:hover { background: var(--hover); color: var(--text); }
-  .seg { display: inline-flex; background: var(--seg); border-radius: 7px; padding: 2px; gap: 2px; }
-  .seg button { height: 22px; padding: 0 9px; border: 0; border-radius: 5px; background: none; color: var(--dim); font-size: 11.5px; }
+  .seg { display: flex; background: var(--seg); border-radius: 7px; padding: 2px; gap: 2px; }
+  .seg button { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 22px; padding: 0 9px; border: 0; border-radius: 5px; background: none; color: var(--dim); font-size: 11.5px; }
   .seg button:hover { color: var(--text); }
   .seg button.on { background: var(--seg-on); color: var(--text); box-shadow: var(--seg-shadow); }
 
   #app { display: flex; height: 100vh; }
-  #side { width: var(--side-w, 272px); flex: none; position: relative; }
+  #side { width: var(--side-w, 272px); flex: none; position: relative; container-type: inline-size; }
+  #counts > span { white-space: nowrap; }
+  /* a narrow sidebar tightens the segmented controls instead of wrapping their labels */
+  @container (max-width: 250px) { #side .seg button { padding: 0 5px; font-size: 11px; } #counts { gap: 8px; font-size: 11.5px; } }
   #plist { width: 0; flex: none; overflow: hidden; display: flex; flex-direction: column; min-height: 0; background: var(--bg); border-right: 1px solid transparent; transition: width .16s ease; }
   #plist { position: relative; }
   #plist.open { width: var(--plist-w, 320px); border-right-color: var(--line); }
@@ -93,7 +96,7 @@
   #brand .bname { font-size: 15px; font-weight: 650; letter-spacing: .2px; color: var(--text); line-height: 1.2; }
   #brand .btag { font-size: 11.5px; color: var(--dim); line-height: 1.3; }
   #head { padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
-  #counts { display: flex; gap: 12px; font-size: 12px; color: var(--text2); }
+  #counts { display: flex; flex-wrap: wrap; row-gap: 2px; gap: 12px; font-size: 12px; color: var(--text2); }
   #counts b { font-weight: 600; }
   #counts .w b { color: var(--red); }
   #counts .o b { color: var(--orange); }
@@ -244,7 +247,6 @@
   /* hover: the circle under the pointer grows, nearby moons ease away, everything eases back on leave */
   .bigmap svg circle { transform-box: fill-box; transform-origin: center; }
   .bigmap svg line { transform-box: view-box; transform-origin: 0 0; }
-  .bigmap svg [data-k] circle, .bigmap svg [data-k] text, .bigmap svg [data-k] line, .bigmap svg [data-p] circle { transition: transform .5s var(--spring); }
   /* session labels show only once the map is zoomed in, where they have room */
   .bigmap [data-k] text { opacity: 0; transition: opacity .2s; }
   .bigmap.zoomed [data-k] text { opacity: 1; }
@@ -1066,38 +1068,62 @@ $('#app').addEventListener('click', e => {
 // --- the map canvas: pan by dragging, zoom by pinch (Chrome: ctrl+wheel, Safari: gesture events) or the wheel,
 // around the pointer. The view is kept across refreshes and reloads; ↻ centres it again at 1×.
 const MV = Object.assign({ x: 0, y: 0, s: 1 }, kept('mapView', {}))
-// Hover lens: the circle under the pointer scales up; moons within reach slide away from it, their line kept
-// attached to the planet (the line turns and stretches about its planet end). Leaving resets, and CSS eases it all.
+// Hover lens: the circle under the pointer scales up and moons within reach slide away from it. A small spring
+// runs per frame and moves each moon's circles, label and the far end of its line together, so the line stays
+// attached to both the planet and the moon through every frame of the motion (overshoot included).
 let hovG = null
+const LENS = new Map()  // group -> { x, y, s, vx, vy, vs, tx, ty, ts, line, x2, y2 }
+let lensRaf = 0
+function lensState(g) {
+  let st = LENS.get(g)
+  if (!st) {
+    const line = g.querySelector('line')
+    st = { x: 0, y: 0, s: 1, vx: 0, vy: 0, vs: 0, tx: 0, ty: 0, ts: 1, line, x2: line ? +line.getAttribute('x2') : 0, y2: line ? +line.getAttribute('y2') : 0 }
+    LENS.set(g, st)
+  }
+  return st
+}
+function lensStep() {
+  let moving = false
+  for (const [g, st] of LENS) {
+    if (!g.isConnected) { LENS.delete(g); continue }
+    for (const [p, v, t] of [['x', 'vx', 'tx'], ['y', 'vy', 'ty'], ['s', 'vs', 'ts']]) {
+      st[v] = (st[v] + (st[t] - st[p]) * 0.16) * 0.74  // stiffness, damping: a soft spring with a little overshoot
+      st[p] += st[v]
+      if (Math.abs(st[v]) > 0.002 || Math.abs(st[t] - st[p]) > 0.002) moving = true
+      else { st[p] = st[t]; st[v] = 0 }
+    }
+    const isPlanet = 'p' in g.dataset
+    g.querySelectorAll(isPlanet ? 'circle' : 'circle, text').forEach(el => {
+      el.style.transform = el.tagName === 'text' ? `translate(${st.x}px, ${st.y}px)` : `translate(${st.x}px, ${st.y}px) scale(${st.s})`
+    })
+    if (st.line) { st.line.setAttribute('x2', (st.x2 + st.x).toFixed(2)); st.line.setAttribute('y2', (st.y2 + st.y).toFixed(2)) }
+  }
+  lensRaf = moving ? requestAnimationFrame(lensStep) : 0
+}
 function hoverMap(g) {
   if (g === hovG) return
   hovG = g
   const svg = document.querySelector('.bigmap svg'); if (!svg) return
-  const moons = [...svg.querySelectorAll('[data-k]')]
-  svg.querySelectorAll('[data-k] circle, [data-k] text, [data-k] line, [data-p] circle').forEach(el => (el.style.transform = ''))
-  if (!g) return
-  const [hx, hy, hr] = g.dataset.c.split(',').map(Number), isPlanet = 'p' in g.dataset
-  g.querySelectorAll('circle').forEach(el => (el.style.transform = `scale(${isPlanet ? 1.12 : 1.8})`))
+  const moons = [...svg.querySelectorAll('[data-k]')], planets = [...svg.querySelectorAll('[data-p]')]
+  const [hx, hy, hr] = g ? g.dataset.c.split(',').map(Number) : [0, 0, 0], isPlanet = g && 'p' in g.dataset
   const reach = isPlanet ? hr + 70 : 90, push = isPlanet ? 16 : 13
   for (const m of moons) {
-    if (m === g) continue
-    const [mx, my] = m.dataset.c.split(',').map(Number), [lx, ly] = m.dataset.l.split(',').map(Number)
-    const vx = mx - hx, vy = my - hy, d = Math.hypot(vx, vy) || 1
-    if (d >= reach) continue
-    const f = (1 - d / reach) * push, dx = vx / d * f, dy = vy / d * f
-    m.querySelectorAll('circle, text').forEach(el => (el.style.transform = `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px)`))
-    const ln = m.querySelector('line'); if (!ln) continue
-    const ux = mx - lx, uy = my - ly, nx = ux + dx, ny = uy + dy
-    const sc = Math.hypot(nx, ny) / (Math.hypot(ux, uy) || 1), th = Math.atan2(ny, nx) - Math.atan2(uy, ux)
-    ln.style.transform = `translate(${lx}px, ${ly}px) rotate(${th.toFixed(4)}rad) scale(${sc.toFixed(4)}) translate(${-lx}px, ${-ly}px)`
+    const st = lensState(m)
+    st.tx = st.ty = 0; st.ts = m === g ? 1.8 : 1
+    if (!g || m === g) continue
+    const [mx, my] = m.dataset.c.split(',').map(Number), vx = mx - hx, vy = my - hy, d = Math.hypot(vx, vy) || 1
+    if (d < reach) { const f = (1 - d / reach) * push; st.tx = vx / d * f; st.ty = vy / d * f }
   }
+  for (const p of planets) lensState(p).ts = p === g ? 1.12 : 1
+  if (!lensRaf) lensRaf = requestAnimationFrame(lensStep)
 }
 document.addEventListener('mouseover', e => {
   if (mpan?.moved) return
   hoverMap(e.target.closest ? e.target.closest('.bigmap [data-k], .bigmap [data-p]') : null)
 })
 function applyMapView() {
-  hovG = null  // a redraw replaced the circles
+  hovG = null; LENS.clear()  // a redraw replaced the circles
   const v = document.querySelector('.mapview'); if (!v) return
   v.style.transform = `translate(${MV.x}px, ${MV.y}px) scale(${MV.s})`
   v.parentElement.classList.toggle('zoomed', MV.s >= 1.5)
