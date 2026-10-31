@@ -620,11 +620,20 @@ function applyWidths() {
   if (W.plist) document.documentElement.style.setProperty('--plist-w', W.plist + 'px')
   const cols = [...document.querySelectorAll('#main > .col')]
   cols.forEach((el, i) => { const w = i < cols.length - 1 && W['col:' + el.dataset.col]; el.style.flex = w ? `0 0 ${w}px` : '' })
-  // Safari sizes a flex box by its content (the map's own width); pin the dock to the column's width instead
-  const dock = $('#mapdock'), docked = dock.querySelector('.col'), dw = W['col:harita'] || 460
+  // Safari sizes a flex box by its content (the map's own width); pin the dock to an explicit width instead.
+  // Opened columns get room first: the map gives way down to 300 px, the columns get up to 440 px each and scroll beyond that.
+  const dock = $('#mapdock'), docked = dock.querySelector('.col'), want = W['col:harita'] || 460
+  let dw = want
+  if (docked && getComputedStyle($('#app')).flexDirection === 'row') {
+    const room = innerWidth - $('#side').getBoundingClientRect().width - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
+    const forCols = Math.max(0, Math.min(cols.length * 440, room - 300))
+    dw = Math.max(300, Math.min(want, room - forCols))
+  }
   if (docked) docked.style.flex = `0 0 ${dw}px`
   dock.style.width = docked ? dw + 'px' : '0px'
+  $('#app').scrollLeft = 0  // a column scrolled into view must never push the sidebar off screen
 }
+addEventListener('resize', () => applyWidths())
 let rz = null
 document.addEventListener('pointerdown', e => {
   const h = e.button === 0 && e.target.closest('.rz'); if (!h) return
@@ -643,7 +652,7 @@ document.addEventListener('pointermove', e => {
     const d = rz.next ? Math.max(260 - rz.w, Math.min(rz.nw - 260, dx)) : Math.max(260 - rz.w, dx)
     W['col:' + rz.panel.dataset.col] = Math.round(rz.w + d)
     rz.panel.style.flex = `0 0 ${Math.round(rz.w + d)}px`
-    if (rz.panel.parentElement.id === 'mapdock') rz.panel.parentElement.style.width = Math.round(rz.w + d) + 'px'
+    if (rz.panel.parentElement.id === 'mapdock') applyWidths()  // the map keeps leaving room for the open columns
     const last = rz.next && !rz.next.nextElementSibling
     if (rz.next && !last) { W['col:' + rz.next.dataset.col] = Math.round(rz.nw - d); rz.next.style.flex = `0 0 ${Math.round(rz.nw - d)}px` }
   }
@@ -651,7 +660,7 @@ document.addEventListener('pointermove', e => {
 document.addEventListener('pointerup', () => {
   if (!rz) return
   rz.h.classList.remove('on'); document.body.classList.remove('resizing'); rz = null
-  keep('widths', W)
+  keep('widths', W); applyWidths()
 })
 document.addEventListener('dblclick', e => {  // double-click a strip: back to the default width
   const h = e.target.closest('.rz'); if (!h) return
