@@ -19,9 +19,9 @@ export const msgUnread = (m: Mesaj, byId: Map<string, Konu>, readAt: Record<stri
 
 export function ago(ms: number, now: number) {
   const m = Math.max(0, Math.round((now - ms) / 60_000))
-  if (m < 60) return `${m} dk`
-  if (m < 48 * 60) return `${Math.round(m / 60)} sa`
-  return `${Math.round(m / 1440)} g`
+  if (m < 60) return `${m}m`
+  if (m < 48 * 60) return `${Math.round(m / 60)}h`
+  return `${Math.round(m / 1440)}d`
 }
 
 export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -33,7 +33,7 @@ export function visible(all: Konu[], days: number, now: number) {
 
 export function accLabel(t: Tarama, acc: string) {
   const i = t.accounts.indexOf(acc)
-  return `H${i + 1}${acc === t.current ? '' : '·başka'}`
+  return `H${i + 1}${acc === t.current ? '' : ' · other'}`
 }
 
 export type Planet = { name: string; moons: Konu[]; r: number; outer: number; x: number; y: number }
@@ -102,7 +102,7 @@ export function sky(groups: Map<string, Konu[]>, now: number, readAt: Record<str
       const isNew = !isWait && unread(k, readAt)
       const isRun = running(k)
       const fill = isWait ? RED : isRun ? ORANGE : DONE
-      const tip = `${p.name} · ${k.title}\n${isWait ? 'SENİ BEKLİYOR' : isRun ? 'Ajan çalışıyor' : isNew ? 'Okunmamış cevap' : 'Okundu'} · ${ago(k.last, now)} önce${k.need ? `\n${k.need}` : ''}`
+      const tip = `${p.name} · ${k.title}\n${isWait ? 'WAITING FOR YOU' : isRun ? 'Agent working' : isNew ? 'Unread reply' : 'Read'} · ${ago(k.last, now)} ago${k.need ? `\n${k.need}` : ''}`
       out.push(`<a href="claude://claude.ai/epitaxy/${k.id}" target="_top" style="cursor:pointer"><g><title>${esc(tip)}</title>`)
       out.push(`<line x1="${ex}" y1="${ey}" x2="${mx}" y2="${my}" stroke="${isWait ? RED : isRun ? ORANGE : '#3a3a3a'}" stroke-width="${isWait || isRun ? 0.9 : 0.6}"/>`)
       if (isWait) out.push(`<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="${RED}" opacity="0.45"><animate attributeName="opacity" values="0.5;0;0.5" dur="0.9s" repeatCount="indefinite"/></circle>`)
@@ -115,7 +115,7 @@ export function sky(groups: Map<string, Konu[]>, now: number, readAt: Record<str
     if (nWait) out.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="${RED}" stroke-width="2.5">${blink}</circle>`)
     else if (all.some(running)) out.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="${ORANGE}" stroke-width="2"/>`)
     const top = [...all].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)[0]
-    out.push(`<a href="claude://claude.ai/epitaxy/${top?.id ?? ''}" target="_top" style="cursor:pointer"><g><title>${esc(`${p.name}: ${all.length} konu · ${nWait} seni bekliyor · ${nNew} okunmamış · basınca en acil konu açılır`)}</title>`)
+    out.push(`<a href="claude://claude.ai/epitaxy/${top?.id ?? ''}" target="_top" style="cursor:pointer"><g><title>${esc(`${p.name}: ${all.length} sessions · ${nWait} waiting for you · ${nNew} unread · click to open the most urgent session`)}</title>`)
     out.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${lively ? '#ffffff' : '#9a9a9a'}"/>`)
     out.push(`<text x="${p.x}" y="${p.y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#000">${all.length}</text></g></a>`)
     if (nWait) {

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -66,13 +66,14 @@
   .seg button.on { background: var(--btn-hover); color: var(--text); }
 
   #app { display: flex; height: 100vh; }
-  #side { width: 272px; flex: none; }
+  #side { width: var(--side-w, 272px); flex: none; position: relative; }
   #plist { width: 0; flex: none; overflow: hidden; display: flex; flex-direction: column; min-height: 0; background: var(--bg); border-right: 1px solid transparent; transition: width .16s ease; }
-  #plist.open { width: 320px; border-right-color: var(--line); }
+  #plist { position: relative; }
+  #plist.open { width: var(--plist-w, 320px); border-right-color: var(--line); }
   #plist > header { height: 40px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   #plist > header .title { flex: 1; font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; }
   #plist .meta { padding: 10px 16px 4px; white-space: nowrap; }
-  #plist .body { flex: 1; padding: 4px 8px 12px; width: 320px; }
+  #plist .body { flex: 1; padding: 4px 8px 12px; width: var(--plist-w, 320px); }
   .item.on { background: var(--sel); }
   .item .sub.orange { color: var(--orange); }
   #main { flex: 1; }
@@ -101,6 +102,15 @@
   .group .row.sr, .item.sr { box-shadow: inset 3px 0 0 var(--orange), 0 1px 0 rgba(0,0,0,.22); }
   .item { background: var(--card); border: 1px solid var(--input-line); border-radius: 8px; margin: 0 0 6px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
   .item:hover { background: var(--btn-hover); }
+  .rz { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 20; }
+  /* VS Code-style sash: a three-dot grip in the middle, a blue line on hover and while dragging */
+  .rz::before { content: ''; position: absolute; left: 2px; top: 50%; width: 3px; height: 15px; transform: translateY(-50%);
+    background: radial-gradient(circle, var(--dim) 1.1px, transparent 1.5px) 0 0 / 3px 5px repeat-y; opacity: .9; z-index: 1; }
+  .rz::after { content: ''; position: absolute; top: 0; bottom: 0; left: 2px; width: 3px; background: transparent; transition: background .12s .08s; }
+  .rz:hover::after, .rz.on::after { background: var(--blue); }
+  .rz:hover::before, .rz.on::before { opacity: 0; }
+  body.resizing, body.resizing * { cursor: col-resize !important; }
+  body.resizing #plist { transition: none; }
   .drag-shift { transition: transform .16s cubic-bezier(.2,.8,.2,1); }
   .drag-hole { visibility: hidden; }
   .drag-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; background: var(--btn-hover); color: var(--text); border-radius: 7px; outline: 1px solid var(--input-line); outline-offset: -1px;
@@ -145,7 +155,7 @@
 
   /* Main area: inbox or columns */
   #main { display: flex; min-width: 0; min-height: 0; overflow-x: auto; }
-  .col { flex: 1 1 0; min-width: 340px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--bg); }
+  .col { flex: 1 1 0; min-width: 260px; position: relative; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--bg); }
   .col:last-child { border-right: 0; }
   .col > header { height: 40px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); }
   .col > header .title { flex: 1; font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -196,17 +206,17 @@
 </head>
 <body>
 <div id="app">
-  <aside id="side">
+  <aside id="side"><div class="rz" data-rz="side" title="Drag to resize"></div>
     <div id="head">
-      <div id="counts">Taranıyor…</div>
+      <div id="counts">Scanning…</div>
       <div class="seg" id="days"></div>
       <div class="seg" id="themes"></div>
     </div>
     <div id="tree" class="scroll"></div>
     <div class="composer" id="sidebar-composer" data-to="home"></div>
-    <div id="mini" title="Daireye bas: konu ya da proje açılır · boşluğa bas: büyük harita"><div class="hint">büyütmek için boşluğa bas</div></div>
+    <div id="mini" title="Click a circle to open it · click empty space for the big map"><div class="hint">click empty space to enlarge</div></div>
   </aside>
-  <section id="plist"><header></header><div class="meta"></div><div class="body scroll"></div></section>
+  <section id="plist"><div class="rz" data-rz="plist" title="Drag to resize"></div><header></header><div class="meta"></div><div class="body scroll"></div></section>
   <main id="main"></main>
 </div>
 <div id="toast"><span id="toast-text"></span><button class="btn" id="toast-undo">Geri al</button></div>
@@ -252,12 +262,12 @@ const waiting = k => !!k.ask || (k.cat === 'blocked' && !k.busy)
 const running = k => !!k.busy && !k.ask
 const readAt = id => S.data?.readAt?.[id] ?? 0
 const unread = k => Math.max(k.seen, readAt(k.id)) < k.last - 1000
-const ago = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 60 ? `${m} dk` : m < 2880 ? `${Math.round(m / 60)} sa` : `${Math.round(m / 1440)} g` }
+const ago = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 60 ? `${m}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d` }
 const visible = () => (S.data?.sessions ?? []).filter(k => S.days === 0 || Date.now() - k.last < S.days * DAY || (waiting(k) && Date.now() - k.last < 30 * DAY))
 const dot = k => `<span class="dot${waiting(k) ? ' r' : running(k) ? ' o' : !unread(k) ? '' : ' u'}"></span>`
-const accLabel = acc => { const a = S.data.accounts; return `H${a.indexOf(acc) + 1}${acc === S.data.current ? '' : ' · başka hesap'}` }
+const accLabel = acc => { const a = S.data.accounts; return `H${a.indexOf(acc) + 1}${acc === S.data.current ? '' : ' · other account'}` }
 const byId = () => new Map((S.data?.sessions ?? []).map(k => [k.id, k]))
-const LOOSE = new Set(['Klasörsüz', '~'])  // sessions started from + New, with no project folder
+const LOOSE = new Set(['No folder', '~'])  // sessions started from + New, with no project folder
 const pos = n => { const i = (S.data?.order ?? []).indexOf(n); return i < 0 ? 1e6 : i }
 function groups() {
   const g = new Map()
@@ -305,7 +315,7 @@ function sky(gs, { labels = true } = {}) {
       const mr = +(3 + Math.min(5, Math.sqrt(k.turns) / 1.4)).toFixed(1)
       const w = waiting(k), run = running(k), isNew = !w && !run && unread(k)
       const fill = w ? 'var(--red)' : run ? 'var(--orange)' : 'var(--grey)'
-      const tip = `${p.name} · ${k.title}\n${w ? 'SENİ BEKLİYOR' : run ? 'Ajan çalışıyor' : isNew ? 'Okunmamış cevap' : 'Kapanmış'} · ${ago(k.last)} önce${k.need ? '\n' + k.need : ''}`
+      const tip = `${p.name} · ${k.title}\n${w ? 'WAITING FOR YOU' : run ? 'Agent working' : isNew ? 'Unread reply' : 'Closed'} · ${ago(k.last)} ago${k.need ? '\n' + k.need : ''}`
       o.push(`<g data-k="${esc(k.id)}"><title>${esc(tip)}</title>`)
       o.push(`<line x1="${ex}" y1="${ey}" x2="${mx}" y2="${my}" stroke="${w ? 'var(--red)' : run ? 'var(--orange)' : 'var(--mline)'}" stroke-width="${w || run ? 0.9 : 0.6}"/>`)
       o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 7}" fill="transparent"/>`)
@@ -315,7 +325,7 @@ function sky(gs, { labels = true } = {}) {
       if (k.id === sel) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 3.5}" fill="none" stroke="var(--blue)" stroke-width="1.6"/>`)
       o.push(`<circle cx="${mx}" cy="${my}" r="${mr}" fill="${fill}">${w ? blink : ''}</circle></g>`)
     })
-    o.push(`<g data-p="${esc(p.name)}"><title>${esc(`${p.name}: ${p.list.length} konu · ${nWait} seni bekliyor`)}</title>`)
+    o.push(`<g data-p="${esc(p.name)}"><title>${esc(`${p.name}: ${p.list.length} sessions · ${nWait} waiting for you`)}</title>`)
     if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5">${blink}</circle>`)
     else if (anyRun) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--orange)" stroke-width="2"/>`)
     const lively = p.list.some(k => Date.now() - k.last < 7 * DAY)
@@ -354,15 +364,15 @@ async function closeTopic(k) {
   try {
     const r = await api('/api/close', { id: k.id })
     S.cols = S.cols.filter(c => c !== 'k:' + k.id); keep('cols', S.cols)
-    if (r.job) S.jobs[r.job] = { label: `Arşiv: ${cut(k.title, 30)}`, at: Date.now() }
-    toast(`“${cut(k.title, 40)}” kapatıldı`, () => api('/api/reopen', { id: k.id }).then(x => { S.jobs[x.job] = { label: 'Geri aç', at: Date.now() }; refresh(true) }))
+    if (r.job) S.jobs[r.job] = { label: `Archive: ${cut(k.title, 30)}`, at: Date.now() }
+    toast(`“${cut(k.title, 40)}” closed`, () => api('/api/reopen', { id: k.id }).then(x => { S.jobs[x.job] = { label: 'Reopen', at: Date.now() }; refresh(true) }))
     await refresh(true)
-  } catch (err) { toast('Kapatılamadı: ' + err.message) }
+  } catch (err) { toast('Could not close: ' + err.message) }
 }
 async function markRead(k) { await api('/api/read', { id: k.id }).catch(() => {}); await refresh(true) }
 async function openInApp(k) {
   await api('/api/read', { id: k.id }).catch(() => {})
-  try { await api('/api/open', { id: k.id }); if (k.acc !== S.data.current) toast('Bu konu başka hesapta; o hesapla giriş yapınca açılır.') } catch (err) { toast('Açılamadı: ' + err.message) }
+  try { await api('/api/open', { id: k.id }); if (k.acc !== S.data.current) toast('This session belongs to another account; it opens once you sign in with that account.') } catch (err) { toast('Could not open: ' + err.message) }
 }
 
 // --- rendering
@@ -373,21 +383,21 @@ function renderSide() {
   const d = S.data
   if (!d || S.drag) return
   const shown = visible(), w = shown.filter(waiting).length, r = shown.filter(running).length, n = shown.filter(k => !waiting(k) && !running(k) && unread(k)).length
-  setHTML($('#counts'), `<span class="w"><b>${w}</b> bekliyor</span><span class="o"><b>${r}</b> çalışıyor</span><span><b>${n}</b> okunmamış</span>`)
+  setHTML($('#counts'), `<span class="w"><b>${w}</b> waiting</span><span class="o"><b>${r}</b> running</span><span><b>${n}</b> unread</span>`)
   const th = document.documentElement.dataset.theme
-  setHTML($('#days'), [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + ' gün' : 'Hepsi'}</button>`).join(''))
-  setHTML($('#themes'), [['antrasit', 'Antrasit'], ['acik', 'Açık'], ['siyah', 'Siyah']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
+  setHTML($('#days'), [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + (x === 1 ? ' day' : ' days') : 'All'}</button>`).join(''))
+  setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
     return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><span class="chev">${on ? ICON.right : ''}</span></div>`
   }).join('')
   const hidden = d.hidden ?? []
-  const closed = hidden.length ? `<div class="section">Kapatılanlar</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} konu</span></div>` +
-    (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Geri aç</button></div>`).join('') : '') : ''
-  const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Sırayı sıfırla: bekleyenler ve en yeniler üstte">otomatik sırala</button>' : ''
+  const closed = hidden.length ? `<div class="section">Closed</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} sessions</span></div>` +
+    (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Reopen</button></div>`).join('') : '') : ''
+  const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
   const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>`).join('')
-  setHTML($('#tree'), `<div class="section">Projeler ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Projesiz konular</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Ana oturum (Claude)</span></div>${closed}`)
+  setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div>${closed}`)
   setHTML($('#sidebar-composer .to'), '→ Qosmos (ana oturum, Claude)')
 }
 function renderPlist() {
@@ -395,36 +405,36 @@ function renderPlist() {
   el.classList.toggle('open', !!list)
   if (!list) return
   const sorted = [...list].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || Number(running(b)) - Number(running(a)) || b.last - a.last)
-  setHTML(el.querySelector('header'), `<span class="title">${esc(S.pp)}</span><button class="icon" data-plx="1" title="Paneli kapat">${ICON.x}</button>`)
-  setHTML(el.querySelector('.meta'), `<span class="meta" style="padding:0">${list.length} konu · <span class="red">${list.filter(waiting).length} bekliyor</span> · <span style="color:var(--orange)">${list.filter(running).length} çalışıyor</span></span>`)
+  setHTML(el.querySelector('header'), `<span class="title">${esc(S.pp)}</span><button class="icon" data-plx="1" title="Close panel">${ICON.x}</button>`)
+  setHTML(el.querySelector('.meta'), `<span class="meta" style="padding:0">${list.length} sessions · <span class="red">${list.filter(waiting).length} waiting</span> · <span style="color:var(--orange)">${list.filter(running).length} running</span></span>`)
   setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>
-    <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Senden bir cevap bekliyor.', 240)) : running(k) ? 'Ajan çalışıyor…' : md(cut(k.detail || 'Özet yok.', 160))}</div></div>`).join(''))
+    <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Waiting for your answer.', 240)) : running(k) ? 'Agent working…' : md(cut(k.detail || 'No summary.', 160))}</div></div>`).join(''))
 }
 function renderMini() {
   const el = $('#mini'), svg = sky(groups())
   if (el._svg !== svg) { el.querySelector('svg')?.remove(); el.insertAdjacentHTML('afterbegin', svg); el._svg = svg }
 }
-const conv = (talk, hist) => talk === undefined ? '<div class="dim">Yükleniyor…</div>'
+const conv = (talk, hist) => talk === undefined ? '<div class="dim">Loading…</div>'
   : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="txt selectable">${md(m.text)}</div></div>`).join('')
-  : hist.length ? hist.map(m => `<div class="msg"><div class="meta">Özet · ${ago(m.at)} önce</div><div class="txt selectable">${md(m.text)}</div></div>`).join('')
-  : '<div class="dim">Bu Mac\'te konuşma kaydı yok (başka hesap ya da bulut).</div>'
+  : hist.length ? hist.map(m => `<div class="msg"><div class="meta">Summary · ${ago(m.at)} ago</div><div class="txt selectable">${md(m.text)}</div></div>`).join('')
+  : '<div class="dim">No transcript on this Mac (another account or the cloud).</div>'
 function topicBody(k) {
   const hist = (S.data.messages ?? []).filter(m => m.sid === k.id).slice(-5).reverse()
-  const status = waiting(k) ? `<div class="waitbox selectable"><b>Bekliyor:</b> ${md(k.need || k.detail || 'senden bir cevap')}</div>` : running(k) ? `<div class="runbox">Ajan çalışıyor…</div>` : k.detail ? `<div class="infobox selectable">${md(k.detail)}</div>` : ''
-  return `<div class="meta">${esc(k.proj)} · ${accLabel(k.acc)} · ${k.turns} tur · ${ago(k.last)} önce</div>${status}
+  const status = waiting(k) ? `<div class="waitbox selectable"><b>Waiting:</b> ${md(k.need || k.detail || 'an answer from you')}</div>` : running(k) ? `<div class="runbox">Agent working…</div>` : k.detail ? `<div class="infobox selectable">${md(k.detail)}</div>` : ''
+  return `<div class="meta">${esc(k.proj)} · ${accLabel(k.acc)} · ${k.turns} turns · ${ago(k.last)} ago</div>${status}
     <div class="actions">
-      <button class="btn" data-act="app" data-id="${esc(k.id)}">${ICON.app}Uygulamada aç</button>
-      <button class="btn" data-act="read" data-id="${esc(k.id)}">${ICON.check}Okundu</button>
-      <button class="btn danger" data-act="close" data-id="${esc(k.id)}">${ICON.archive}Konuyu kapat</button>
+      <button class="btn" data-act="app" data-id="${esc(k.id)}">${ICON.app}Open in app</button>
+      <button class="btn" data-act="read" data-id="${esc(k.id)}">${ICON.check}Mark read</button>
+      <button class="btn danger" data-act="close" data-id="${esc(k.id)}">${ICON.archive}Close session</button>
     </div>
-    <div class="label">Konuşma</div>${conv(S.talks[k.id], hist)}`
+    <div class="label">Conversation</div>${conv(S.talks[k.id], hist)}`
 }
 function topicItem(k, withProj) {
-  return `<div class="item${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${withProj ? `<span class="p">${esc(k.proj)} · </span>` : ''}${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="icon" data-close="${esc(k.id)}" title="Konuyu kapat (geri alınabilir)">${ICON.x}</button></div>
-    <div class="sub${waiting(k) ? ' red' : ''}">${md(cut(k.need || k.detail || 'Özet yok.', 280))}</div></div>`
+  return `<div class="item${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${withProj ? `<span class="p">${esc(k.proj)} · </span>` : ''}${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="icon" data-close="${esc(k.id)}" title="Close session (undoable)">${ICON.x}</button></div>
+    <div class="sub${waiting(k) ? ' red' : ''}">${md(cut(k.need || k.detail || 'No summary.', 280))}</div></div>`
 }
 function composerHTML(placeholder) {
-  return `<div class="cbox"><textarea rows="1" placeholder="${placeholder}"></textarea><button class="round" title="Boşken: konuşarak yaz · doluyken: gönder">${ICON.mic}${ICON.send}</button></div><div class="cmeta"><span class="to"></span><span class="note"></span></div>`
+  return `<div class="cbox"><textarea rows="1" placeholder="${placeholder}"></textarea><button class="round" title="Empty: dictate · with text: send">${ICON.mic}${ICON.send}</button></div><div class="cmeta"><span class="to"></span><span class="note"></span></div>`
 }
 function renderCols() {
   const main = $('#main'), d = S.data
@@ -444,44 +454,89 @@ function renderCols() {
     const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
     if (!el) {
       el = document.createElement('section'); el.className = 'col'; el.dataset.col = c
-      el.innerHTML = `<header></header><div class="body scroll"></div><div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Bu konuya yaz…' : 'Claude\'a yaz…')}</div>`
+      el.innerHTML = `<div class="rz" data-rz="col" title="Drag to resize"></div><header></header><div class="body scroll"></div><div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Message this session…' : 'Message Claude…')}</div>`
     }
     if (main.children[i] !== el) main.insertBefore(el, main.children[i] ?? null)
-    const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · ana oturum</span>' : '<span class="title">Harita</span>'
-    setHTML(el.querySelector('header'), `${title}<button class="icon" data-colx="${esc(c)}" title="Sütunu kapat">${ICON.x}</button>`)
-    setHTML(el.querySelector('.cmeta .to'), k ? `→ ${esc(k.proj)} · ${esc(cut(k.title, 60))}` : pname ? `→ Claude (ana oturum) · “[${esc(pname)}]” ile başlar` : '→ Claude (ana oturum)')
+    const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · home session</span>' : '<span class="title">Map</span>'
+    setHTML(el.querySelector('header'), `${title}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
+    setHTML(el.querySelector('.cmeta .to'), k ? `→ ${esc(k.proj)} · ${esc(cut(k.title, 60))}` : pname ? `→ Claude (home session) · starts with “[${esc(pname)}]”` : '→ Claude (home session)')
     let body
     if (k) body = topicBody(k)
-    else if (c === 'home') body = `<div class="meta">Soldaki çubuktan ya da bu sütundan yazdıkların Qosmos'in ana oturumuna gider; cevaplar burada görünür.</div><div class="label">Konuşma</div>${conv(S.talks.home, [])}`
+    else if (c === 'home') body = `<div class="meta">What you write here or in the sidebar bar goes to Qosmos's home session; replies show up here.</div><div class="label">Conversation</div>${conv(S.talks.home, [])}`
     else if (pname) {
       const list = [...gs.get(pname)].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
-      body = `<div class="meta">${list.length} konu · ${list.filter(waiting).length} bekliyor · ${list.filter(running).length} çalışıyor</div><div style="margin:8px -8px 0">${list.map(x => topicItem(x)).join('')}</div>`
-    } else body = `<div class="bigmap">${sky(groups())}</div><div class="meta" style="margin-top:8px">Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · gri: kapanmış · halka: okunmamış. Daireye bas: sütunu açılır.</div>`
+      body = `<div class="meta">${list.length} sessions · ${list.filter(waiting).length} waiting · ${list.filter(running).length} running</div><div style="margin:8px -8px 0">${list.map(x => topicItem(x)).join('')}</div>`
+    } else body = `<div class="bigmap">${sky(groups())}</div><div class="meta" style="margin-top:8px">Blinking red: something needs you · orange: agent working · grey: closed · ring: unread. Click a circle to open its column.</div>`
     const b = el.querySelector('.body'), first = b._html === undefined
     if (setHTML(b, body) && (k || c === 'home') && (first || c === 'home')) b.scrollTop = b.scrollHeight
   })
+  applyWidths()
 }
 function inboxRender(inbox) {
   const shown = visible(), wl = shown.filter(waiting).sort((a, b) => b.last - a.last), old = wl.filter(k => Date.now() - k.last > 7 * DAY)
   const msgs = S.data.messages ?? [], ids = byId()
   const mUnread = m => !m.read && Math.max(ids.get(m.sid)?.seen ?? 0, readAt(m.sid)) < m.at - 1000
-  let top = `<div class="seg"><button data-tab="bekleyen" class="${S.tab === 'bekleyen' ? 'on' : ''}">Bekleyenler ${wl.length}</button><button data-tab="mesajlar" class="${S.tab === 'mesajlar' ? 'on' : ''}">Mesajlar ${msgs.filter(mUnread).length}</button></div>`
+  let top = `<div class="seg"><button data-tab="bekleyen" class="${S.tab === 'bekleyen' ? 'on' : ''}">Waiting ${wl.length}</button><button data-tab="mesajlar" class="${S.tab === 'mesajlar' ? 'on' : ''}">Messages ${msgs.filter(mUnread).length}</button></div>`
   let body
   if (S.tab === 'bekleyen') {
     if (old.length) top += S.confirmOld
-      ? `<span class="dim" style="margin-left:auto">${old.length} eski konu kapatılsın mı?</span><button class="btn danger" data-act="old-yes">Kapat</button><button class="btn" data-act="old-no">Vazgeç</button>`
-      : `<button class="btn" style="margin-left:auto" data-act="old">7 günden eskileri kapat (${old.length})</button>`
-    body = wl.length ? wl.map(k => topicItem(k, true)).join('') : '<div class="dim" style="padding:8px">Seni bekleyen konu yok. Soldan bir proje ya da konu seç, ya da haritada bir daireye bas.</div>'
+      ? `<span class="dim" style="margin-left:auto">Close ${old.length} old sessions?</span><button class="btn danger" data-act="old-yes">Close</button><button class="btn" data-act="old-no">Cancel</button>`
+      : `<button class="btn" style="margin-left:auto" data-act="old">Close older than 7 days (${old.length})</button>`
+    body = wl.length ? wl.map(k => topicItem(k, true)).join('') : '<div class="dim" style="padding:8px">Nothing is waiting for you. Pick a project or session on the left, or click a circle on the map.</div>'
   } else {
     const projs = [...new Set(msgs.map(m => m.proj))].sort()
     const list = msgs.filter(m => !S.proj || m.proj === S.proj).filter(m => S.filter === 'okunmamis' ? mUnread(m) : S.filter === 'okunmus' ? !mUnread(m) : S.filter === 'bekleyen' ? m.cat === 'blocked' : true).slice().reverse().slice(0, 150)
-    top += `<div class="seg">${[['hepsi', 'Hepsi'], ['okunmamis', 'Okunmamış'], ['okunmus', 'Okunmuş'], ['bekleyen', 'Onay bekleyen']].map(([f, l]) => `<button data-filter="${f}" class="${S.filter === f ? 'on' : ''}">${l}</button>`).join('')}</div>
-      <select id="projsel"><option value="">Bütün projeler</option>${projs.map(p => `<option ${p === S.proj ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`
-    body = list.length ? list.map(m => `<div class="item" data-open="k:${esc(m.sid)}"><div class="line"><span class="dot${m.cat === 'blocked' ? ' r' : ''}${mUnread(m) ? ' u' : ''}"></span><span class="t"><span class="p">${esc(m.proj)} · </span>${esc(m.title)}</span><span class="age">${ago(m.at)}</span></div><div class="sub${m.cat === 'blocked' ? ' red' : ''}">${md(cut(m.text, 300))}</div></div>`).join('') : '<div class="dim" style="padding:8px">Bu filtrede mesaj yok.</div>'
+    top += `<div class="seg">${[['hepsi', 'All'], ['okunmamis', 'Unread'], ['okunmus', 'Read'], ['bekleyen', 'Waiting']].map(([f, l]) => `<button data-filter="${f}" class="${S.filter === f ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <select id="projsel"><option value="">All projects</option>${projs.map(p => `<option ${p === S.proj ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`
+    body = list.length ? list.map(m => `<div class="item" data-open="k:${esc(m.sid)}"><div class="line"><span class="dot${m.cat === 'blocked' ? ' r' : ''}${mUnread(m) ? ' u' : ''}"></span><span class="t"><span class="p">${esc(m.proj)} · </span>${esc(m.title)}</span><span class="age">${ago(m.at)}</span></div><div class="sub${m.cat === 'blocked' ? ' red' : ''}">${md(cut(m.text, 300))}</div></div>`).join('') : '<div class="dim" style="padding:8px">No messages for this filter.</div>'
   }
   setHTML(inbox.querySelector('.top'), top)
   setHTML(inbox.querySelector('.body'), body)
 }
+
+// --- resizable panels: the sidebar, the project panel and every column, by the strip on their right edge.
+// Widths are a per-browser preference. A resized column keeps its width; the last one always takes what is left.
+const W = kept('widths', {})
+function applyWidths() {
+  if (W.side) document.documentElement.style.setProperty('--side-w', W.side + 'px')
+  if (W.plist) document.documentElement.style.setProperty('--plist-w', W.plist + 'px')
+  const cols = [...document.querySelectorAll('#main > .col')]
+  cols.forEach((el, i) => { const w = i < cols.length - 1 && W['col:' + el.dataset.col]; el.style.flex = w ? `0 0 ${w}px` : '' })
+}
+let rz = null
+document.addEventListener('pointerdown', e => {
+  const h = e.button === 0 && e.target.closest('.rz'); if (!h) return
+  e.preventDefault(); e.stopPropagation()
+  const panel = h.parentElement, next = h.dataset.rz === 'col' ? panel.nextElementSibling : null
+  rz = { h, kind: h.dataset.rz, panel, next, x: e.clientX, w: panel.getBoundingClientRect().width, nw: next?.getBoundingClientRect().width ?? 0 }
+  h.classList.add('on'); document.body.classList.add('resizing')
+})
+document.addEventListener('pointermove', e => {
+  if (!rz) return
+  const dx = e.clientX - rz.x
+  if (rz.kind === 'side') { W.side = Math.round(Math.max(200, Math.min(520, rz.w + dx))); document.documentElement.style.setProperty('--side-w', W.side + 'px') }
+  else if (rz.kind === 'plist') { W.plist = Math.round(Math.max(240, Math.min(640, rz.w + dx))); document.documentElement.style.setProperty('--plist-w', W.plist + 'px') }
+  else {
+    // trade width with the neighbour on the right, neither below 260 px
+    const d = rz.next ? Math.max(260 - rz.w, Math.min(rz.nw - 260, dx)) : Math.max(260 - rz.w, dx)
+    W['col:' + rz.panel.dataset.col] = Math.round(rz.w + d)
+    rz.panel.style.flex = `0 0 ${Math.round(rz.w + d)}px`
+    const last = rz.next && !rz.next.nextElementSibling
+    if (rz.next && !last) { W['col:' + rz.next.dataset.col] = Math.round(rz.nw - d); rz.next.style.flex = `0 0 ${Math.round(rz.nw - d)}px` }
+  }
+})
+document.addEventListener('pointerup', () => {
+  if (!rz) return
+  rz.h.classList.remove('on'); document.body.classList.remove('resizing'); rz = null
+  keep('widths', W)
+})
+document.addEventListener('dblclick', e => {  // double-click a strip: back to the default width
+  const h = e.target.closest('.rz'); if (!h) return
+  if (h.dataset.rz === 'side') { delete W.side; document.documentElement.style.removeProperty('--side-w') }
+  else if (h.dataset.rz === 'plist') { delete W.plist; document.documentElement.style.removeProperty('--plist-w') }
+  else delete W['col:' + h.parentElement.dataset.col]
+  keep('widths', W); applyWidths()
+})
 
 // --- composers: the sidebar one talks to the home session, a column's to its topic (a project column: home, prefixed)
 async function send(comp) {
@@ -493,22 +548,22 @@ async function send(comp) {
     const r = await api('/api/send', { id: k ? k.id : '', text: body })
     S.jobs[r.job] = { label: k ? cut(k.title, 30) : 'Claude', at: Date.now(), note }
     box.value = ''; grow(box); comp.classList.remove('has-text')
-    note.textContent = 'Gönderiliyor…'
+    note.textContent = 'Sending…'
     const tid = k ? k.id : 'home'
     if (!k && !S.cols.includes('home')) openCol('home')
     S.talks[tid] = [...(S.talks[tid] ?? []), { role: 'sen', text: body }]; renderCols()
     for (const ms of [4000, 10000, 20000, 40000]) setTimeout(() => loadTalk(tid), ms)
     setTimeout(() => refresh(true), 3000)
-  } catch (err) { note.textContent = 'Gönderilemedi: ' + err.message }
+  } catch (err) { note.textContent = 'Could not send: ' + err.message }
 }
 const grow = t => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 160) + 'px' }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition
 let rec = null
 function mic(comp) {
-  if (!SR) return toast('Bu tarayıcıda konuşma tanıma yok. Yazı alanında 🌐 (fn) tuşuna iki kez basıp Mac dikte ile konuşabilirsin.')
+  if (!SR) return toast('Speech recognition is not available in this browser. Press 🌐 (fn) twice in the text field to use macOS dictation.')
   if (rec) { const same = rec.comp === comp; rec.stop(); if (same) return }
   const box = comp.querySelector('textarea'), base = box.value ? box.value + ' ' : ''
-  const r = new SR(); r.lang = 'tr-TR'; r.interimResults = true; r.continuous = true; r.comp = comp
+  const r = new SR(); r.lang = navigator.language || 'en-US'; r.interimResults = true; r.continuous = true; r.comp = comp
   r.onresult = e => { box.value = base + [...e.results].map(x => x[0].transcript).join(''); grow(box) }
   r.onend = () => { if (rec === r) rec = null; comp.classList.remove('rec'); comp.classList.toggle('has-text', !!box.value.trim()) }
   r.onerror = e => toast('Mikrofon: ' + e.error)
@@ -523,7 +578,7 @@ document.addEventListener('click', e => {
   if (comp && t.closest('.round')) return comp.classList.contains('has-text') && !comp.classList.contains('rec') ? send(comp) : mic(comp)
   const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
   const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
-  const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Geri aç', at: Date.now() }; toast('Konu geri açıldı'); refresh(true) })
+  const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Reopen', at: Date.now() }; toast('Session reopened'); refresh(true) })
   const pick = t.closest('[data-theme-pick]'); if (pick) { document.documentElement.dataset.theme = pick.dataset.themePick; keep('theme', pick.dataset.themePick); return renderSide() }
   const days = t.closest('[data-days]'); if (days) { S.days = +days.dataset.days; keep('days', S.days); return render() }
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
@@ -540,14 +595,14 @@ document.addEventListener('click', e => {
     const old = visible().filter(waiting).filter(x => Date.now() - x.last > 7 * DAY)
     if (a === 'old') { S.confirmOld = true; return renderCols() }
     if (a === 'old-no') { S.confirmOld = false; return renderCols() }
-    if (a === 'old-yes') { S.confirmOld = false; return (async () => { for (const x of old) await api('/api/close', { id: x.id }).then(r => r.job && (S.jobs[r.job] = { label: 'Arşiv', at: Date.now() })).catch(() => {}); toast(`${old.length} konu kapatıldı`); refresh(true) })() }
+    if (a === 'old-yes') { S.confirmOld = false; return (async () => { for (const x of old) await api('/api/close', { id: x.id }).then(r => r.job && (S.jobs[r.job] = { label: 'Archive', at: Date.now() })).catch(() => {}); toast(`${old.length} sessions closed`); refresh(true) })() }
   }
   const open = t.closest('[data-open]'); if (open) return openCol(open.dataset.open)
 })
 // --- projects reorder by drag and drop; the order is kept by the server, so every browser and the installed app share it
 function saveOrder(names) {
   S.data.order = names; render()
-  api('/api/order', { order: names }).catch(err => toast('Sıra kaydedilemedi: ' + err.message))
+  api('/api/order', { order: names }).catch(err => toast('Could not save the order: ' + err.message))
 }
 // Classic list drag: the row lifts with a shadow and follows the pointer (tilting a little with sideways speed),
 // the other rows slide aside to open the slot, and on release it settles into place. Under 4 px it stays a click; Esc cancels.
@@ -623,15 +678,15 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
 $('#mini').addEventListener('click', e => { e.stopPropagation(); onSkyClick(e, () => openCol('harita')) })
 $('#main').addEventListener('click', e => { if (e.target.closest('.bigmap')) onSkyClick(e) })
-$('#sidebar-composer').innerHTML = composerHTML('Claude\'a yaz… (Enter gönderir)')
+$('#sidebar-composer').innerHTML = composerHTML('Message Claude… (Enter to send)')
 
 // --- data: sessions every 10 s, open conversations every 15 s; bridge results show under the bar that sent them
 async function refresh(now) {
-  try { S.data = await api('/api/scan' + (now ? '?t=' + Date.now() : '')) } catch (err) { $('#counts').textContent = 'Sunucuya ulaşılamadı: ' + err.message; return }
+  try { S.data = await api('/api/scan' + (now ? '?t=' + Date.now() : '')) } catch (err) { $('#counts').textContent = 'Cannot reach the server: ' + err.message; return }
   for (const [job, j] of Object.entries(S.jobs)) {
     const r = S.data.results?.[job], out = j.note?.isConnected ? j.note : $('#sidebar-composer .note')
-    if (r) { out.textContent = r.ok ? `✓ iletildi · ${j.label}` : `✗ iletilemedi · ${j.label}: ${r.text}`; delete S.jobs[job] }
-    else if (Date.now() - j.at > 20000) { out.textContent = `${j.label}: köprü yanıt vermiyor — ana oturum açık mı?`; delete S.jobs[job] }
+    if (r) { out.textContent = r.ok ? `✓ delivered · ${j.label}` : `✗ not delivered · ${j.label}: ${r.text}`; delete S.jobs[job] }
+    else if (Date.now() - j.at > 20000) { out.textContent = `${j.label}: the bridge is not answering. Is the home session open?`; delete S.jobs[job] }
   }
   render()
 }

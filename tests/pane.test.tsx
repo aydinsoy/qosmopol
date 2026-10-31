@@ -16,9 +16,9 @@ const SCAN = {
   current: 'A',
   accounts: ['A', 'B'],
   sessions: [
-    k('local_1', 'Website', 'Yeni kanala video yükle', 5, { cat: 'blocked', need: 'brew install onayı?' }),
-    k('local_2', 'Website', 'Altyazı çevirisi', 60),
-    k('local_5', 'Podcast', 'Render sürüyor', 1, { cat: 'blocked', need: 'eski soru', busy: true }),
+    k('local_1', 'Website', 'Upload a video to the new channel', 5, { cat: 'blocked', need: 'brew install approval?' }),
+    k('local_2', 'Website', 'Subtitle translation', 60),
+    k('local_5', 'Podcast', 'Render running', 1, { cat: 'blocked', need: 'old question', busy: true }),
     k('local_3', 'Podcast', 'Phone line', 300, { seen: now }),
     k('local_4', 'Shop', 'SEO report', 2000, { acc: 'B' }),
   ],
@@ -49,17 +49,17 @@ test('the sky, the waiting list and the archive draw on desktop and mobile', asy
 
   for (const [surface, bodyColumns] of [['desktop', 180], ['desktop', 90], ['mobile', 80]] as const) {
     const ui = await $.ui.mount({ ...PANE, surface, props: { ...PANE.props, bodyColumns } })
-    expect((await ui.find({ type: 'Text', text: /1 seni bekliyor/ }))).toBeDefined()
-    expect((await ui.find({ type: 'Text', text: /1 çalışıyor/ }))).toBeDefined()
+    expect((await ui.find({ type: 'Text', text: /1 waiting for you/ }))).toBeDefined()
+    expect((await ui.find({ type: 'Text', text: /1 running/ }))).toBeDefined()
     const svg = await ui.find({ type: 'Svg' })
     expect(svg).toBeDefined()
     await ui.press({ key: 'w-local_1' })
-    expect(await ui.find({ type: 'Text', text: /Bekliyor: brew install/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Waiting: brew install/ })).toBeDefined()
     await ui.press({ key: 'pb-Website' })
     expect(await ui.find({ key: 'Website-local_2' })).toBeDefined()
     expect(await ui.find({ key: 'pr-Website-local_2' })).toBeDefined()
     await ui.press({ key: 'pr-Website-local_2' })
-    expect(await ui.find({ type: 'Text', text: /Konuşma/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Conversation/ })).toBeDefined()
     // Wide panes keep up to four columns side by side; narrow ones keep the last two.
     if (bodyColumns >= 110) expect(await ui.find({ key: 'cx-k:local_1' })).toBeDefined()
     else expect(await ui.find({ key: 'cx-k:local_1' })).toBeUndefined()

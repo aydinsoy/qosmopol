@@ -134,9 +134,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             html = open(os.path.join(WEB, "index.html"), encoding="utf-8").read().replace("__QOSMOS_TOKEN__", TOKEN)
             return self.reply(200, html.encode(), "text/html")
         if not url.path.startswith("/api/"):
-            return self.reply(404, {"error": "yok"})
+            return self.reply(404, {"error": "not found"})
         if not self.allowed():
-            return self.reply(403, {"error": "izin yok"})
+            return self.reply(403, {"error": "forbidden"})
         q = urllib.parse.parse_qs(url.query)
         try:
             if url.path == "/api/scan":
@@ -150,19 +150,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.reply(200, json.loads(run("konu.py", sid)))
         except Exception as err:  # noqa: BLE001 - the page shows it
             return self.reply(500, {"error": str(err)[:300]})
-        return self.reply(404, {"error": "yok"})
+        return self.reply(404, {"error": "not found"})
 
     def do_POST(self):
         if not self.allowed():
-            return self.reply(403, {"error": "izin yok"})
+            return self.reply(403, {"error": "forbidden"})
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
         except ValueError:
-            return self.reply(400, {"error": "bozuk istek"})
+            return self.reply(400, {"error": "bad request"})
         path = urllib.parse.urlparse(self.path).path
         sid = str(body.get("id") or "")
         if sid and not (sid.startswith("local_") and sid.replace("-", "").replace("_", "").isalnum()):
-            return self.reply(400, {"error": "geçersiz konu"})
+            return self.reply(400, {"error": "invalid session"})
         try:
             if path == "/api/open":
                 subprocess.run(["/usr/bin/open", f"claude://claude.ai/epitaxy/{sid}"], timeout=10, check=True)
@@ -177,7 +177,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/send":
                 text = str(body.get("text") or "").strip()[:8000]
                 if not text:
-                    return self.reply(400, {"error": "boş mesaj"})
+                    return self.reply(400, {"error": "empty message"})
                 return self.reply(200, {"job": enqueue({"kind": "send", "id": sid or "self", "text": text})})
             if path == "/api/close":
                 sess = {k["id"]: k for k in scan()["sessions"]}
@@ -193,7 +193,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/order":  # the owner's own order of projects; [] goes back to automatic
                 order = body.get("order")
                 if not isinstance(order, list) or len(order) > 300 or not all(isinstance(n, str) and len(n) <= 200 for n in order):
-                    return self.reply(400, {"error": "geçersiz sıra"})
+                    return self.reply(400, {"error": "invalid order"})
                 with LOCK:
                     save(ORDER, order)
                     SCAN["at"] = 0
@@ -202,7 +202,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.reply(200, {"job": enqueue({"kind": "ping"})})
         except Exception as err:  # noqa: BLE001
             return self.reply(500, {"error": str(err)[:300]})
-        return self.reply(404, {"error": "yok"})
+        return self.reply(404, {"error": "not found"})
 
 
 def answering(port):
@@ -262,7 +262,7 @@ if __name__ == "__main__":
         PORT = int(args[args.index("--port") + 1])
     if "--daemon" in args:
         if answering(PORT):
-            print(f"http://127.0.0.1:{PORT}/ zaten açık")
+            print(f"http://127.0.0.1:{PORT}/ already running")
             sys.exit(0)
         if os.fork():
             time.sleep(0.6)

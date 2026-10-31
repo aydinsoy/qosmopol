@@ -35,7 +35,7 @@ def project(path):
     if not path:
         return "?"
     if "/scratch-workspaces/" in path:
-        return "Klasörsüz"
+        return "No folder"
     parts = path.rstrip("/").split("/")
     if "Projects" in parts:
         i = parts.index("Projects")
@@ -66,7 +66,7 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
     rows.append({
         "id": d.get("sessionId"),
         "acc": acc,
-        "title": (d.get("title") or "Adsız konu")[:120],
+        "title": (d.get("title") or "Untitled session")[:120],
         "proj": project(cwd),
         "cwd": cwd,
         "last": d.get("lastActivityAt") or 0,

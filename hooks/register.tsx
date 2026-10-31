@@ -48,18 +48,18 @@ async function bridge($: EngineInterface) {
     const out: { job: string; ok: boolean; text: string }[] = []
     for (const j of jobs) {
       try {
-        if (j.kind === 'ping') out.push({ job: j.job, ok: true, text: 'köprü çalışıyor' })
+        if (j.kind === 'ping') out.push({ job: j.job, ok: true, text: 'bridge is working' })
         else if (j.kind === 'send' && j.id === 'self') {
           // Not awaited: a submitted prompt resolves only once its turn has run, and the bridge must stay free.
           void $.prompt.submit({ text: String(j.text) })
-          out.push({ job: j.job, ok: true, text: 'Qosmos oturumuna iletildi (oturum boşalınca işlenir)' })
+          out.push({ job: j.job, ok: true, text: 'delivered to the Qosmos session (runs once it is idle)' })
         } else {
           const tool = { send: 'send_message', archive: 'archive_session', unarchive: 'unarchive_session' }[j.kind as string]
           if (!tool) {
-            out.push({ job: j.job, ok: false, text: 'bilinmeyen iş' })
+            out.push({ job: j.job, ok: false, text: 'unknown job' })
             continue
           }
-          const args = j.kind === 'send' ? { session_id: j.id, message: String(j.text) } : j.kind === 'archive' ? { session_id: j.id, reason: 'Qosmos web arayüzünden kapatıldı' } : { session_id: j.id }
+          const args = j.kind === 'send' ? { session_id: j.id, message: String(j.text) } : j.kind === 'archive' ? { session_id: j.id, reason: 'Closed from the Qosmos web view' } : { session_id: j.id }
           const res = await $.mcp.call('ccd_session_mgmt', tool, args)
           out.push({ job: j.job, ok: !res.isError, text: cut((res.content ?? []).map((c: any) => c.text ?? '').join(' '), 300) })
         }
@@ -94,7 +94,7 @@ async function scan($: EngineInterface) {
     }
     const nWait = d.sessions.filter(waiting).filter(k => now - k.last < 30 * DAY).length
     for (const c of (await read($, gorunum)).cols ?? []) if (c.startsWith('k:')) await loadTalk($, c.slice(2))
-    $.ui.status(nWait ? `● ${nWait} konu seni bekliyor` : undefined)
+    $.ui.status(nWait ? `● ${nWait} waiting for you` : undefined)
   } catch (err) {
     await update($, tarama, t => ({ ...t, error: String(err).slice(0, 300) }))
   }
@@ -109,14 +109,14 @@ async function closeTopics($: EngineInterface, ks: Konu[], current: string) {
     await $.process.run(['/usr/bin/python3', `${$.plugin.root}/bin/scan.py`, '--gizle', k.id, k.proj, k.title], { timeoutMs: 10_000 })
     if (k.acc !== current) continue
     try {
-      const r = await $.mcp.call('ccd_session_mgmt', 'archive_session', { session_id: k.id, reason: 'Qosmos panelinden kapatıldı' })
+      const r = await $.mcp.call('ccd_session_mgmt', 'archive_session', { session_id: k.id, reason: 'Closed from the Qosmos pane' })
       if (r.isError) notes.push(cut((r.content ?? []).map((c: any) => c.text ?? '').join(' '), 90))
       else archived++
     } catch (err) {
       notes.push(cut(String(err), 90))
     }
   }
-  $.ui.toast(`${ks.length} konu kapandı · ${archived} arşivlendi${notes.length ? ` · arşivlenemeyen: ${notes[0]}` : ''}`)
+  $.ui.toast(`${ks.length} closed · ${archived} archived${notes.length ? ` · not archived: ${notes[0]}` : ''}`)
   await scan($)
 }
 
@@ -144,7 +144,7 @@ async function reopen($: EngineInterface, id: string) {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'qosmos', description: 'Bütün projeleri ve konuları qosmos haritasında aç' })
+    await $.command.register({ name: 'qosmos', description: 'Open all projects and sessions on the Qosmos sky' })
     const kept = await $.store.get('mesajlar')
     if (Array.isArray(kept) && (await read($, mesajlar)).length === 0) await update($, mesajlar, () => kept as Mesaj[])
     const keptRead = await $.store.get('okundu')
@@ -167,7 +167,7 @@ export const register: Register = on => {
     await server($, 'claim', String(await $.session.id()))
     await server($, '--daemon')
     await $.ui.open({ id: PANE, title: TITLE })
-    return { text: `Qosmos açıldı. Tam ekran web hâli: ${WEB} (bu oturum artık Qosmos'in ana oturumu: web'den yazdıkların buraya gelir).` }
+    return { text: `Qosmos is open. Full-screen web view: ${WEB} (this session is now Qosmos's home session: what you write in the web view comes here).` }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -199,23 +199,23 @@ export const register: Register = on => {
     const openSession = async (k: Konu) => {
       await markRead(k.id)
       if (k.acc !== t.current) {
-        $.ui.toast(`Bu konu başka hesapta (${accLabel(t, k.acc)}). O hesapla giriş yapınca açılır.`)
+        $.ui.toast(`This session belongs to another account (${accLabel(t, k.acc)}); it opens once you sign in with it.`)
       }
       const r = await $.process.run(['/usr/bin/open', `claude://claude.ai/epitaxy/${k.id}`], { timeoutMs: 10_000 })
-      if (r.exitCode !== 0) $.ui.toast(`Açılamadı: ${r.stderr.slice(0, 120)}`)
+      if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
     }
     const send = async (k: Konu, text: string) => {
       if (!text.trim()) return
       try {
         const r = await $.mcp.call('ccd_session_mgmt', 'send_message', { session_id: k.id, message: text })
         const said = (r.content ?? []).map((c: any) => c.text ?? '').join(' ')
-        $.ui.toast(r.isError ? `Gönderilemedi: ${cut(said, 160)}` : `Gönderildi → ${cut(k.title, 40)}`)
+        $.ui.toast(r.isError ? `Could not send: ${cut(said, 160)}` : `Sent → ${cut(k.title, 40)}`)
         if (!r.isError) {
           await markRead(k.id)
           await update($, konusma, all => ({ ...all, [k.id]: [...(all[k.id] ?? []), { role: 'sen', text }] }))
         }
       } catch (err) {
-        $.ui.toast(`Gönderilemedi: ${cut(String(err), 160)}`)
+        $.ui.toast(`Could not send: ${cut(String(err), 160)}`)
       }
     }
 
@@ -244,7 +244,7 @@ export const register: Register = on => {
     const openWeb = async () => {
       await server($, '--daemon')
       const r = await $.process.run(['/usr/bin/open', WEB], { timeoutMs: 10_000 })
-      if (r.exitCode !== 0) $.ui.toast(`Açılamadı: ${r.stderr.slice(0, 120)}`)
+      if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
     }
     const toInbox = <Button key="kapat" label="Hepsini kapat" onPress={() => set(g => ({ ...g, sel: '', cols: [] }))} />
     const row = (k: Konu, prefix: string) => (
@@ -259,18 +259,18 @@ export const register: Register = on => {
     const header = (
       <Box flexDirection="column" marginBottom={1}>
         <Text>
-          <Text color={RED} weight="bold">{waitList.length} seni bekliyor</Text> · <Text color={ORANGE}>{shown.filter(running).length} çalışıyor</Text> · {nNew} okunmamış
+          <Text color={RED} weight="bold">{waitList.length} waiting for you</Text> · <Text color={ORANGE}>{shown.filter(running).length} running</Text> · {nNew} unread
         </Text>
         <Text dimColor>
-          {shown.length} konu · {groups.size} proje · {t.at ? `taranma ${ago(t.at, now)} önce` : 'taranıyor…'}
+          {shown.length} sessions · {groups.size} projects · {t.at ? `scanned ${ago(t.at, now)} ago` : 'scanning…'}
           {t.error ? ` · HATA: ${t.error}` : ''}
         </Text>
         <Box flexDirection="row" gap={1} flexWrap="wrap" marginTop={1}>
           {[1, 7, 30, 0].map(d => (
-            <Button key={`gun-${d}`} variant={v.days === d ? 'primary' : 'secondary'} label={d === 0 ? 'Hepsi' : `${d} gün`} onPress={() => set(g => ({ ...g, days: d }))} />
+            <Button key={`gun-${d}`} variant={v.days === d ? 'primary' : 'secondary'} label={d === 0 ? 'All' : `${d} ${d === 1 ? 'day' : 'days'}`} onPress={() => set(g => ({ ...g, days: d }))} />
           ))}
           <Button key="yenile" label="Yenile" onPress={() => scan($)} />
-          <Button key="web" variant="primary" label="Web'de aç" onPress={() => openWeb()} />
+          <Button key="web" variant="primary" label="Open web view" onPress={() => openWeb()} />
         </Box>
       </Box>
     )
@@ -304,11 +304,11 @@ export const register: Register = on => {
         {closed.length > 0 && (
           <Box flexDirection="column" marginTop={1}>
             <Button key="pb-__kapali" plain onPress={() => set(g => ({ ...g, open: g.open.includes('__kapali') ? g.open.filter(x => x !== '__kapali') : [...g.open, '__kapali'] }))}>
-              {v.open.includes('__kapali') ? '▾' : '▸'} <Text weight="bold">Kapatılanlar</Text> <Text dimColor>{closed.length}</Text>
+              {v.open.includes('__kapali') ? '▾' : '▸'} <Text weight="bold">Closed</Text> <Text dimColor>{closed.length}</Text>
             </Button>
             {v.open.includes('__kapali') && [...closed].reverse().map(h => (
               <Box key={`k-${h.id}`} flexDirection="row" gap={1} paddingLeft={2}>
-                <Button key={`geri-${h.id}`} label="Geri aç" onPress={() => reopen($, h.id)} />
+                <Button key={`geri-${h.id}`} label="Reopen" onPress={() => reopen($, h.id)} />
                 <Text dimColor>{h.proj} · {cut(h.title, Math.max(16, leftCols - 24))}</Text>
               </Box>
             ))}
@@ -321,7 +321,7 @@ export const register: Register = on => {
     // The map's frame has no height of its own: size it from the viewBox so it keeps its shape.
     const box = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
     const ratio = box ? +box[2] / +box[1] : 0.6
-    const alt = `${groups.size} proje, ${shown.length} konu, ${waitList.length} seni bekliyor`
+    const alt = `${groups.size} projects, ${shown.length} sessions, ${waitList.length} waiting for you`
     const thumbW = Math.max(200, Math.min(520, leftCols * 8 - 16))
     const thumb = svg && (
       <Box flexDirection="column" marginTop={1}>
@@ -329,19 +329,19 @@ export const register: Register = on => {
           <Svg source={svg} alt={alt} width={thumbW} height={Math.round(thumbW * ratio)} isInteractive />
         </Box>
         <Button key="harita-buyut" plain onPress={() => (openCols.includes('harita') ? closeCol('harita') : openCol('harita'))}>
-          <Text dimColor>{openCols.includes('harita') ? '⤡ Büyük haritayı kapat' : '⤢ Haritayı büyüt'}</Text>
+          <Text dimColor>{openCols.includes('harita') ? '⤡ Close the big map' : '⤢ Enlarge the map'}</Text>
         </Button>
       </Box>
     )
 
-    const legend = <Text dimColor>Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · gri: kapanmış · beyaz halkalı gri: cevabını okumadın. Üstüne gelince başlık görünür.</Text>
+    const legend = <Text dimColor>Blinking red: something needs you · orange: agent working · grey: closed · white ring: unread reply. Hover for the title.</Text>
 
     const target = v.sel && openCols.includes(`k:${v.sel}`) ? byId.get(v.sel) : undefined
     // One command bar: it writes to the focused topic column, or to this Qosmos session when none is focused.
     const bar = Input && (
       <Box flexDirection="column" marginTop={1}>
         <Text dimColor>{target ? `→ ${target.proj} · ${cut(target.title, Math.max(16, leftCols - 14))}` : '→ Qosmos (bu oturum, Claude)'}</Text>
-        <Input key={`bar-${target?.id ?? 'ben'}`} rows={2} placeholder="Yaz ya da dikte et (🌐 tuşuna iki kez bas)" submitLabel="Gönder" onSubmit={(text: string) => {
+        <Input key={`bar-${target?.id ?? 'ben'}`} rows={2} placeholder="Type or dictate (press 🌐 twice)" submitLabel="Send" onSubmit={(text: string) => {
           if (!text.trim()) return
           if (target) void send(target, text)
           else void $.prompt.submit({ text })
@@ -355,29 +355,29 @@ export const register: Register = on => {
       const k = c.startsWith('k:') ? byId.get(c.slice(2)) : undefined
       const pname = c.startsWith('p:') ? c.slice(2) : ''
       const focused = !!k && k.id === v.sel
-      const title = k ? k.title : pname || 'Harita'
+      const title = k ? k.title : pname || 'Map'
       let body
       if (k) {
         const talk = (talks[k.id] ?? []).slice(-8)
         const history = log.filter(m => m.sid === k.id).reverse().slice(0, 5)
         body = (
           <Box flexDirection="column">
-            <Text dimColor>{k.proj} · {accLabel(t, k.acc)} · {ago(k.last, now)} önce</Text>
-            {k.need ? <Text color={RED}>Bekliyor: {k.need}</Text> : running(k) ? <Text color={ORANGE}>Ajan çalışıyor…</Text> : k.detail ? <Text>{k.detail}</Text> : null}
+            <Text dimColor>{k.proj} · {accLabel(t, k.acc)} · {ago(k.last, now)} ago</Text>
+            {k.need ? <Text color={RED}>Waiting: {k.need}</Text> : running(k) ? <Text color={ORANGE}>Agent working…</Text> : k.detail ? <Text>{k.detail}</Text> : null}
             <Box flexDirection="row" gap={1} marginY={1} flexWrap="wrap">
-              <Button key={`yaz-${k.id}`} variant={focused ? 'primary' : 'secondary'} label={focused ? 'Çubuk buraya yazıyor' : 'Buraya yaz'} onPress={() => set(g => ({ ...g, sel: k.id }))} />
-              <Button key={`ac-${k.id}`} label="Uygulamada aç" onPress={() => openSession(k)} />
-              <Button key={`ok-${k.id}`} label="Okundu" onPress={() => markRead(k.id)} />
-              <Button key={`kk-${k.id}`} label={k.acc === t.current ? 'Konuyu kapat (arşivle)' : 'Konuyu kapat (gizle)'} onPress={async () => {
+              <Button key={`yaz-${k.id}`} variant={focused ? 'primary' : 'secondary'} label={focused ? 'The bar writes here' : 'Write here'} onPress={() => set(g => ({ ...g, sel: k.id }))} />
+              <Button key={`ac-${k.id}`} label="Open in app" onPress={() => openSession(k)} />
+              <Button key={`ok-${k.id}`} label="Mark read" onPress={() => markRead(k.id)} />
+              <Button key={`kk-${k.id}`} label={k.acc === t.current ? 'Close session (archive)' : 'Close session (hide)'} onPress={async () => {
                 await closeCol(c)
                 await closeTopics($, [k], t.current)
               }} />
             </Box>
-            <Text weight="bold">Konuşma</Text>
-            {talk.length === 0 && history.length === 0 && <Text dimColor>{k.id in talks ? 'Bu Mac\'te konuşma kaydı yok (başka hesap ya da bulut).' : 'Yükleniyor…'}</Text>}
+            <Text weight="bold">Conversation</Text>
+            {talk.length === 0 && history.length === 0 && <Text dimColor>{k.id in talks ? 'No transcript on this Mac (another account or the cloud).' : 'Loading…'}</Text>}
             {talk.length === 0 && history.map(m => (
               <Box key={`h-${m.id}`} flexDirection="column" marginTop={1}>
-                <Text dimColor>{ago(m.at, now)} önce · özet</Text>
+                <Text dimColor>{ago(m.at, now)} ago · summary</Text>
                 <Text>{m.text}</Text>
               </Box>
             ))}
@@ -394,7 +394,7 @@ export const register: Register = on => {
         body = (
           <Box flexDirection="column">
             <Text dimColor>
-              {list.length} konu · {list.filter(waiting).length} seni bekliyor · {list.filter(running).length} çalışıyor
+              {list.length} sessions · {list.filter(waiting).length} waiting for you · {list.filter(running).length} running
             </Text>
             {list.map(k2 => (
               <Box key={`pr-${k2.id}`} flexDirection="column" marginTop={1}>
@@ -404,7 +404,7 @@ export const register: Register = on => {
                     {dot(k2)} <Text weight="bold">{cut(k2.title, Math.max(16, colCols - 16))}</Text> <Text dimColor>{ago(k2.last, now)}</Text>
                   </Button>
                 </Box>
-                {waiting(k2) ? <Text color={RED}>{cut(k2.need || k2.detail, colCols * 2)}</Text> : <Text dimColor>{cut(k2.detail || 'Özet yok.', colCols * 2)}</Text>}
+                {waiting(k2) ? <Text color={RED}>{cut(k2.need || k2.detail, colCols * 2)}</Text> : <Text dimColor>{cut(k2.detail || 'No summary.', colCols * 2)}</Text>}
               </Box>
             ))}
           </Box>
@@ -417,7 +417,7 @@ export const register: Register = on => {
               <Svg source={svg} alt={alt} width={bigW} height={Math.max(240, Math.min(1600, Math.round(bigW * ratio)))} isInteractive />
             </Box>
             {legend}
-            <Button key="kucult" label="Küçült" onPress={() => closeCol('harita')} />
+            <Button key="kucult" label="Shrink" onPress={() => closeCol('harita')} />
           </Box>
         )
       }
@@ -442,7 +442,7 @@ export const register: Register = on => {
         <Box flexDirection="column">
           <Box flexDirection="row" gap={1} marginBottom={1}>
             {toInbox}
-            <Text dimColor>{n} sütun açık · en çok {MAXCOLS}</Text>
+            <Text dimColor>{n} columns open · at most {MAXCOLS}</Text>
           </Box>
           <Box flexDirection={wide ? 'row' : 'column'} gap={1}>
             {openCols.map(column)}
@@ -453,7 +453,7 @@ export const register: Register = on => {
       const tabs = (
         <Box flexDirection="row" gap={1} flexWrap="wrap" marginBottom={1}>
           <Button key="t-harita" variant={v.tab === 'harita' ? 'primary' : 'secondary'} label={`Bekleyenler (${waitList.length})`} onPress={() => set(g => ({ ...g, tab: 'harita' }))} />
-          <Button key="t-mesaj" variant={v.tab === 'mesajlar' ? 'primary' : 'secondary'} label={`Mesajlar (${log.filter(m => msgUnread(m, byId, readAt)).length} yeni)`} onPress={() => set(g => ({ ...g, tab: 'mesajlar' }))} />
+          <Button key="t-mesaj" variant={v.tab === 'mesajlar' ? 'primary' : 'secondary'} label={`Messages (${log.filter(m => msgUnread(m, byId, readAt)).length} new)`} onPress={() => set(g => ({ ...g, tab: 'mesajlar' }))} />
         </Box>
       )
       if (v.tab === 'mesajlar') {
@@ -473,10 +473,10 @@ export const register: Register = on => {
             {tabs}
             <Box flexDirection="row" gap={1} flexWrap="wrap" marginBottom={1}>
               {(['hepsi', 'okunmamis', 'okunmus', 'bekleyen'] as const).map(f => (
-                <Button key={`f-${f}`} variant={v.filter === f ? 'primary' : 'secondary'} label={{ hepsi: 'Hepsi', okunmamis: 'Okunmamış', okunmus: 'Okunmuş', bekleyen: 'Onay bekleyen' }[f]} onPress={() => set(g => ({ ...g, filter: f, limit: 40 }))} />
+                <Button key={`f-${f}`} variant={v.filter === f ? 'primary' : 'secondary'} label={{ hepsi: 'All', okunmamis: 'Unread', okunmus: 'Read', bekleyen: 'Waiting' }[f]} onPress={() => set(g => ({ ...g, filter: f, limit: 40 }))} />
               ))}
               {Select && (
-                <Select key="proj" label="Proje" value={v.proj} options={[{ value: '', label: 'Bütün projeler' }, ...projs.map(p => ({ value: p, label: p }))]} onSelect={(p: string) => set(g => ({ ...g, proj: p, limit: 40 }))} />
+                <Select key="proj" label="Project" value={v.proj} options={[{ value: '', label: 'All projects' }, ...projs.map(p => ({ value: p, label: p }))]} onSelect={(p: string) => set(g => ({ ...g, proj: p, limit: 40 }))} />
               )}
             </Box>
             {list.length === 0 && <Text dimColor>Bu filtrede mesaj yok.</Text>}
@@ -499,12 +499,12 @@ export const register: Register = on => {
         right = (
           <Box flexDirection="column">
             {tabs}
-            {waitList.length === 0 && <Text dimColor>Seni bekleyen konu yok.</Text>}
+            {waitList.length === 0 && <Text dimColor>Nothing is waiting for you.</Text>}
             {old.length > 0 && (
               <Box flexDirection="row" gap={1} flexWrap="wrap" marginBottom={1}>
-                {v.onay !== 'eski' && <Button key="eski" label={`7 günden eskileri kapat (${old.length})`} onPress={() => set(g => ({ ...g, onay: 'eski' }))} />}
+                {v.onay !== 'eski' && <Button key="eski" label={`Close older than 7 days (${old.length})`} onPress={() => set(g => ({ ...g, onay: 'eski' }))} />}
                 {v.onay === 'eski' && <Button key="eski-onay" variant="primary" label={`Evet, ${old.length} konuyu kapat`} onPress={async () => { await set(g => ({ ...g, onay: '' })); await closeTopics($, old, t.current) }} />}
-                {v.onay === 'eski' && <Button key="eski-vazgec" label="Vazgeç" onPress={() => set(g => ({ ...g, onay: '' }))} />}
+                {v.onay === 'eski' && <Button key="eski-vazgec" label="Cancel" onPress={() => set(g => ({ ...g, onay: '' }))} />}
               </Box>
             )}
             {waitList.map(k => (
@@ -532,13 +532,13 @@ export const register: Register = on => {
       return (
         <Box flexDirection="column">
           <Text>
-            <Text color={RED} weight="bold">{waitList.length} bekliyor</Text> · <Text color={ORANGE}>{busy.length} çalışıyor</Text> · {nNew} okunmamış
+            <Text color={RED} weight="bold">{waitList.length} waiting</Text> · <Text color={ORANGE}>{busy.length} running</Text> · {nNew} unread
           </Text>
           {svg ? (
             <Box backgroundColor="#181818" marginY={1}>
               <Svg source={svg} alt={alt} width={miniW} height={Math.round(miniW * ratio)} isInteractive />
             </Box>
-          ) : <Text dimColor>Bu zaman aralığında konu yok.</Text>}
+          ) : <Text dimColor>No sessions in this time range.</Text>}
           {waitList.map(k => (
             <Button key={`mw-${k.id}`} plain onPress={async () => { await set(g => ({ ...g, sel: k.id })); await openSession(k) }}>
               <Text color={RED}>●</Text> <Text weight="bold">{k.proj}</Text> · {cut(k.title, Math.max(12, cols - 16))}
@@ -555,7 +555,7 @@ export const register: Register = on => {
                 <Text dimColor>{miniTarget ? `→ ${miniTarget.proj} · ${cut(miniTarget.title, Math.max(12, cols - 22))}` : '→ Qosmos (Claude)'}</Text>
                 {miniTarget && <Button key="hedef-sil" plain onPress={() => set(g => ({ ...g, sel: '' }))}><Text dimColor>✕</Text></Button>}
               </Box>
-              <Input key={`mini-bar-${miniTarget?.id ?? 'ben'}`} rows={2} placeholder="Yaz ya da dikte et (🌐 iki kez)" submitLabel="Gönder" onSubmit={(text: string) => {
+              <Input key={`mini-bar-${miniTarget?.id ?? 'ben'}`} rows={2} placeholder="Type or dictate (🌐 twice)" submitLabel="Send" onSubmit={(text: string) => {
                 if (!text.trim()) return
                 if (miniTarget) void send(miniTarget, text)
                 else void $.prompt.submit({ text })
@@ -563,9 +563,9 @@ export const register: Register = on => {
             </Box>
           )}
           <Button key="web-mini" plain onPress={() => openWeb()}>
-            <Text color="#4da3ff">⤢ Web'de aç: tıklanır harita, sütunlar, mikrofon</Text>
+            <Text color="#4da3ff">⤢ Open the web view: clickable map, columns, microphone</Text>
           </Button>
-          <Text dimColor>Konuya bas: uygulamada açılır. Yan yana görmek için konuyu kenar çubuğundan sürükle ya da sağ tıkla → Open in → Split view. Ayrıntılar için paneli genişlet.</Text>
+          <Text dimColor>Click a session to open it in the app. For side by side, drag it from the sidebar or right-click → Open in → Split view. Widen the pane for details.</Text>
         </Box>
       )
     }
