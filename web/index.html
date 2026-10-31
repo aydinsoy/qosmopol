@@ -140,6 +140,7 @@
   .item { background: var(--card); border: 1px solid var(--input-line); border-radius: 16px; margin: 0 0 6px; box-shadow: 0 1px 0 rgba(0,0,0,.22); }
   .item:hover { background: var(--btn-hover); }
   .rz { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 20; }
+  #main > .col:last-child > .rz { right: 0; }  /* inside the last column, so the columns area does not scroll by 3 px */
   /* VS Code-style sash: a three-dot grip in the middle, a blue line on hover and while dragging */
   .rz::before { content: ''; position: absolute; left: 2px; top: 50%; width: 3px; height: 15px; transform: translateY(-50%);
     background: radial-gradient(circle, var(--dim) 1.1px, transparent 1.5px) 0 0 / 3px 5px repeat-y; opacity: .9; z-index: 1; }
@@ -640,17 +641,19 @@ function applyWidths() {
   if (W.side) document.documentElement.style.setProperty('--side-w', W.side + 'px')
   if (W.plist) document.documentElement.style.setProperty('--plist-w', W.plist + 'px')
   const cols = [...document.querySelectorAll('#main > .col')]
-  // the last column may still grow into spare room; none shrinks below its own width
-  cols.forEach((el, i) => { const w = W['col:' + el.dataset.col]; el.style.flex = w ? `${i === cols.length - 1 ? 1 : 0} 0 ${w}px` : '' })
   // Safari sizes a flex box by its content (the map's own width); pin the dock to an explicit width instead.
   // Opened columns get room first: the map gives way down to 300 px, the columns get up to 440 px each and scroll beyond that.
   const dock = $('#mapdock'), docked = dock.querySelector('.col'), want = W['col:harita'] || 460
+  const room = innerWidth - (document.documentElement.classList.contains('sidecol') ? 0 : W.side || 272) - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
   let dw = want
   if (docked && !S.mapHand && getComputedStyle($('#app')).flexDirection === 'row') {
-    const room = innerWidth - (document.documentElement.classList.contains('sidecol') ? 0 : W.side || 272) - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
     const forCols = Math.max(0, Math.min(cols.length * 440, room - 300))
     dw = Math.max(300, Math.min(want, room - forCols))
   }
+  // the others keep their own width; the last one grows into spare room and gives way (down to 260 px) so it never runs off screen.
+  // No column is wider than the columns area itself: a wider one (an old saved width) only pushes the rest out of sight.
+  const area = Math.max(260, room - (docked ? dw : 0))
+  cols.forEach((el, i) => { const w = W['col:' + el.dataset.col] && Math.min(W['col:' + el.dataset.col], area); el.style.flex = w ? `${i === cols.length - 1 ? '1 1' : '0 0'} ${w}px` : '' })
   if (docked) docked.style.flex = `0 0 ${dw}px`
   dock.style.width = docked ? dw + 'px' : '0px'
   $('#app').scrollLeft = 0  // a column scrolled into view must never push the sidebar off screen
