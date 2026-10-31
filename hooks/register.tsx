@@ -53,6 +53,19 @@ async function bridge($: EngineInterface) {
           // Not awaited: a submitted prompt resolves only once its turn has run, and the bridge must stay free.
           void $.prompt.submit({ text: String(j.text) })
           out.push({ job: j.job, ok: true, text: 'delivered to the Qosmos session (runs once it is idle)' })
+        } else if (j.kind === 'set') {
+          // The app refuses a session re-pricing its own turns: the home session changes only its mode from here.
+          if (j.id === 'self' && j.what !== 'mode') {
+            out.push({ job: j.job, ok: false, text: "the home session's model and effort change in the Claude app's menu" })
+            continue
+          }
+          const tool = { model: 'set_session_model', effort: 'set_session_effort', mode: 'set_session_permission_mode' }[j.what as string]
+          if (!tool) {
+            out.push({ job: j.job, ok: false, text: 'unknown setting' })
+            continue
+          }
+          const res = await $.mcp.call('ccd_session_mgmt', tool, { session_id: j.id, [j.what]: String(j.value) })
+          out.push({ job: j.job, ok: !res.isError, text: cut((res.content ?? []).map((c: any) => c.text ?? '').join(' '), 300) })
         } else {
           const tool = { send: 'send_message', archive: 'archive_session', unarchive: 'unarchive_session' }[j.kind as string]
           if (!tool) {

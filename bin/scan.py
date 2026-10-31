@@ -83,6 +83,11 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
         "busy": time.time() - WRITTEN.get(d.get("cliSessionId") or "", 0) < 90,
         # Set while a turn is paused on a permission or a question for the owner.
         "ask": bool(d.get("interruptedAwaitingPerson")),
+        # what the composer's bottom row shows (and lets the owner change)
+        "model": d.get("model") or "",
+        "effort": d.get("effort") or "",
+        "mode": d.get("permissionMode") or "",
+        "home": bool(me) and (d.get("cliSessionId") == me or me in (d.get("priorCliSessionIds") or [])),
     })
 
 accounts.sort()

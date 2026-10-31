@@ -46,6 +46,7 @@
   button, select, textarea { font: inherit; color: inherit; }
   :focus { outline: none; }
   :focus-visible { outline: 1.5px solid var(--blue); outline-offset: 1px; border-radius: 6px; }
+  .cbox :focus-visible { outline: none; }
   .scroll { overflow: auto; }
   .scroll::-webkit-scrollbar { width: 8px; height: 8px; }
   .scroll::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
@@ -149,20 +150,37 @@
   svg [data-k], svg [data-p] { cursor: pointer; }
 
   /* Composer — one look for every bar */
-  .composer { flex: none; padding: 10px 12px 10px; }
-  .cbox { display: flex; align-items: flex-end; gap: 8px; background: var(--input); border: 1px solid var(--input-line); border-radius: 16px; padding: 6px 6px 6px 14px; }
-  .cbox:focus-within { border-color: color-mix(in srgb, var(--input-line), var(--text) 25%); }
-  .cbox textarea { flex: 1; resize: none; background: none; border: 0; padding: 5px 0; min-height: 24px; max-height: 160px; line-height: 1.45; color: var(--text); }
+  /* the composer copies Claude's own bar: + on the left, the mic on the right, a send circle once there is text,
+     and a quiet row underneath with the session's mode, model and effort */
+  .composer { flex: none; padding: 10px 12px 8px; }
+  .cbox { display: flex; align-items: center; gap: 6px; background: var(--input); border: 1px solid var(--input-line); border-radius: 18px; padding: 6px 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .cbox:focus-within { border-color: color-mix(in srgb, var(--input-line), var(--text) 22%); }
+  .cbox textarea { flex: 1; resize: none; background: none; border: 0; padding: 6px 2px; min-height: 22px; max-height: 160px; line-height: 1.45; color: var(--text); font-size: 14px; }
+  .cbox .plus, .cbox .micbtn { width: 30px; height: 30px; border: 0; border-radius: 50%; background: none; color: var(--text2); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .cbox .plus:hover, .cbox .micbtn:hover { background: var(--hover); color: var(--text); }
+  .cbox .plus svg.i, .cbox .micbtn svg.i { width: 18px; height: 18px; }
+  .cbox .round { display: none; }
+  .composer.has-text .cbox .round { display: inline-flex; }
+  .composer.has-text .cbox .micbtn { display: none; }
+  .composer.rec .cbox .micbtn { display: inline-flex; color: #fff; background: var(--red); animation: blink 1.2s infinite; }
+  .cmeta .chip { border: 0; background: none; color: var(--text2); font-size: 12.5px; height: 22px; padding: 0 6px; border-radius: 6px; white-space: nowrap; }
+  .cmeta .chip:hover { background: var(--hover); color: var(--text); }
+  .cmeta .chip.ro { cursor: default; }
+  .cmeta .chip.ro:hover { background: none; color: var(--text2); }
+  .cmeta .spacer { flex: 1; }
+  .cmeta .wait { white-space: nowrap; color: var(--text2); }
+  .cmeta .wait .dot { display: inline-block; margin-right: 5px; vertical-align: 1px; }
+  #menu { position: fixed; z-index: 70; min-width: 180px; background: var(--toast); color: var(--text); border: 1px solid var(--input-line); border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px rgba(0,0,0,.22); display: none; }
+  #menu.on { display: block; }
+  #menu button { display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+  #menu button:hover { background: var(--hover); }
+  #menu .ck { width: 14px; color: var(--blue); }
+  #menu .hd { font-size: 11px; color: var(--dim); padding: 6px 10px 2px; }
   .cbox textarea::placeholder { color: var(--dim); }
-  .round { width: 28px; height: 28px; border-radius: 50%; border: 0; background: var(--round); color: var(--round-fg); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .round { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--round); color: var(--round-fg); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .round:hover { filter: brightness(1.08); }
-  .round .send { display: none; }
-  .composer.has-text .round .send { display: block; }
-  .composer.has-text .round .mic { display: none; }
-  .composer.rec .round { background: var(--red); color: #fff; animation: blink 1.2s infinite; }
-  .cmeta { display: flex; gap: 8px; align-items: center; margin: 6px 4px 0; font-size: 11.5px; color: var(--dim); min-height: 16px; }
-  .cmeta .to { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cmeta .note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+  .cmeta { display: flex; gap: 4px; align-items: center; margin: 6px 2px 0; font-size: 12.5px; color: var(--dim); min-height: 22px; }
+  .cmeta .note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; font-size: 11.5px; }
 
   /* Main area: inbox or columns */
   #main { display: flex; min-width: 0; min-height: 0; overflow-x: auto; }
@@ -229,6 +247,7 @@
   <section id="plist"><div class="rz" data-rz="plist" title="Drag to resize"></div><header></header><div class="meta"></div><div class="body scroll"></div></section>
   <main id="main"></main>
 </div>
+<div id="menu"></div>
 <div id="toast"><span id="toast-text"></span><button class="btn" id="toast-undo">Geri al</button></div>
 <script>
 'use strict'
@@ -245,7 +264,7 @@ const I = (d, cls = '') => `<svg class="i ${cls}" viewBox="0 0 16 16" fill="none
 const ICON = {
   right: I('<path d="M6 4l4 4-4 4"/>'), down: I('<path d="M4 6l4 4 4-4"/>'), x: I('<path d="M4 4l8 8M12 4l-8 8"/>'),
   mic: I('<rect x="6" y="2" width="4" height="8" rx="2"/><path d="M3.5 8a4.5 4.5 0 009 0M8 12.5V14"/>', 'mic'),
-  send: I('<path d="M8 13V3M4 7l4-4 4 4"/>', 'send'), app: I('<path d="M9 3h4v4M13 3L7 9M11 9v4H3V5h4"/>'), check: I('<path d="M3 8.5l3 3 7-7"/>'),
+  send: I('<path d="M8 13V3M4 7l4-4 4 4"/>', 'send'), plus: I('<path d="M8 3v10M3 8h10"/>'), app: I('<path d="M9 3h4v4M13 3L7 9M11 9v4H3V5h4"/>'), check: I('<path d="M3 8.5l3 3 7-7"/>'),
   archive: I('<rect x="2.5" y="3" width="11" height="3" rx="1"/><path d="M3.5 6v7h9V6M6.5 9h3"/>'),
 }
 
@@ -408,7 +427,7 @@ function renderSide() {
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
   const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>`).join('')
   setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div>${closed}`)
-  setHTML($('#sidebar-composer .to'), '→ Qosmos (home session, Claude)')
+  fillMeta($('#sidebar-composer'), true)
 }
 function renderPlist() {
   const el = $('#plist'), list = new Map(groups()).get(S.pp)
@@ -440,7 +459,25 @@ function topicItem(k, withProj) {
     <div class="sub${waiting(k) ? ' red' : ''}">${md(cut(k.need || k.detail || 'No summary.', 280))}</div></div>`
 }
 function composerHTML(placeholder) {
-  return `<div class="cbox"><textarea rows="1" placeholder="${placeholder}"></textarea><button class="round" title="Empty: dictate · with text: send">${ICON.mic}${ICON.send}</button></div><div class="cmeta"><span class="to"></span><span class="note"></span></div>`
+  return `<div class="cbox"><button class="plus" title="Actions">${ICON.plus}</button><textarea rows="1" placeholder="${placeholder}"></textarea><button class="micbtn" title="Dictate">${ICON.mic}</button><button class="round" title="Send (Enter)">${ICON.send}</button></div>
+    <div class="cmeta"><button class="chip" data-chip="mode"></button><span class="note"></span><span class="spacer"></span><span class="wait"></span><button class="chip" data-chip="model"></button><button class="chip" data-chip="effort"></button></div>`
+}
+// The bottom row: the target session's permission mode, model and effort, each a menu that asks the app to change it.
+const MODES = { default: 'Ask permissions', acceptEdits: 'Accept edits', plan: 'Plan', auto: 'Auto' }
+const EFFORTS = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high', max: 'Max' }
+function modelName(m) {
+  const x = /^claude-([a-z]+)-(\d+)(?:-(\d))?(?:-\d{8})?(\[1m\])?$/.exec(m || '')
+  return x ? `${x[1][0].toUpperCase()}${x[1].slice(1)} ${x[2]}${x[3] ? '.' + x[3] : ''}${x[4] ? ' · 1M' : ''}` : (m || 'Default model')
+}
+const homeRow = () => (S.data?.sessions ?? []).find(x => x.home)
+function targetOf(comp) { const to = comp.dataset.to; return to.startsWith('k:') ? byId().get(to.slice(2)) : homeRow() }
+function fillMeta(comp, withWait) {
+  const k = targetOf(comp), isHome = !comp.dataset.to.startsWith('k:')
+  setHTML(comp.querySelector('[data-chip=mode]'), k ? `${MODES[k.mode] || (k.mode === 'bypassPermissions' ? 'Bypass permissions' : 'Default')} ▾` : '')
+  const model = comp.querySelector('[data-chip=model]'), effort = comp.querySelector('[data-chip=effort]')
+  setHTML(model, k ? modelName(k.model) : ''); setHTML(effort, k ? (EFFORTS[k.effort] || 'Default effort') : '')
+  for (const c of [model, effort]) { c.classList.toggle('ro', isHome); c.title = isHome ? "The home session's model and effort change in the Claude app's own menu" : 'Change for this session' }
+  if (withWait) { const n = visible().filter(waiting).length; setHTML(comp.querySelector('.wait'), `<span class="dot${n ? ' r' : ''}"></span>${n} waiting`) }
 }
 function renderCols() {
   const main = $('#main'), d = S.data
@@ -465,7 +502,7 @@ function renderCols() {
     if (main.children[i] !== el) main.insertBefore(el, main.children[i] ?? null)
     const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · home session</span>' : '<span class="title">Map</span>'
     setHTML(el.querySelector('header'), `${title}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
-    setHTML(el.querySelector('.cmeta .to'), k ? `→ ${esc(k.proj)} · ${esc(cut(k.title, 60))}` : pname ? `→ Claude (home session) · starts with “[${esc(pname)}]”` : '→ Claude (home session)')
+    fillMeta(el.querySelector('.composer'), false)
     let body
     if (k) body = topicBody(k)
     else if (c === 'home') body = `<div class="meta">What you write here or in the sidebar bar goes to Qosmos's home session; replies show up here.</div><div class="label">Conversation</div>${conv(S.talks.home, [])}`
@@ -607,6 +644,45 @@ document.addEventListener('pointerup', () => { if (cdrag) cdrag.moved ? colDragE
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && cdrag?.moved) colDragEnd(false) })
 window.addEventListener('blur', () => { if (cdrag?.moved) colDragEnd(false) })
 
+// --- small popover menus for the composer's + and its chips
+let MENU = []
+function openMenu(anchor, items) {
+  MENU = []
+  const m = $('#menu')
+  m.innerHTML = items.map(it => it.hd ? `<div class="hd">${esc(it.hd)}</div>` : `<button data-mi="${MENU.push(it.run) - 1}"><span class="ck">${it.on ? '✓' : ''}</span>${esc(it.label)}</button>`).join('')
+  m.classList.add('on')
+  const r = anchor.getBoundingClientRect(), h = m.offsetHeight, w = m.offsetWidth
+  m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px'
+  m.style.top = (r.top - h - 6 > 8 ? r.top - h - 6 : r.bottom + 6) + 'px'
+}
+function closeMenu() { $('#menu').classList.remove('on') }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu() })
+function plusMenu(comp, anchor) {
+  const k = comp.dataset.to.startsWith('k:') && targetOf(comp)
+  openMenu(anchor, k ? [
+    { hd: k.title },
+    { label: 'Open in the Claude app', run: () => openInApp(k) },
+    { label: 'Mark read', run: () => markRead(k) },
+    { label: 'Close session', run: () => closeTopic(k) },
+  ] : [
+    { label: 'Open the home session column', run: () => openCol('home') },
+    { label: 'Open the map', run: () => openCol('harita') },
+    { label: 'Refresh now', run: () => refresh(true) },
+  ])
+}
+function chipMenu(comp, chip) {
+  const k = targetOf(comp), what = chip.dataset.chip, note = comp.querySelector('.note')
+  if (!k) return
+  const set = value => api('/api/set', { id: comp.dataset.to.startsWith('k:') ? k.id : '', what, value })
+    .then(r => { S.jobs[r.job] = { label: `${what} → ${value}`, at: Date.now(), note }; note.textContent = 'Asking the app… (it may show an approval card)'; setTimeout(() => refresh(true), 3000) })
+    .catch(err => { note.textContent = 'Could not change: ' + err.message })
+  const models = [...new Set([k.model, ...(S.data.sessions ?? []).map(x => x.model)].filter(Boolean))].sort()
+  const items = what === 'mode' ? Object.entries(MODES).map(([v, l]) => ({ label: l, on: k.mode === v, run: () => set(v) }))
+    : what === 'effort' ? Object.entries(EFFORTS).map(([v, l]) => ({ label: l, on: k.effort === v, run: () => set(v) }))
+    : models.map(v => ({ label: modelName(v), on: k.model === v, run: () => set(v) }))
+  openMenu(chip, [{ hd: { mode: 'Permission mode', effort: 'Effort', model: 'Model' }[what] }, ...items])
+}
+
 // --- composers: the sidebar one talks to the home session, a column's to its topic (a project column: home, prefixed)
 async function send(comp) {
   const box = comp.querySelector('textarea'), text = box.value.trim(), to = comp.dataset.to, note = comp.querySelector('.note')
@@ -644,7 +720,12 @@ document.addEventListener('click', e => {
   if (S.justDragged) return  // the click that ends a drag opens nothing
   const t = e.target, ids = byId()
   const comp = t.closest('.composer')
-  if (comp && t.closest('.round')) return comp.classList.contains('has-text') && !comp.classList.contains('rec') ? send(comp) : mic(comp)
+  if (comp && t.closest('.round')) return send(comp)
+  if (comp && t.closest('.micbtn')) return mic(comp)
+  if (comp && t.closest('.plus')) return plusMenu(comp, t.closest('.plus'))
+  const chip = comp && t.closest('[data-chip]'); if (chip && !chip.classList.contains('ro')) return chipMenu(comp, chip)
+  const mi = t.closest('#menu [data-mi]'); if (mi) { const f = MENU[+mi.dataset.mi]; closeMenu(); return f && f() }
+  if (!t.closest('#menu')) closeMenu()
   const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
   const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
   const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Reopen', at: Date.now() }; toast('Session reopened'); refresh(true) })
@@ -746,7 +827,7 @@ document.addEventListener('input', e => { if (e.target.matches('.composer textar
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.composer textarea')) { e.preventDefault(); send(e.target.closest('.composer')) } })
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
 $('#main').addEventListener('click', e => { if (e.target.closest('.bigmap')) onSkyClick(e) })
-$('#sidebar-composer').innerHTML = composerHTML('Message Claude… (Enter to send)')
+$('#sidebar-composer').innerHTML = composerHTML('Message Claude… (home session)')
 
 // --- data: sessions every 10 s, open conversations every 15 s; bridge results show under the bar that sent them
 async function refresh(now) {
