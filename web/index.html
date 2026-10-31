@@ -228,8 +228,16 @@
   #inbox .top { height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--line); }
   #inbox .body { flex: 1; padding: 10px 12px; }
   .col[data-col="harita"] > .body { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-  .bigmap { flex: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; align-items: stretch; }
-  .bigmap svg { height: 100%; width: auto; flex: none; display: block; }
+  /* the map is a canvas: drag to pan, pinch or wheel to zoom; it stays where it was left */
+  .bigmap { flex: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; align-items: stretch; position: relative; cursor: grab; touch-action: none; }
+  .bigmap.panning { cursor: grabbing; }
+  .mapview { height: 100%; flex: none; transform-origin: 0 0; will-change: transform; }
+  .mapview svg { height: 100%; width: auto; display: block; }
+  .maptools { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 3; }
+  .maptools button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--input-line); background: var(--input); color: var(--text2); display: inline-flex; align-items: center; justify-content: center; cursor: default; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .maptools button:hover { color: var(--text); background: color-mix(in srgb, var(--input), var(--text) 6%); }
+  .maptools svg.i { width: 15px; height: 15px; }
+  .col.mapfull { position: fixed; inset: 0; z-index: 55; width: auto !important; flex: none !important; border: 0; }
   .maplegend { flex: none; padding: 10px 16px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--dim); }
   select { height: 24px; border-radius: 6px; border: 0; background: var(--btn); color: var(--text2); padding: 0 6px; font-size: 12px; }
 
@@ -282,7 +290,7 @@ const I = (d, cls = '') => `<svg class="i ${cls}" viewBox="0 0 16 16" fill="none
 const ICON = {
   right: I('<path d="M6 4l4 4-4 4"/>'), down: I('<path d="M4 6l4 4 4-4"/>'), x: I('<path d="M4 4l8 8M12 4l-8 8"/>'),
   mic: I('<rect x="6" y="2" width="4" height="8" rx="2"/><path d="M3.5 8a4.5 4.5 0 009 0M8 12.5V14"/>', 'mic'),
-  send: I('<path d="M8 13V3M4 7l4-4 4 4"/>', 'send'), plus: I('<path d="M8 3v10M3 8h10"/>'), more: '<svg class="i" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>', app: I('<path d="M9 3h4v4M13 3L7 9M11 9v4H3V5h4"/>'), check: I('<path d="M3 8.5l3 3 7-7"/>'),
+  send: I('<path d="M8 13V3M4 7l4-4 4 4"/>', 'send'), plus: I('<path d="M8 3v10M3 8h10"/>'), refresh: I('<path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5"/>'), expand: I('<path d="M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9"/>'), shrink: I('<path d="M13.5 6.5h-4v-4M9.5 6.5L14 2M2.5 9.5h4v4M6.5 9.5L2 14"/>'), more: '<svg class="i" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>', app: I('<path d="M9 3h4v4M13 3L7 9M11 9v4H3V5h4"/>'), check: I('<path d="M3 8.5l3 3 7-7"/>'),
   archive: I('<rect x="2.5" y="3" width="11" height="3" rx="1"/><path d="M3.5 6v7h9V6M6.5 9h3"/>'),
 }
 
@@ -533,10 +541,12 @@ function renderCols() {
     } else {
       // height sets the scale (the viewBox ratio gives the width), so a narrower column crops both sides evenly
       const svg = sky(groups()), vb = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
-      body = `<div class="bigmap">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maplegend">Blinking red: something needs you · orange: agent working · grey: closed · ring: unread. Click a circle to open its column.</div>`
+      const full = el.classList.contains('mapfull')
+      body = `<div class="bigmap"><div class="mapview">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maptools"><button data-map="reset" data-tip="Center and reset zoom">${ICON.refresh}</button><button data-map="full" data-tip="${full ? 'Exit full screen' : 'Full screen'}">${full ? ICON.shrink : ICON.expand}</button></div></div><div class="maplegend">Blinking red: something needs you · orange: agent working · grey: closed · ring: unread. Click a circle to open its column.</div>`
     }
     const b = el.querySelector('.body'), first = b._html === undefined
     if (setHTML(b, body) && (k || c === 'home') && (first || c === 'home')) b.scrollTop = b.scrollHeight
+    if (c === 'harita') applyMapView()
   })
   applyWidths()
 }
@@ -694,7 +704,7 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // conversations and agents' summaries are never touched.
 let LANG = /^tr/i.test(navigator.language || '') ? 'tr' : 'en'
 const TR = {
-  'Scanning…': 'Taranıyor…', 'No folder (temporary workspace)': 'Klasör yok (geçici çalışma alanı)', 'Show folder in Finder': "Klasörü Finder'da göster", 'Copy folder path': 'Klasör yolunu kopyala', 'Folder path copied': 'Klasör yolu kopyalandı', 'Sessions map for Claude Code': 'Claude Code oturum haritası', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
+  'Scanning…': 'Taranıyor…', 'Center and reset zoom': 'Ortala ve yakınlaştırmayı sıfırla', 'Full screen': 'Tam ekran', 'Exit full screen': 'Tam ekrandan çık', 'No folder (temporary workspace)': 'Klasör yok (geçici çalışma alanı)', 'Show folder in Finder': "Klasörü Finder'da göster", 'Copy folder path': 'Klasör yolunu kopyala', 'Folder path copied': 'Klasör yolu kopyalandı', 'Sessions map for Claude Code': 'Claude Code oturum haritası', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
   'Graphite': 'Antrasit', 'Light': 'Açık', 'Black': 'Siyah', 'Projects': 'Projeler', 'auto-sort': 'otomatik sırala',
   'Loose sessions': 'Projesiz konular', 'Closed': 'Kapatılanlar', 'Home session (Claude)': 'Ana oturum (Claude)', 'Map': 'Harita',
   'Qosmos · home session': 'Qosmos · ana oturum', 'Waiting:': 'Bekliyor:', 'waiting': 'bekliyor', 'running': 'çalışıyor', 'unread': 'okunmamış',
@@ -1007,7 +1017,60 @@ window.addEventListener('blur', () => { if (pdrag?.moved) dragEnd(false) })
 document.addEventListener('input', e => { if (e.target.matches('.composer textarea')) { grow(e.target); e.target.closest('.composer').classList.toggle('has-text', !!e.target.value.trim()) } })
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.matches('.composer textarea')) { e.preventDefault(); send(e.target.closest('.composer')) } })
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
-$('#main').addEventListener('click', e => { if (e.target.closest('.bigmap')) onSkyClick(e) })
+$('#main').addEventListener('click', e => {
+  const tool = e.target.closest('[data-map]')
+  if (tool) return tool.dataset.map === 'reset' ? resetMapView() : toggleMapFull()
+  if (e.target.closest('.bigmap') && !S.justDragged) onSkyClick(e)
+})
+// --- the map canvas: pan by dragging, zoom by pinch (Chrome: ctrl+wheel, Safari: gesture events) or the wheel,
+// around the pointer. The view is kept across refreshes and reloads; ↻ centres it again at 1×.
+const MV = Object.assign({ x: 0, y: 0, s: 1 }, kept('mapView', {}))
+function applyMapView() {
+  const v = document.querySelector('.mapview'); if (!v) return
+  v.style.transform = `translate(${MV.x}px, ${MV.y}px) scale(${MV.s})`
+}
+const saveMapView = () => keep('mapView', { x: Math.round(MV.x), y: Math.round(MV.y), s: +MV.s.toFixed(3) })
+function resetMapView() { MV.x = 0; MV.y = 0; MV.s = 1; applyMapView(); saveMapView(); refresh(true) }
+function zoomMapAt(clientX, clientY, factor) {
+  const v = document.querySelector('.mapview'), box = v?.parentElement.getBoundingClientRect(); if (!v) return
+  const s = Math.max(0.3, Math.min(6, MV.s * factor)), k = s / MV.s
+  const px = clientX - box.left - v.offsetLeft, py = clientY - box.top - v.offsetTop  // pointer in the view's untransformed frame
+  MV.x = px - (px - MV.x) * k; MV.y = py - (py - MV.y) * k; MV.s = s
+  applyMapView(); saveMapView()
+}
+function toggleMapFull() {
+  const col = document.querySelector('[data-col="harita"]'); if (!col) return
+  col.classList.toggle('mapfull'); renderCols()
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.col.mapfull')) toggleMapFull() })
+let mpan = null
+document.addEventListener('pointerdown', e => {
+  const m = e.button === 0 && e.target.closest('.bigmap'); if (!m || e.target.closest('.maptools')) return
+  mpan = { x0: e.clientX, y0: e.clientY, x: MV.x, y: MV.y, moved: false, el: m }
+})
+document.addEventListener('pointermove', e => {
+  if (!mpan) return
+  const dx = e.clientX - mpan.x0, dy = e.clientY - mpan.y0
+  if (!mpan.moved && Math.hypot(dx, dy) < 4) return
+  mpan.moved = true; mpan.el.classList.add('panning')
+  MV.x = mpan.x + dx; MV.y = mpan.y + dy; applyMapView()
+})
+document.addEventListener('pointerup', () => {
+  if (!mpan) return
+  if (mpan.moved) { saveMapView(); S.justDragged = true; setTimeout(() => (S.justDragged = false), 0) }
+  mpan.el.classList.remove('panning'); mpan = null
+})
+document.addEventListener('wheel', e => {
+  if (!e.target.closest || !e.target.closest('.bigmap')) return
+  e.preventDefault()
+  zoomMapAt(e.clientX, e.clientY, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0025)))
+}, { passive: false })
+let gScale = 1
+document.addEventListener('gesturestart', e => { if (e.target.closest && e.target.closest('.bigmap')) { e.preventDefault(); gScale = 1 } })
+document.addEventListener('gesturechange', e => {
+  if (!e.target.closest || !e.target.closest('.bigmap')) return
+  e.preventDefault(); zoomMapAt(e.clientX, e.clientY, e.scale / gScale); gScale = e.scale
+})
 $('#sidebar-composer').innerHTML = composerHTML('Message Claude… (home session)')
 
 // --- data: sessions every 10 s, open conversations every 15 s; bridge results show under the bar that sent them
