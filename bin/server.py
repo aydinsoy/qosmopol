@@ -95,6 +95,7 @@ def scan():
         data["messages"] = log
         data["readAt"] = load(READ, {})
         data["order"] = load(ORDER, [])
+        data["homeDir"] = os.path.expanduser("~")
         # the page speaks the language the owner chose in the Claude app (config.json "locale"); the browser decides otherwise
         data["lang"] = load(os.path.expanduser("~/Library/Application Support/Claude/config.json"), {}).get("locale", "")
         data["results"] = load(RESULTS, {})
@@ -169,6 +170,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         try:
             if path == "/api/open":
                 subprocess.run(["/usr/bin/open", f"claude://claude.ai/epitaxy/{sid}"], timeout=10, check=True)
+                return self.reply(200, {"ok": True})
+            if path == "/api/reveal":  # show a session's own working folder in Finder; never a path from the page
+                sessions = scan()["sessions"]
+                k = next((x for x in sessions if x["id"] == sid), None) if sid else next((x for x in sessions if x.get("home")), None)
+                folder = (k or {}).get("cwd") or ""
+                if not folder or not os.path.isdir(folder):
+                    return self.reply(404, {"error": "no folder"})
+                subprocess.run(["/usr/bin/open", folder], timeout=10, check=True)
                 return self.reply(200, {"ok": True})
             if path == "/api/read":
                 with LOCK:

@@ -694,7 +694,7 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // conversations and agents' summaries are never touched.
 let LANG = /^tr/i.test(navigator.language || '') ? 'tr' : 'en'
 const TR = {
-  'Scanning…': 'Taranıyor…', 'Sessions map for Claude Code': 'Claude Code oturum haritası', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
+  'Scanning…': 'Taranıyor…', 'No folder (temporary workspace)': 'Klasör yok (geçici çalışma alanı)', 'Show folder in Finder': "Klasörü Finder'da göster", 'Copy folder path': 'Klasör yolunu kopyala', 'Folder path copied': 'Klasör yolu kopyalandı', 'Sessions map for Claude Code': 'Claude Code oturum haritası', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
   'Graphite': 'Antrasit', 'Light': 'Açık', 'Black': 'Siyah', 'Projects': 'Projeler', 'auto-sort': 'otomatik sırala',
   'Loose sessions': 'Projesiz konular', 'Closed': 'Kapatılanlar', 'Home session (Claude)': 'Ana oturum (Claude)', 'Map': 'Harita',
   'Qosmos · home session': 'Qosmos · ana oturum', 'Waiting:': 'Bekliyor:', 'waiting': 'bekliyor', 'running': 'çalışıyor', 'unread': 'okunmamış',
@@ -734,7 +734,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '],
+  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
 ]
@@ -820,14 +820,31 @@ function rowMenu(row, anchor) {
   anchor.classList.add('open')
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu() })
+// The session's working folder, as Claude shows it: ~ for the home folder; scratch workspaces have none of their own.
+function folderOf(k) {
+  if (!k || !k.cwd || LOOSE.has(k.proj) && /scratch-workspaces/.test(k.cwd)) return ''
+  const home = S.data?.homeDir
+  return home && k.cwd.startsWith(home) ? '~' + k.cwd.slice(home.length) : k.cwd
+}
+function folderItems(k, idForApi) {
+  const f = folderOf(k)
+  if (!f) return [{ hd: 'No folder (temporary workspace)' }]
+  return [
+    { hd: '📁 ' + f },
+    { label: 'Show folder in Finder', run: () => api('/api/reveal', { id: idForApi }).catch(err => toast('Could not open the folder: ' + err.message)) },
+    { label: 'Copy folder path', run: () => navigator.clipboard.writeText(k.cwd).then(() => toast('Folder path copied')).catch(() => toast(k.cwd)) },
+  ]
+}
 function plusMenu(comp, anchor) {
   const k = comp.dataset.to.startsWith('k:') && targetOf(comp)
   openMenu(anchor, k ? [
     { hd: k.title },
+    ...folderItems(k, k.id),
     { label: 'Open in the Claude app', run: () => openInApp(k) },
     { label: 'Mark read', run: () => markRead(k) },
     { label: 'Close session', run: () => closeTopic(k) },
   ] : [
+    ...folderItems(homeRow(), ''),
     { label: 'Open the home session column', run: () => openCol('home') },
     { label: 'Open the map', run: () => openCol('harita') },
     { label: 'Refresh now', run: () => refresh(true) },
