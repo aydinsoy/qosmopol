@@ -335,7 +335,7 @@ const ICON = {
 
 // On a first visit the map and the inbox are open.
 // cols: the map comes back on every load, even after it was closed
-const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: (c => c.includes('harita') ? c : ['harita', ...c])(kept('cols', ['harita']).filter(c => !c.startsWith('p:'))), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false }
+const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: (c => c.includes('harita') ? c : ['harita', ...c])(kept('cols', ['harita']).filter(c => !c.startsWith('p:'))), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false, mapHand: kept('mapHand', false) }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined
@@ -455,6 +455,7 @@ function openCol(c) {
   if (c.startsWith('k:')) { S.sel = c.slice(2); loadTalk(c.slice(2)); const k = byId().get(S.sel); if (k && S.pp !== k.proj) { S.pp = k.proj; keep('pp', k.proj) } }
   if (c === 'home') loadTalk('home')
   if (!S.cols.includes(c)) {
+    if (c !== 'harita') { S.mapHand = false; keep('mapHand', undefined) }  // a newly opened column gets its room again
     // the map always sits first, right of the sidebar; when columns run out, the oldest session goes, never the map
     const cols = c === 'harita' ? [c, ...S.cols] : [...S.cols, c]
     while (cols.length > MAXCOLS) cols.splice(cols.findIndex(x => x !== 'harita'), 1)
@@ -639,12 +640,13 @@ function applyWidths() {
   if (W.side) document.documentElement.style.setProperty('--side-w', W.side + 'px')
   if (W.plist) document.documentElement.style.setProperty('--plist-w', W.plist + 'px')
   const cols = [...document.querySelectorAll('#main > .col')]
-  cols.forEach((el, i) => { const w = i < cols.length - 1 && W['col:' + el.dataset.col]; el.style.flex = w ? `0 0 ${w}px` : '' })
+  // the last column may still grow into spare room; none shrinks below its own width
+  cols.forEach((el, i) => { const w = W['col:' + el.dataset.col]; el.style.flex = w ? `${i === cols.length - 1 ? 1 : 0} 0 ${w}px` : '' })
   // Safari sizes a flex box by its content (the map's own width); pin the dock to an explicit width instead.
   // Opened columns get room first: the map gives way down to 300 px, the columns get up to 440 px each and scroll beyond that.
   const dock = $('#mapdock'), docked = dock.querySelector('.col'), want = W['col:harita'] || 460
   let dw = want
-  if (docked && getComputedStyle($('#app')).flexDirection === 'row') {
+  if (docked && !S.mapHand && getComputedStyle($('#app')).flexDirection === 'row') {
     const room = innerWidth - (document.documentElement.classList.contains('sidecol') ? 0 : W.side || 272) - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
     const forCols = Math.max(0, Math.min(cols.length * 440, room - 300))
     dw = Math.max(300, Math.min(want, room - forCols))
@@ -674,8 +676,8 @@ let rz = null
 document.addEventListener('pointerdown', e => {
   const h = e.button === 0 && e.target.closest('.rz'); if (!h) return
   e.preventDefault(); e.stopPropagation()
-  const panel = h.parentElement, next = h.dataset.rz === 'col' ? panel.nextElementSibling : null
-  rz = { h, kind: h.dataset.rz, panel, next, x: e.clientX, w: panel.getBoundingClientRect().width, nw: next?.getBoundingClientRect().width ?? 0 }
+  const panel = h.parentElement
+  rz = { h, kind: h.dataset.rz, panel, x: e.clientX, w: panel.getBoundingClientRect().width }
   h.classList.add('on'); document.body.classList.add('resizing')
 })
 document.addEventListener('pointermove', e => {
@@ -684,13 +686,10 @@ document.addEventListener('pointermove', e => {
   if (rz.kind === 'side') { W.side = Math.round(Math.max(200, Math.min(520, rz.w + dx))); document.documentElement.style.setProperty('--side-w', W.side + 'px') }
   else if (rz.kind === 'plist') { W.plist = Math.round(Math.max(240, Math.min(640, rz.w + dx))); document.documentElement.style.setProperty('--plist-w', W.plist + 'px') }
   else {
-    // trade width with the neighbour on the right, neither below 260 px
-    const d = rz.next ? Math.max(260 - rz.w, Math.min(rz.nw - 260, dx)) : Math.max(260 - rz.w, dx)
-    W['col:' + rz.panel.dataset.col] = Math.round(rz.w + d)
-    rz.panel.style.flex = `0 0 ${Math.round(rz.w + d)}px`
-    if (rz.panel.parentElement.id === 'mapdock') applyWidths()  // the map keeps leaving room for the open columns
-    const last = rz.next && !rz.next.nextElementSibling
-    if (rz.next && !last) { W['col:' + rz.next.dataset.col] = Math.round(rz.nw - d); rz.next.style.flex = `0 0 ${Math.round(rz.nw - d)}px` }
+    // a column takes its own width (260 px and up); what no longer fits scrolls sideways in the columns area, as in VS Code
+    W['col:' + rz.panel.dataset.col] = Math.round(Math.max(260, Math.min(1600, rz.w + dx)))
+    if (rz.panel.parentElement.id === 'mapdock') { S.mapHand = true; keep('mapHand', true) }  // a width set by hand wins until a new column opens
+    applyWidths()
   }
 })
 document.addEventListener('pointerup', () => {
