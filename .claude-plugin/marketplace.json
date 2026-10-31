@@ -1,5 +1,5 @@
 {
-  "name": "qosmos",
+  "name": "qosmopol",
   "owner": { "name": "aydinsoy" },
-  "plugins": [{ "name": "qosmos", "source": "./" }]
+  "plugins": [{ "name": "qosmopol", "source": "./" }]
 }

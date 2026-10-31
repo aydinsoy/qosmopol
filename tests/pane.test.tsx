@@ -1,10 +1,10 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 const PANE = {
-  plugin: 'qosmos',
+  plugin: 'qosmopol',
   component: 'Pane',
-  requestId: 'qosmos',
-  props: { title: 'Qosmos', isFocused: false, bodyColumns: 90, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
+  requestId: 'qosmopol',
+  props: { title: 'Qosmopol', isFocused: false, bodyColumns: 90, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
 } as const
 
 const now = Date.now()
@@ -25,7 +25,7 @@ const SCAN = {
 }
 
 test('the sky, the waiting list and the archive draw on desktop and mobile', async ($, on) => {
-  on('command.register', () => ({ value: { command: 'qosmos' } }))
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('process.run', () => ({ value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))

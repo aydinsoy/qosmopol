@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Qosmos web server: the sky as a local web app.
+"""Qosmopol web server: the sky as a local web app.
 
 Serves web/index.html and a small JSON API on 127.0.0.1 only. Every API call must carry the
-token from ~/.qosmos/token, which the page receives embedded in its HTML, so another site
+token from ~/.qosmopol/token, which the page receives embedded in its HTML, so another site
 open in the same browser cannot drive it. Reading sessions and opening one in the app happen
 here; sending a message, archiving and unarchiving need the app itself, so they are written
-to a queue that the Qosmos mod (running inside a Claude Code session) carries out.
+to a queue that the Qosmopol mod (running inside a Claude Code session) carries out.
 
   server.py [--port N]      serve in the foreground
   server.py --daemon        serve in the background, unless one already answers
@@ -27,7 +27,7 @@ import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(os.path.dirname(HERE), "web")
-HOME = os.path.expanduser("~/.qosmos")
+HOME = os.path.expanduser("~/.qosmopol")
 QUEUE = os.path.join(HOME, "kuyruk.jsonl")
 RESULTS = os.path.join(HOME, "sonuc.json")
 ARCHIVE = os.path.join(HOME, "mesajlar.json")
@@ -126,7 +126,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def allowed(self):
         host = (self.headers.get("Host") or "").split(":")[0]
-        return host in ("127.0.0.1", "localhost") and secrets.compare_digest(self.headers.get("X-Qosmos-Token") or "", TOKEN)
+        return host in ("127.0.0.1", "localhost") and secrets.compare_digest(self.headers.get("X-Qosmopol-Token") or "", TOKEN)
 
     def do_GET(self):
         url = urllib.parse.urlparse(self.path)
@@ -135,7 +135,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             with open(os.path.join(WEB, url.path[1:]), "rb") as f:
                 return self.reply(200, f.read(), static[url.path])
         if url.path in ("/", "/index.html"):
-            html = open(os.path.join(WEB, "index.html"), encoding="utf-8").read().replace("__QOSMOS_TOKEN__", TOKEN)
+            html = open(os.path.join(WEB, "index.html"), encoding="utf-8").read().replace("__QOSMOPOL_TOKEN__", TOKEN)
             return self.reply(200, html.encode(), "text/html")
         if not url.path.startswith("/api/"):
             return self.reply(404, {"error": "not found"})
@@ -147,7 +147,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.reply(200, scan())
             if url.path == "/api/konu":
                 sid = q.get("id", [""])[0]
-                if sid == "home":  # the Qosmos home session, by its transcript id
+                if sid == "home":  # the Qosmopol home session, by its transcript id
                     sid = open(SESSION).read().strip() if os.path.exists(SESSION) else ""
                 elif not sid.startswith("local_"):
                     sid = ""
@@ -260,7 +260,7 @@ def done(raw):
 if __name__ == "__main__":
     args = sys.argv[1:]
     if args[:1] == ["claim"] and len(args) > 1:
-        # The session that ran /qosmos becomes the home: it runs the bridge and gets "self" messages.
+        # The session that ran /qosmopol becomes the home: it runs the bridge and gets "self" messages.
         os.makedirs(HOME, exist_ok=True)
         with open(SESSION, "w") as f:
             f.write(args[1])

@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Qosmos",
-  "short_name": "Qosmos",
+  "name": "Qosmopol",
+  "short_name": "Qosmopol",
   "description": "All your Claude Code projects and sessions on one sky.",
   "start_url": "/",
   "scope": "/",

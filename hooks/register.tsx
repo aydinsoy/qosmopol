@@ -4,22 +4,22 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Gorunum, Konu, Mesaj, Satir, Tarama } from '../types'
 import { DAY, ORANGE, RED, running, accLabel, ago, cut, msgUnread, sky, unread, visible, waiting } from './sky.ts'
 
-// Qosmos: every Code session on this Mac as a black sky. A project is a white planet, its
+// Qosmopol: every Code session on this Mac as a black sky. A project is a white planet, its
 // sessions are moons tied to it by a thin line; a session waiting for the owner blinks orange.
 // Source of truth is the app's own session files (bin/scan.py); end-of-turn reports are kept
 // as a filtered message archive in $.store so they outlive this session.
 
-const PANE = 'qosmos'
-const TITLE = 'Qosmos'
+const PANE = 'qosmopol'
+const TITLE = 'Qosmopol'
 const EVERY_MS = 30_000
 const KEEP = 1000
 
-const tarama = atom({ plugin: 'qosmos', key: 'tarama' } as const, { at: 0, current: '', accounts: [], sessions: [] } as Tarama, { shape: 'tarama-1' })
-const mesajlar = atom({ plugin: 'qosmos', key: 'mesajlar' } as const, [] as Mesaj[], { shape: 'mesajlar-1' })
-const okundu = atom({ plugin: 'qosmos', key: 'okundu' } as const, {} as Record<string, number>, { shape: 'okundu-1' })
-const konusma = atom({ plugin: 'qosmos', key: 'konusma' } as const, {} as Record<string, Satir[]>, { shape: 'konusma-1' })
+const tarama = atom({ plugin: 'qosmopol', key: 'tarama' } as const, { at: 0, current: '', accounts: [], sessions: [] } as Tarama, { shape: 'tarama-1' })
+const mesajlar = atom({ plugin: 'qosmopol', key: 'mesajlar' } as const, [] as Mesaj[], { shape: 'mesajlar-1' })
+const okundu = atom({ plugin: 'qosmopol', key: 'okundu' } as const, {} as Record<string, number>, { shape: 'okundu-1' })
+const konusma = atom({ plugin: 'qosmopol', key: 'konusma' } as const, {} as Record<string, Satir[]>, { shape: 'konusma-1' })
 const gorunum = atom(
-  { plugin: 'qosmos', key: 'gorunum' } as const,
+  { plugin: 'qosmopol', key: 'gorunum' } as const,
   { tab: 'harita', days: 7, filter: 'hepsi', proj: '', open: [], sel: '', limit: 40 } as Gorunum,
   { shape: 'gorunum-1' },
 )
@@ -52,7 +52,7 @@ async function bridge($: EngineInterface) {
         else if (j.kind === 'send' && j.id === 'self') {
           // Not awaited: a submitted prompt resolves only once its turn has run, and the bridge must stay free.
           void $.prompt.submit({ text: String(j.text) })
-          out.push({ job: j.job, ok: true, text: 'delivered to the Qosmos session (runs once it is idle)' })
+          out.push({ job: j.job, ok: true, text: 'delivered to the Qosmopol session (runs once it is idle)' })
         } else if (j.kind === 'set') {
           // The app refuses a session re-pricing its own turns: the home session changes only its mode from here.
           if (j.id === 'self' && j.what !== 'mode') {
@@ -72,7 +72,7 @@ async function bridge($: EngineInterface) {
             out.push({ job: j.job, ok: false, text: 'unknown job' })
             continue
           }
-          const args = j.kind === 'send' ? { session_id: j.id, message: String(j.text) } : j.kind === 'archive' ? { session_id: j.id, reason: 'Closed from the Qosmos web view' } : { session_id: j.id }
+          const args = j.kind === 'send' ? { session_id: j.id, message: String(j.text) } : j.kind === 'archive' ? { session_id: j.id, reason: 'Closed from the Qosmopol web view' } : { session_id: j.id }
           const res = await $.mcp.call('ccd_session_mgmt', tool, args)
           out.push({ job: j.job, ok: !res.isError, text: cut((res.content ?? []).map((c: any) => c.text ?? '').join(' '), 300) })
         }
@@ -103,7 +103,7 @@ async function scan($: EngineInterface) {
       const list = await update($, mesajlar, old => [...old, ...fresh].sort((a, b) => a.at - b.at).slice(-KEEP))
       await $.store.set('mesajlar', list)
       const newWait = fresh.filter(m => m.cat === 'blocked' && now - m.at < 10 * 60_000)
-      if (known.size && newWait.length) $.ui.toast(`Qosmos: ${newWait[0].proj} · ${cut(newWait[0].title, 50)} seni bekliyor`)
+      if (known.size && newWait.length) $.ui.toast(`Qosmopol: ${newWait[0].proj} · ${cut(newWait[0].title, 50)} seni bekliyor`)
     }
     const nWait = d.sessions.filter(waiting).filter(k => now - k.last < 30 * DAY).length
     for (const c of (await read($, gorunum)).cols ?? []) if (c.startsWith('k:')) await loadTalk($, c.slice(2))
@@ -122,7 +122,7 @@ async function closeTopics($: EngineInterface, ks: Konu[], current: string) {
     await $.process.run(['/usr/bin/python3', `${$.plugin.root}/bin/scan.py`, '--gizle', k.id, k.proj, k.title], { timeoutMs: 10_000 })
     if (k.acc !== current) continue
     try {
-      const r = await $.mcp.call('ccd_session_mgmt', 'archive_session', { session_id: k.id, reason: 'Closed from the Qosmos pane' })
+      const r = await $.mcp.call('ccd_session_mgmt', 'archive_session', { session_id: k.id, reason: 'Closed from the Qosmopol pane' })
       if (r.isError) notes.push(cut((r.content ?? []).map((c: any) => c.text ?? '').join(' '), 90))
       else archived++
     } catch (err) {
@@ -157,7 +157,7 @@ async function reopen($: EngineInterface, id: string) {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'qosmos', description: 'Open all projects and sessions on the Qosmos sky' })
+    await $.command.register({ name: 'qosmopol', description: 'Open all projects and sessions on the Qosmopol sky' })
     const kept = await $.store.get('mesajlar')
     if (Array.isArray(kept) && (await read($, mesajlar)).length === 0) await update($, mesajlar, () => kept as Mesaj[])
     const keptRead = await $.store.get('okundu')
@@ -170,17 +170,17 @@ export const register: Register = on => {
     const bt = $.clock.every(2500, () => void bridge($))
     stopBridge = () => bt.cancel()
     void server($, '--daemon')
-    // Only the home session (the last one that ran /qosmos) opens the pane by itself.
+    // Only the home session (the last one that ran /qosmopol) opens the pane by itself.
     const home = (await server($, 'home')).stdout.trim()
     if (home && home === String(await $.session.id())) void $.ui.open({ id: PANE, title: TITLE })
     return next(e)
   })
 
-  on('command.run', { command: 'qosmos' }, async $ => {
+  on('command.run', { command: 'qosmopol' }, async $ => {
     await server($, 'claim', String(await $.session.id()))
     await server($, '--daemon')
     await $.ui.open({ id: PANE, title: TITLE })
-    return { text: `Qosmos is open. Full-screen web view: ${WEB} (this session is now Qosmos's home session: what you write in the web view comes here).` }
+    return { text: `Qosmopol is open. Full-screen web view: ${WEB} (this session is now Qosmopol's home session: what you write in the web view comes here).` }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -350,10 +350,10 @@ export const register: Register = on => {
     const legend = <Text dimColor>Blinking red: something needs you · orange: agent working · grey: closed · white ring: unread reply. Hover for the title.</Text>
 
     const target = v.sel && openCols.includes(`k:${v.sel}`) ? byId.get(v.sel) : undefined
-    // One command bar: it writes to the focused topic column, or to this Qosmos session when none is focused.
+    // One command bar: it writes to the focused topic column, or to this Qosmopol session when none is focused.
     const bar = Input && (
       <Box flexDirection="column" marginTop={1}>
-        <Text dimColor>{target ? `→ ${target.proj} · ${cut(target.title, Math.max(16, leftCols - 14))}` : '→ Qosmos (this session, Claude)'}</Text>
+        <Text dimColor>{target ? `→ ${target.proj} · ${cut(target.title, Math.max(16, leftCols - 14))}` : '→ Qosmopol (this session, Claude)'}</Text>
         <Input key={`bar-${target?.id ?? 'ben'}`} rows={2} placeholder="Type or dictate (press 🌐 twice)" submitLabel="Send" onSubmit={(text: string) => {
           if (!text.trim()) return
           if (target) void send(target, text)
@@ -565,7 +565,7 @@ export const register: Register = on => {
           {Input && (
             <Box flexDirection="column" marginTop={1}>
               <Box flexDirection="row" gap={1}>
-                <Text dimColor>{miniTarget ? `→ ${miniTarget.proj} · ${cut(miniTarget.title, Math.max(12, cols - 22))}` : '→ Qosmos (Claude)'}</Text>
+                <Text dimColor>{miniTarget ? `→ ${miniTarget.proj} · ${cut(miniTarget.title, Math.max(12, cols - 22))}` : '→ Qosmopol (Claude)'}</Text>
                 {miniTarget && <Button key="hedef-sil" plain onPress={() => set(g => ({ ...g, sel: '' }))}><Text dimColor>✕</Text></Button>}
               </Box>
               <Input key={`mini-bar-${miniTarget?.id ?? 'ben'}`} rows={2} placeholder="Type or dictate (🌐 twice)" submitLabel="Send" onSubmit={(text: string) => {

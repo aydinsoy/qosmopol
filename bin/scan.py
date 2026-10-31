@@ -2,7 +2,7 @@
 """Reads every Claude desktop Code session on this Mac (all accounts) and prints one compact JSON.
 
 argv[1]: this session's CLI id, to tell which account folder is the one signed in here.
-Only fields the Qosmos pane draws are kept; archived sessions are left out.
+Only fields the Qosmopol pane draws are kept; archived sessions are left out.
 """
 import glob
 import json
@@ -15,7 +15,7 @@ WRITTEN = {os.path.basename(f)[:-6]: os.path.getmtime(f) for f in glob.glob(os.p
 ROOT = os.path.expanduser("~/Library/Application Support/Claude/claude-code-sessions")
 HOME = os.path.expanduser("~")
 # Sessions the owner closed in the pane; works for every account, unlike archiving.
-HIDDEN_FILE = os.path.expanduser("~/.qosmos/gizli.txt")
+HIDDEN_FILE = os.path.expanduser("~/.qosmopol/gizli.txt")
 # One line per closed session: id, project, title (tab separated).
 LINES = [l.split("\t") for l in open(HIDDEN_FILE).read().splitlines() if l.strip()] if os.path.exists(HIDDEN_FILE) else []
 if len(sys.argv) > 2 and sys.argv[1] in ("--gizle", "--ac"):

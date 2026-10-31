@@ -63,7 +63,7 @@ export type Gorunum = {
 
 declare module 'claude-code' {
   interface PluginState {
-    qosmos: {
+    qosmopol: {
       tarama: Shaped<Tarama>
       mesajlar: Shaped<Mesaj[]>
       gorunum: Shaped<Gorunum>

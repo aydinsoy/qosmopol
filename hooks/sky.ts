@@ -1,6 +1,6 @@
 import type { Konu, Mesaj, Tarama } from '../types'
 
-// Pure drawing and status rules of the Qosmos pane: no $, so plain node can render a sky too.
+// Pure drawing and status rules of the Qosmopol pane: no $, so plain node can render a sky too.
 
 export const DAY = 86_400_000
 export const ORANGE = '#ff8a00'
