@@ -99,16 +99,19 @@
   #brand > div { flex: 1; min-width: 0; }
   #brand #sidetog .i { width: 17px; height: 17px; }
   #sidetog:hover { background: var(--btn-hover); color: var(--text); }
-  /* the sidebar folds to a 1 cm rail that keeps only its own toggle */
+  /* the sidebar folds away completely; the first column's header then carries the toggle */
   #side { transition: width .18s ease; }
   body.resizing #side, #side.still { transition: none; }
   #side.folding { overflow: hidden; }  /* while it slides, its content stays inside instead of running under the map */
   @media (min-width: 761px) {
-    html.sidecol #side { width: 40px; }
-    html.sidecol #side > :not(#brand) { display: none; }
-    html.sidecol #brand { padding: 9px 0 0; justify-content: center; }
-    html.sidecol #brand > :not(#sidetog) { display: none; }
+    html.sidecol #side { width: 0; border-right: 0; overflow: hidden; }
+    html.sidecol .col > header .sideopen, html.sidecol #app:not(:has(.col)) #empty .sideopen { display: inline-flex; }
   }
+  .sideopen { display: none; margin-left: -6px; }
+  .sideopen .i { width: 17px; height: 17px; }
+  .sideopen:hover { background: var(--btn-hover); color: var(--text); }
+  #empty { position: relative; }
+  #empty .sideopen { position: absolute; top: 8px; left: 14px; margin: 0; }
   @media (max-width: 760px) { #sidetog { display: none; } }
   #head { padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
   #counts { display: flex; flex-wrap: wrap; row-gap: 2px; gap: 12px; font-size: 12px; color: var(--text2); }
@@ -571,7 +574,7 @@ function renderCols() {
   const dock = $('#mapdock'), docked = S.cols[0] === 'harita', mainCols = docked ? S.cols.slice(1) : S.cols
   document.querySelectorAll('#mapdock > .col, #main > .col').forEach(el => { if (!S.cols.includes(el.dataset.col)) el.remove() })
   if (!mainCols.length) {
-    if (!main.querySelector('#empty')) main.insertAdjacentHTML('beforeend', '<div id="empty">Open a project, a session, the map or the inbox from the left.</div>')
+    if (!main.querySelector('#empty')) main.insertAdjacentHTML('beforeend', `<div id="empty"><button class="icon sideopen" data-tip="Show sidebar">${SIDE_ICO}</button>Open a project, a session, the map or the inbox from the left.</div>`)
   } else main.querySelector('#empty')?.remove()
   S.cols.forEach(c => {
     let el = document.querySelector(`#mapdock > [data-col="${CSS.escape(c)}"], #main > [data-col="${CSS.escape(c)}"]`)
@@ -586,7 +589,8 @@ function renderCols() {
     // the session itself, with the app's own side panes (browser, changes, terminal), lives in the Claude window
     const inApp = k || (c === 'home' ? homeRow() : null)
     const appBtn = inApp ? `<button class="btn hbtn" data-act="app" data-id="${esc(inApp.id)}" data-tip="Open in the Claude app: its browser, changes and terminal panes open there, beside the session">${ICON.app}Open in app</button>` : ''
-    setHTML(el.querySelector('header'), `${title}${appBtn}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
+    const sideBtn = c === S.cols[0] ? `<button class="icon sideopen" data-tip="Show sidebar">${SIDE_ICO}</button>` : ''
+    setHTML(el.querySelector('header'), `${sideBtn}${title}${appBtn}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
     if (el.querySelector('.composer')) fillMeta(el.querySelector('.composer'), false)
     let body
     if (k) body = topicBody(k)
@@ -641,7 +645,7 @@ function applyWidths() {
   const dock = $('#mapdock'), docked = dock.querySelector('.col'), want = W['col:harita'] || 460
   let dw = want
   if (docked && getComputedStyle($('#app')).flexDirection === 'row') {
-    const room = innerWidth - (document.documentElement.classList.contains('sidecol') ? 40 : W.side || 272) - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
+    const room = innerWidth - (document.documentElement.classList.contains('sidecol') ? 0 : W.side || 272) - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
     const forCols = Math.max(0, Math.min(cols.length * 440, room - 300))
     dw = Math.max(300, Math.min(want, room - forCols))
   }
@@ -650,7 +654,8 @@ function applyWidths() {
   $('#app').scrollLeft = 0  // a column scrolled into view must never push the sidebar off screen
 }
 addEventListener('resize', () => applyWidths())
-// the sidebar toggle at the right of the brand: fold to a 1 cm rail and back, remembered in this browser
+// the sidebar toggle at the right of the brand folds the sidebar away; the same icon in the first column's header brings it back
+const SIDE_ICO = $('#sidetog').innerHTML
 function setSideCol(on, animate) {
   const side = $('#side')
   side.classList.add(animate ? 'folding' : 'still'); clearTimeout(setSideCol.t)
@@ -661,7 +666,7 @@ function setSideCol(on, animate) {
 }
 setSideCol(kept('sideCol', false))
 document.addEventListener('click', e => {
-  if (!e.target.closest('#sidetog')) return
+  if (!e.target.closest('#sidetog, .sideopen')) return
   clearTimeout(tipTimer); $('#tip').classList.remove('on')  // the old tip would point at the wrong state
   setSideCol(!document.documentElement.classList.contains('sidecol'), true)
 })
