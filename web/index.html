@@ -455,6 +455,7 @@ function onSkyClick(e, fallback) {
 
 // --- columns: 'k:<session>', 'p:<project>', 'home' (the Qosmos session), 'harita'
 function openCol(c) {
+  const isNew = !S.cols.includes(c)
   if (c.startsWith('k:')) { S.sel = c.slice(2); loadTalk(c.slice(2)); const k = byId().get(S.sel); if (k && S.pp !== k.proj) { S.pp = k.proj; keep('pp', k.proj) } }
   if (c === 'home') loadTalk('home')
   if (!S.cols.includes(c)) {
@@ -465,7 +466,25 @@ function openCol(c) {
     S.cols = cols
   }
   keep('cols', S.cols); render()
+  if (isNew) fitCols(c)
   requestAnimationFrame(() => document.querySelector(`[data-col="${CSS.escape(c)}"]`)?.scrollIntoView({ inline: 'nearest', behavior: 'smooth' }))
+}
+// A newly opened column makes its own room: the widened columns give way in proportion (down to colMin) so every column
+// stays whole on screen; only when all are at their narrowest does the columns area scroll sideways.
+function fitCols(fresh) {
+  const main = $('#main'); let need = main.scrollWidth - main.clientWidth
+  if (need <= 0) return
+  const cols = [...main.querySelectorAll(':scope > .col')]
+  for (const el of cols) { const key = 'col:' + el.dataset.col; if (W[key]) W[key] = Math.min(W[key], Math.round(el.getBoundingClientRect().width)) }
+  for (const group of [cols.filter(el => el.dataset.col !== fresh), cols]) {  // the others first, the new one only if still needed
+    const wide = group.filter(el => W['col:' + el.dataset.col] > colMin)
+    const slack = wide.reduce((n, el) => n + W['col:' + el.dataset.col] - colMin, 0)
+    if (!slack) continue
+    const k = Math.min(1, need / slack)
+    for (const el of wide) { const key = 'col:' + el.dataset.col, cut = Math.ceil((W[key] - colMin) * k); W[key] -= cut; need -= cut }
+    if (need <= 0) break
+  }
+  keep('widths', W); applyWidths()
 }
 function pickProject(name) { S.pp = name; keep('pp', name || undefined); render() }
 function closeCol(c) { S.cols = S.cols.filter(x => x !== c); keep('cols', S.cols); render() }
@@ -639,6 +658,7 @@ function inboxHTML() {
 // --- resizable panels: the sidebar, the project panel and every column, by the strip on their right edge.
 // Widths are a per-browser preference. A resized column keeps its width; the last one always takes what is left.
 const W = kept('widths', {})
+let colMin = 260
 function applyWidths() {
   if (W.side) document.documentElement.style.setProperty('--side-w', W.side + 'px')
   if (W.plist) document.documentElement.style.setProperty('--plist-w', W.plist + 'px')
@@ -647,15 +667,22 @@ function applyWidths() {
   // Opened columns get room first: the map gives way down to 300 px, the columns get up to 440 px each and scroll beyond that.
   const dock = $('#mapdock'), docked = dock.querySelector('.col'), want = W['col:harita'] || 460
   const room = innerWidth - (document.documentElement.classList.contains('sidecol') ? 0 : W.side || 272) - ($('#plist').classList.contains('open') ? W.plist || 320 : 0)
+  const isRow = getComputedStyle($('#app')).flexDirection === 'row'  // side by side; on a phone everything stacks
   let dw = want
-  if (docked && !S.mapHand && getComputedStyle($('#app')).flexDirection === 'row') {
+  if (docked && !S.mapHand && isRow) {
     const forCols = Math.max(0, Math.min(cols.length * 440, room - 300))
     dw = Math.max(300, Math.min(want, room - forCols))
   }
   // the others keep their own width; the last one grows into spare room and gives way (down to 260 px) so it never runs off screen.
   // No column is wider than the columns area itself: a wider one (an old saved width) only pushes the rest out of sight.
   const area = Math.max(260, room - (docked ? dw : 0))
-  cols.forEach((el, i) => { const w = W['col:' + el.dataset.col] && Math.min(W['col:' + el.dataset.col], area); el.style.flex = w ? `${i === cols.length - 1 ? '1 1' : '0 0'} ${w}px` : '' })
+  // the narrowest a column goes: 260 px, less (down to 200) when that is what keeps every open column whole
+  colMin = Math.max(200, Math.min(260, Math.floor(area / Math.max(1, cols.length))))
+  cols.forEach((el, i) => {
+    const w = W['col:' + el.dataset.col] && Math.min(W['col:' + el.dataset.col], area)
+    el.style.flex = w ? `${i === cols.length - 1 ? '1 1' : '0 0'} ${w}px` : ''
+    el.style.minWidth = isRow ? colMin + 'px' : ''
+  })
   if (docked) docked.style.flex = `0 0 ${dw}px`
   dock.style.width = docked ? dw + 'px' : '0px'
   $('#app').scrollLeft = 0  // a column scrolled into view must never push the sidebar off screen
