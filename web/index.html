@@ -126,6 +126,10 @@
   .group .row .badge { font-size: 11.5px; min-width: 19px; height: 19px; border-radius: 10px; }
   .group .row .dot { width: 8px; height: 8px; }
   .group .row .age { font-size: 12px; }
+  .group .row .more { visibility: hidden; width: 26px; height: 26px; margin-right: -6px; border: 0; border-radius: 8px; background: none; color: var(--text2); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .group .row:hover .more, .group .row.on .more, .group .row .more.open { visibility: visible; }
+  .group .row .more:hover, .group .row .more.open { background: color-mix(in srgb, var(--input), var(--text) 12%); color: var(--text); }
+  .udot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex: none; }
   .drag-shift { transition: transform .16s cubic-bezier(.2,.8,.2,1); }
   .drag-hole { visibility: hidden; }
   .drag-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; background: var(--btn-hover); color: var(--text); border-radius: 7px; outline: 1px solid var(--input-line); outline-offset: -1px;
@@ -264,7 +268,7 @@ const I = (d, cls = '') => `<svg class="i ${cls}" viewBox="0 0 16 16" fill="none
 const ICON = {
   right: I('<path d="M6 4l4 4-4 4"/>'), down: I('<path d="M4 6l4 4 4-4"/>'), x: I('<path d="M4 4l8 8M12 4l-8 8"/>'),
   mic: I('<rect x="6" y="2" width="4" height="8" rx="2"/><path d="M3.5 8a4.5 4.5 0 009 0M8 12.5V14"/>', 'mic'),
-  send: I('<path d="M8 13V3M4 7l4-4 4 4"/>', 'send'), plus: I('<path d="M8 3v10M3 8h10"/>'), app: I('<path d="M9 3h4v4M13 3L7 9M11 9v4H3V5h4"/>'), check: I('<path d="M3 8.5l3 3 7-7"/>'),
+  send: I('<path d="M8 13V3M4 7l4-4 4 4"/>', 'send'), plus: I('<path d="M8 3v10M3 8h10"/>'), more: '<svg class="i" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>', app: I('<path d="M9 3h4v4M13 3L7 9M11 9v4H3V5h4"/>'), check: I('<path d="M3 8.5l3 3 7-7"/>'),
   archive: I('<rect x="2.5" y="3" width="11" height="3" rx="1"/><path d="M3.5 6v7h9V6M6.5 9h3"/>'),
 }
 
@@ -418,14 +422,14 @@ function renderSide() {
   setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
-    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><span class="chev">${on ? ICON.right : ''}</span></div>`
+    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : ''}"></span><span class="name">${esc(name)}</span>${list.some(fresh) ? '<span class="udot" title="New reply in the last 24 hours"></span>' : ''}${lw ? `<span class="badge r">${lw}</span>` : ''}${lr ? `<span class="badge o">${lr}</span>` : ''}<span class="badge">${list.length}</span><button class="more" title="More">${ICON.more}</button></div>`
   }).join('')
   const hidden = d.hidden ?? []
   const closed = hidden.length ? `<div class="section">Closed</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} sessions</span></div>` +
     (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Reopen</button></div>`).join('') : '') : ''
   const custom = (d.order ?? []).length ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
-  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span></div>`).join('')
+  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span>${fresh(k) ? '<span class="udot" title="New reply in the last 24 hours"></span>' : ''}<span class="age">${ago(k.last)}</span><button class="more" title="More">${ICON.more}</button></div>`).join('')
   setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmos</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div>${closed}`)
   fillMeta($('#sidebar-composer'), true)
 }
@@ -469,6 +473,8 @@ function modelName(m) {
   const x = /^claude-([a-z]+)-(\d+)(?:-(\d))?(?:-\d{8})?(\[1m\])?$/.exec(m || '')
   return x ? `${x[1][0].toUpperCase()}${x[1].slice(1)} ${x[2]}${x[3] ? '.' + x[3] : ''}${x[4] ? ' · 1M' : ''}` : (m || 'Default model')
 }
+// Blue dot, like Claude's sidebar: a reply you have not read, from the last 24 hours
+const fresh = k => !waiting(k) && !running(k) && unread(k) && Date.now() - k.last < DAY
 const homeRow = () => (S.data?.sessions ?? []).find(x => x.home)
 function targetOf(comp) { const to = comp.dataset.to; return to.startsWith('k:') ? byId().get(to.slice(2)) : homeRow() }
 function fillMeta(comp, withWait) {
@@ -655,7 +661,40 @@ function openMenu(anchor, items) {
   m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px'
   m.style.top = (r.top - h - 6 > 8 ? r.top - h - 6 : r.bottom + 6) + 'px'
 }
-function closeMenu() { $('#menu').classList.remove('on') }
+function closeMenu() { $('#menu').classList.remove('on'); document.querySelectorAll('.more.open').forEach(b => b.classList.remove('open')) }
+// The ⋯ menu of a sidebar row: a project, or a session started without one.
+function moveTo(row, end) {
+  const names = [...row.parentElement.querySelectorAll('.row[data-drag]')].map(r => r.dataset.drag).filter(n => n !== row.dataset.drag)
+  end === 'top' ? names.unshift(row.dataset.drag) : names.push(row.dataset.drag)
+  saveOrder([...names, ...(S.data.order ?? []).filter(n => !names.includes(n))])
+}
+function rowMenu(row, anchor) {
+  const ids = byId()
+  let items
+  if (row.dataset.proj) {
+    const name = row.dataset.proj, list = new Map(groups()).get(name) ?? [], w = list.filter(waiting)
+    items = [
+      { hd: name },
+      { label: 'Open sessions panel', run: () => pickProject(name) },
+      { label: `Open waiting sessions (${w.length})`, run: () => w.slice(0, MAXCOLS).forEach(k => openCol('k:' + k.id)) },
+      { label: 'Mark all as read', run: async () => { for (const k of list) await api('/api/read', { id: k.id }).catch(() => {}); refresh(true) } },
+      { label: 'Move to top', run: () => moveTo(row, 'top') },
+      { label: 'Move to bottom', run: () => moveTo(row, 'bottom') },
+    ]
+  } else {
+    const k = ids.get(row.dataset.open.slice(2)); if (!k) return
+    items = [
+      { hd: k.title },
+      { label: 'Open', run: () => openCol('k:' + k.id) },
+      { label: 'Open in the Claude app', run: () => openInApp(k) },
+      { label: 'Mark read', run: () => markRead(k) },
+      { label: 'Move to top', run: () => moveTo(row, 'top') },
+      { label: 'Close session', run: () => closeTopic(k) },
+    ]
+  }
+  openMenu(anchor, items)
+  anchor.classList.add('open')
+}
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu() })
 function plusMenu(comp, anchor) {
   const k = comp.dataset.to.startsWith('k:') && targetOf(comp)
@@ -733,6 +772,7 @@ document.addEventListener('click', e => {
   const days = t.closest('[data-days]'); if (days) { S.days = +days.dataset.days; keep('days', S.days); return render() }
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
   const filter = t.closest('[data-filter]'); if (filter) { S.filter = filter.dataset.filter; return renderCols() }
+  const more = t.closest('.row .more'); if (more) { e.stopPropagation(); return rowMenu(more.closest('.row'), more) }
   const proj = t.closest('[data-proj]'); if (proj) return pickProject(S.pp === proj.dataset.proj ? '' : proj.dataset.proj)
   if (t.closest('[data-plx]')) return pickProject('')
   if (t.closest('[data-closed]')) { S.open.has('__kapali') ? S.open.delete('__kapali') : S.open.add('__kapali'); keep('open', [...S.open]); return renderSide() }
@@ -758,7 +798,7 @@ function saveOrder(names) {
 // the other rows slide aside to open the slot, and on release it settles into place. Under 4 px it stays a click; Esc cancels.
 let pdrag = null
 document.addEventListener('pointerdown', e => {
-  const r = e.button === 0 && e.target.closest('.row[data-drag]'); if (!r) return
+  const r = e.button === 0 && !e.target.closest('.more') && e.target.closest('.row[data-drag]'); if (!r) return
   pdrag = { row: r, name: r.dataset.drag, x0: e.clientX, y0: e.clientY, moved: false }
 })
 function dragStart(e) {
