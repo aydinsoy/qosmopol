@@ -223,7 +223,10 @@
   #inbox { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   #inbox .top { height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--line); }
   #inbox .body { flex: 1; padding: 10px 12px; }
-  .bigmap svg { width: 100%; height: auto; display: block; }
+  .col[data-col="harita"] > .body { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .bigmap { flex: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; align-items: stretch; }
+  .bigmap svg { height: 100%; width: auto; flex: none; display: block; }
+  .maplegend { flex: none; padding: 10px 16px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--dim); }
   select { height: 24px; border-radius: 6px; border: 0; background: var(--btn); color: var(--text2); padding: 0 6px; font-size: 12px; }
 
   /* Toast with undo */
@@ -258,7 +261,7 @@
 </div>
 <div id="menu"></div>
 <div id="tip"></div>
-<div id="toast"><span id="toast-text"></span><button class="btn" id="toast-undo">Geri al</button></div>
+<div id="toast"><span id="toast-text"></span><button class="btn" id="toast-undo">Undo</button></div>
 <script>
 'use strict'
 try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('theme') || '"antrasit"') } catch { document.documentElement.dataset.theme = 'antrasit' }
@@ -289,7 +292,7 @@ async function api(path, body) {
   return d
 }
 function toast(t, undo, ms = 6000) {
-  $('#toast-text').textContent = t
+  $('#toast-text').textContent = tr(t)
   $('#toast-undo').style.display = undo ? '' : 'none'
   $('#toast-undo').onclick = () => { $('#toast').classList.remove('on'); undo && undo() }
   $('#toast').classList.add('on')
@@ -510,19 +513,23 @@ function renderCols() {
     const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
     if (!el) {
       el = document.createElement('section'); el.className = 'col'; el.dataset.col = c
-      el.innerHTML = `<div class="rz" data-rz="col" title="Drag to resize"></div><header></header><div class="body scroll"></div><div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Message this session…' : 'Message Claude…')}</div>`
+      el.innerHTML = `<div class="rz" data-rz="col" title="Drag to resize"></div><header></header><div class="body scroll"></div>` + (c === 'harita' ? '' : `<div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Message this session…' : 'Message Claude…')}</div>`)
     }
     if (main.children[i] !== el) main.insertBefore(el, main.children[i] ?? null)
     const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmos · home session</span>' : '<span class="title">Map</span>'
     setHTML(el.querySelector('header'), `${title}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
-    fillMeta(el.querySelector('.composer'), false)
+    if (el.querySelector('.composer')) fillMeta(el.querySelector('.composer'), false)
     let body
     if (k) body = topicBody(k)
     else if (c === 'home') body = `<div class="meta">What you write here or in the sidebar bar goes to Qosmos's home session; replies show up here.</div><div class="label">Conversation</div>${conv(S.talks.home, [])}`
     else if (pname) {
       const list = [...gs.get(pname)].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
       body = `<div class="meta">${list.length} sessions · ${list.filter(waiting).length} waiting · ${list.filter(running).length} running</div><div style="margin:8px -8px 0">${list.map(x => topicItem(x)).join('')}</div>`
-    } else body = `<div class="bigmap">${sky(groups())}</div><div class="meta" style="margin-top:8px">Blinking red: something needs you · orange: agent working · grey: closed · ring: unread. Click a circle to open its column.</div>`
+    } else {
+      // height sets the scale (the viewBox ratio gives the width), so a narrower column crops both sides evenly
+      const svg = sky(groups()), vb = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
+      body = `<div class="bigmap">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maplegend">Blinking red: something needs you · orange: agent working · grey: closed · ring: unread. Click a circle to open its column.</div>`
+    }
     const b = el.querySelector('.body'), first = b._html === undefined
     if (setHTML(b, body) && (k || c === 'home') && (first || c === 'home')) b.scrollTop = b.scrollHeight
   })
@@ -669,13 +676,98 @@ document.addEventListener('mouseover', e => {
 function showTip(el) {
   const tip = $('#tip')
   if (!el.isConnected) return
-  tip.textContent = el.dataset.tip
+  tip.textContent = tr(el.dataset.tip)
   const r = el.getBoundingClientRect(), w = tip.offsetWidth
   tip.style.left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2)) + 'px'
   tip.style.top = (r.top - tip.offsetHeight - 8) + 'px'
   tip.classList.add('on')
 }
 document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true)
+
+// --- language: Turkish when the owner uses Claude in Turkish (Claude's own setting, else the browser's), English otherwise.
+// The UI is written in English; after each change a pass swaps UI text through this dictionary. Session titles,
+// conversations and agents' summaries are never touched.
+let LANG = /^tr/i.test(navigator.language || '') ? 'tr' : 'en'
+const TR = {
+  'Scanning…': 'Taranıyor…', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
+  'Graphite': 'Antrasit', 'Light': 'Açık', 'Black': 'Siyah', 'Projects': 'Projeler', 'auto-sort': 'otomatik sırala',
+  'Loose sessions': 'Projesiz konular', 'Closed': 'Kapatılanlar', 'Home session (Claude)': 'Ana oturum (Claude)', 'Map': 'Harita',
+  'Qosmos · home session': 'Qosmos · ana oturum', 'Waiting:': 'Bekliyor:', 'waiting': 'bekliyor', 'running': 'çalışıyor', 'unread': 'okunmamış',
+  'Open in app': 'Uygulamada aç', 'Mark read': 'Okundu', 'Close session': 'Konuyu kapat', 'Conversation': 'Konuşma', 'Loading…': 'Yükleniyor…',
+  'No transcript on this Mac (another account or the cloud).': "Bu Mac'te konuşma kaydı yok (başka hesap ya da bulut).",
+  'No summary.': 'Özet yok.', 'Waiting for your answer.': 'Cevabını bekliyor.', 'Agent working…': 'Ajan çalışıyor…', 'Agent working': 'Ajan çalışıyor',
+  'Nothing is waiting for you. Pick a project or session on the left, or click a circle on the map.': 'Seni bekleyen konu yok. Soldan bir proje ya da konu seç, ya da haritada bir daireye bas.',
+  'Unread': 'Okunmamış', 'Read': 'Okunmuş', 'Waiting': 'Bekleyen', 'All projects': 'Bütün projeler', 'No messages for this filter.': 'Bu filtrede mesaj yok.',
+  'Close': 'Kapat', 'Cancel': 'Vazgeç', 'Undo': 'Geri al', 'Sending…': 'Gönderiliyor…', 'Session reopened': 'Konu geri açıldı',
+  'Message Claude… (home session)': "Claude'a yaz… (ana oturum)", 'Message this session…': 'Bu konuya yaz…', 'Message Claude…': "Claude'a yaz…",
+  'Actions': 'İşlemler', 'Dictate': 'Sesle yaz', 'Send (Enter)': 'Gönder (Enter)', 'Drag to resize': 'Genişlik için sürükle', 'Close column': 'Sütunu kapat',
+  'Close panel': 'Paneli kapat', 'More options': 'Diğer seçenekler', 'Close session (undoable)': 'Konuyu kapat (geri alınabilir)',
+  'Reset the order: waiting and most recent first': 'Sırayı sıfırla: bekleyenler ve en yeniler üstte',
+  'Waiting for you': 'Seni bekliyor', 'New reply in the last 24 hours': 'Son 24 saatte yeni cevap', 'Nothing new': 'Yeni bir şey yok', 'Unread reply': 'Okunmamış cevap',
+  'Open sessions panel': 'Konular panelini aç', 'Mark all as read': 'Hepsini okundu yap', 'Move to top': 'En üste taşı', 'Move to bottom': 'En alta taşı', 'Open': 'Aç',
+  'Open in the Claude app': 'Claude uygulamasında aç', 'Open the home session column': 'Ana oturum sütununu aç', 'Open the map': 'Haritayı aç', 'Refresh now': 'Şimdi yenile',
+  'Permission mode': 'İzin modu', 'Effort': 'Efor', 'Model': 'Model', 'Ask permissions': 'İzin sor', 'Accept edits': 'Düzenlemeleri kabul et', 'Plan': 'Plan',
+  'Auto': 'Otomatik', 'Default': 'Varsayılan', 'Bypass permissions': 'İzinleri atla', 'Low': 'Düşük', 'Medium': 'Orta', 'High': 'Yüksek', 'Extra high': 'Çok yüksek',
+  'Max': 'En yüksek', 'Default effort': 'Varsayılan efor', 'Default model': 'Varsayılan model', 'Change for this session': 'Bu konu için değiştir',
+  "The home session's model and effort change in the Claude app's own menu": 'Ana oturumun modeli ve eforu Claude uygulamasının kendi menüsünden değişir',
+  'Asking the app… (it may show an approval card)': 'Uygulamaya soruluyor… (onay kartı çıkabilir)',
+  'Blinking red: something needs you · orange: agent working · grey: closed · ring: unread. Click a circle to open its column.': 'Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · gri: kapanmış · halka: okunmamış. Daireye bas: sütunu açılır.',
+  "What you write here or in the sidebar bar goes to Qosmos's home session; replies show up here.": "Buradan ya da soldaki çubuktan yazdıkların Qosmos'un ana oturumuna gider; cevaplar burada görünür.",
+  'Speech recognition is not available in this browser. Press 🌐 (fn) twice in the text field to use macOS dictation.': 'Bu tarayıcıda konuşma tanıma yok. Yazı alanında 🌐 (fn) tuşuna iki kez basıp Mac dikte ile konuşabilirsin.',
+  'This session belongs to another account; it opens once you sign in with that account.': 'Bu konu başka hesapta; o hesapla giriş yapınca açılır.',
+}
+const TR_WHOLE = [  // a whole text that carries numbers
+  [/^(\d+) waiting$/, '$1 bekliyor'], [/^(\d+) running$/, '$1 çalışıyor'], [/^(\d+) unread$/, '$1 okunmamış'], [/^(\d+) sessions? ·$/, '$1 konu ·'], [/^(\d+) sessions? waiting for you$/, '$1 konu seni bekliyor'], [/^(\d+) sessions? running$/, '$1 konu çalışıyor'],
+  [/^(\d+) sessions? in the last (\d+) days?$/, 'son $2 günde $1 konu'], [/^(\d+) sessions? in total$/, 'toplam $1 konu'], [/^(\d+) sessions?$/, '$1 konu'],
+  [/^Open waiting sessions \((\d+)\)$/, 'Bekleyen konuları aç ($1)'], [/^Close older than 7 days \((\d+)\)$/, '7 günden eskileri kapat ($1)'],
+  [/^Close (\d+) old sessions\?$/, '$1 eski konu kapatılsın mı?'], [/^Waiting (\d+)$/, 'Bekleyenler $1'], [/^Messages (\d+)$/, 'Mesajlar $1'],
+  [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^“(.*)” closed$/, '“$1” kapatıldı'], [/^(\d+)m$/, '$1 dk'], [/^(\d+)h$/, '$1 sa'], [/^(\d+)d$/, '$1 g'],
+  [/^(Ask permissions|Accept edits|Plan|Auto|Default|Bypass permissions) ▾$/, (m, a) => TR[a] + ' ▾'],
+]
+const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map titles)
+  [/(\d+)m ago/g, '$1 dk önce'], [/(\d+)h ago/g, '$1 sa önce'], [/(\d+)d ago/g, '$1 g önce'], [/ (\d+) turns? ·/g, ' $1 tur ·'], [/ · other account/g, ' · başka hesap'],
+  [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
+  [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '],
+  [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nClosed · /g, '\nKapanmış · '],
+  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '],
+  [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
+  [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
+]
+function tr(s, whole = true) {
+  if (LANG !== 'tr' || !s || !/[A-Za-z]/.test(s)) return s
+  const core = s.trim()
+  if (TR[core]) return s.replace(core, TR[core])
+  if (whole) for (const [re, to] of TR_WHOLE) if (re.test(core)) return s.replace(core, core.replace(re, to))
+  let out = s
+  if (whole) for (const [re, to] of TR_PART) out = out.replace(re, to)
+  return out
+}
+const USER_TEXT = '.txt, .sub, .waitbox, .infobox, script, style'
+const NAME_UI = new Set(['Home session (Claude)', 'Map', 'Qosmos · home session'])
+function translateDOM() {
+  document.documentElement.lang = LANG
+  if (LANG !== 'tr') return
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => {
+    const p = n.parentElement
+    if (!p || (p.closest(USER_TEXT) && !p.matches('.waitbox > b'))) return NodeFilter.FILTER_REJECT
+    if (p.closest('svg') && p.tagName.toLowerCase() !== 'title') return NodeFilter.FILTER_REJECT
+    return NodeFilter.FILTER_ACCEPT
+  } })
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    // project and session names are the owner's own words: only the few UI rows that live in a name slot are translated
+    const p = n.parentElement, inName = p.closest('.name, .t, .p, .title')
+    if (inName && !NAME_UI.has(n.nodeValue.trim()) && !/^\d+ sessions?$/.test(n.nodeValue.trim())) continue
+    const v = tr(n.nodeValue)
+    if (v !== n.nodeValue) n.nodeValue = v
+  }
+  for (const el of document.querySelectorAll('[placeholder], [title], [data-tip]')) {
+    if (el.matches('.row, .item')) continue  // their title is a session's own name
+    for (const a of ['placeholder', 'title', 'data-tip']) { const v = el.getAttribute(a); if (v) { const t = tr(v); if (t !== v) el.setAttribute(a, t) } }
+  }
+}
+let trQueued = false
+new MutationObserver(() => { if (!trQueued && LANG === 'tr') { trQueued = true; requestAnimationFrame(() => { trQueued = false; translateDOM() }) } })
+  .observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title', 'placeholder', 'data-tip'] })
 
 // --- small popover menus for the composer's + and its chips
 let MENU = []
@@ -777,7 +869,7 @@ function mic(comp) {
   const r = new SR(); r.lang = navigator.language || 'en-US'; r.interimResults = true; r.continuous = true; r.comp = comp
   r.onresult = e => { box.value = base + [...e.results].map(x => x[0].transcript).join(''); grow(box) }
   r.onend = () => { if (rec === r) rec = null; comp.classList.remove('rec'); comp.classList.toggle('has-text', !!box.value.trim()) }
-  r.onerror = e => toast('Mikrofon: ' + e.error)
+  r.onerror = e => toast('Microphone: ' + e.error)
   rec = r; r.start(); comp.classList.add('rec'); box.focus()
 }
 
@@ -898,7 +990,7 @@ $('#sidebar-composer').innerHTML = composerHTML('Message Claude… (home session
 
 // --- data: sessions every 10 s, open conversations every 15 s; bridge results show under the bar that sent them
 async function refresh(now) {
-  try { S.data = await api('/api/scan' + (now ? '?t=' + Date.now() : '')) } catch (err) { $('#counts').textContent = 'Cannot reach the server: ' + err.message; return }
+  try { S.data = await api('/api/scan' + (now ? '?t=' + Date.now() : '')); if (S.data.lang) LANG = /^tr/i.test(S.data.lang) ? 'tr' : 'en' } catch (err) { $('#counts').textContent = 'Cannot reach the server: ' + err.message; return }
   for (const [job, j] of Object.entries(S.jobs)) {
     const r = S.data.results?.[job], out = j.note?.isConnected ? j.note : $('#sidebar-composer .note')
     if (r) { out.textContent = r.ok ? `✓ delivered · ${j.label}` : `✗ not delivered · ${j.label}: ${r.text}`; delete S.jobs[job] }

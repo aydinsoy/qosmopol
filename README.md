@@ -36,6 +36,8 @@ The web view installs like any desktop app, with its own window and Dock icon:
 - **Chrome:** open `http://127.0.0.1:47321/`, then ⋮ → *Cast, save, and share* → *Install page as app…*
 - **Safari:** open the page, then *File* → *Add to Dock…*
 
+Qosmos speaks the language you chose in the Claude app (Turkish or English for now; the browser's language when no choice is found).
+
 The microphone works in both (Chrome and Safari speech recognition, Turkish by default).
 
 ## How it works

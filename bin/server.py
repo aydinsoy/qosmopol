@@ -95,6 +95,8 @@ def scan():
         data["messages"] = log
         data["readAt"] = load(READ, {})
         data["order"] = load(ORDER, [])
+        # the page speaks the language the owner chose in the Claude app (config.json "locale"); the browser decides otherwise
+        data["lang"] = load(os.path.expanduser("~/Library/Application Support/Claude/config.json"), {}).get("locale", "")
         data["results"] = load(RESULTS, {})
         data["at"] = int(time.time() * 1000)
         SCAN.update(at=time.time(), data=data)
