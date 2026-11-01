@@ -28,8 +28,15 @@ let stopTimer: (() => void) | undefined
 let stopBridge: (() => void) | undefined
 let bridging = false
 const WEB = 'http://127.0.0.1:47321/'
-const server = ($: EngineInterface, ...args: string[]) =>
-  $.process.run(['/usr/bin/python3', `${$.plugin.root}/bin/server.py`, ...args], { timeoutMs: 15_000 })
+const onWindows = async ($: EngineInterface) => (await $.env.get('OS')) === 'Windows_NT'
+// The scripts run under /usr/bin/python3 on macOS and the py launcher's Python 3 on Windows.
+const python = async ($: EngineInterface, script: string, ...args: string[]) =>
+  [...((await onWindows($)) ? ['py', '-3'] : ['/usr/bin/python3']), `${$.plugin.root}/bin/${script}`, ...args]
+// A URL goes to its handler: open on macOS; on Windows url.dll's, which needs no shell quoting.
+const opener = async ($: EngineInterface, url: string) =>
+  (await onWindows($)) ? ['rundll32', 'url.dll,FileProtocolHandler', url] : ['/usr/bin/open', url]
+const server = async ($: EngineInterface, ...args: string[]) =>
+  $.process.run([...(await python($, 'server.py')), ...args], { timeoutMs: 15_000 })
 
 // The web page (bin/server.py) cannot reach the app: it queues what needs it, and the home
 // session's mod carries each job out here and writes the result back for the page to show.
@@ -90,7 +97,7 @@ async function bridge($: EngineInterface) {
 async function scan($: EngineInterface) {
   try {
     const me = await $.session.id()
-    const r = await $.process.run(['/usr/bin/python3', `${$.plugin.root}/bin/scan.py`, String(me)], { timeoutMs: 60_000 })
+    const r = await $.process.run(await python($, 'scan.py', String(me)), { timeoutMs: 60_000 })
     if (r.exitCode !== 0) throw new Error(r.stderr.slice(0, 300) || `exit ${r.exitCode}`)
     const d = JSON.parse(r.stdout) as Omit<Tarama, 'at'>
     const now = await $.clock.now()
@@ -119,7 +126,7 @@ async function closeTopics($: EngineInterface, ks: Konu[], current: string) {
   let archived = 0
   const notes: string[] = []
   for (const k of ks) {
-    await $.process.run(['/usr/bin/python3', `${$.plugin.root}/bin/scan.py`, '--gizle', k.id, k.proj, k.title], { timeoutMs: 10_000 })
+    await $.process.run(await python($, 'scan.py', '--gizle', k.id, k.proj, k.title), { timeoutMs: 10_000 })
     if (k.acc !== current) continue
     try {
       const r = await $.mcp.call('ccd_session_mgmt', 'archive_session', { session_id: k.id, reason: 'Closed from the Qosmopol pane' })
@@ -136,7 +143,7 @@ async function closeTopics($: EngineInterface, ks: Konu[], current: string) {
 // The last turns of a session's own transcript, so a column reads like the conversation itself.
 async function loadTalk($: EngineInterface, id: string) {
   try {
-    const r = await $.process.run(['/usr/bin/python3', `${$.plugin.root}/bin/konu.py`, id], { timeoutMs: 20_000 })
+    const r = await $.process.run(await python($, 'konu.py', id), { timeoutMs: 20_000 })
     const d = JSON.parse(r.stdout)
     const msgs: Satir[] = Array.isArray(d?.msgs) ? d.msgs : []
     await update($, konusma, all => ({ ...all, [id]: msgs }))
@@ -146,7 +153,7 @@ async function loadTalk($: EngineInterface, id: string) {
 }
 
 async function reopen($: EngineInterface, id: string) {
-  await $.process.run(['/usr/bin/python3', `${$.plugin.root}/bin/scan.py`, '--ac', id], { timeoutMs: 10_000 })
+  await $.process.run(await python($, 'scan.py', '--ac', id), { timeoutMs: 10_000 })
   try {
     await $.mcp.call('ccd_session_mgmt', 'unarchive_session', { session_id: id })
   } catch {
@@ -214,7 +221,7 @@ export const register: Register = on => {
       if (k.acc !== t.current) {
         $.ui.toast(`This session belongs to another account (${accLabel(t, k.acc)}); it opens once you sign in with it.`)
       }
-      const r = await $.process.run(['/usr/bin/open', `claude://claude.ai/epitaxy/${k.id}`], { timeoutMs: 10_000 })
+      const r = await $.process.run(await opener($, `claude://claude.ai/epitaxy/${k.id}`), { timeoutMs: 10_000 })
       if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
     }
     const send = async (k: Konu, text: string) => {
@@ -256,7 +263,7 @@ export const register: Register = on => {
     )
     const openWeb = async () => {
       await server($, '--daemon')
-      const r = await $.process.run(['/usr/bin/open', WEB], { timeoutMs: 10_000 })
+      const r = await $.process.run(await opener($, WEB), { timeoutMs: 10_000 })
       if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
     }
     const toInbox = <Button key="kapat" label="Close all" onPress={() => set(g => ({ ...g, sel: '', cols: [] }))} />

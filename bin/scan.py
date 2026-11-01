@@ -10,20 +10,25 @@ import os
 import sys
 import time
 
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")  # the JSON goes to a pipe, which Windows would write in its ANSI code page
+
 WRITTEN = {os.path.basename(f)[:-6]: os.path.getmtime(f) for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*.jsonl"))}
 
-ROOT = os.path.expanduser("~/Library/Application Support/Claude/claude-code-sessions")
-HOME = os.path.expanduser("~")
+# The Claude desktop app's own folder: ~/Library/Application Support/Claude on macOS, %APPDATA%\Claude on Windows.
+CLAUDE = os.path.join(os.environ["APPDATA"], "Claude") if sys.platform == "win32" else os.path.expanduser("~/Library/Application Support/Claude")
+ROOT = os.path.join(CLAUDE, "claude-code-sessions")
+HOME = os.path.expanduser("~").replace("\\", "/")
 # Sessions the owner closed in the pane; works for every account, unlike archiving.
 HIDDEN_FILE = os.path.expanduser("~/.qosmopol/gizli.txt")
 # One line per closed session: id, project, title (tab separated).
-LINES = [l.split("\t") for l in open(HIDDEN_FILE).read().splitlines() if l.strip()] if os.path.exists(HIDDEN_FILE) else []
+LINES = [l.split("\t") for l in open(HIDDEN_FILE, encoding="utf-8").read().splitlines() if l.strip()] if os.path.exists(HIDDEN_FILE) else []
 if len(sys.argv) > 2 and sys.argv[1] in ("--gizle", "--ac"):
     LINES = [l for l in LINES if l[0] != sys.argv[2]]
     if sys.argv[1] == "--gizle":
         LINES.append([sys.argv[2], *(a.replace("\t", " ").replace("\n", " ") for a in sys.argv[3:5])])
     os.makedirs(os.path.dirname(HIDDEN_FILE), exist_ok=True)
-    with open(HIDDEN_FILE, "w") as out:
+    with open(HIDDEN_FILE, "w", encoding="utf-8") as out:
         out.write("".join("\t".join(l) + "\n" for l in LINES))
     sys.exit(0)
 HIDDEN = {l[0] for l in LINES}
@@ -34,6 +39,8 @@ me = sys.argv[1] if len(sys.argv) > 1 else ""
 def project(path):
     if not path:
         return "?"
+    if sys.platform == "win32":
+        path = path.replace("\\", "/")  # C:\Users\... reads like a POSIX path below
     if "/scratch-workspaces/" in path:
         return "No folder"
     parts = path.rstrip("/").split("/")

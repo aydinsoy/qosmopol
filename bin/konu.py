@@ -5,12 +5,17 @@ import json
 import os
 import sys
 
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")  # the JSON goes to a pipe, which Windows would write in its ANSI code page
+
 sid = sys.argv[1] if len(sys.argv) > 1 else ""
-ROOT = os.path.expanduser("~/Library/Application Support/Claude/claude-code-sessions")
+# The Claude desktop app's own folder: ~/Library/Application Support/Claude on macOS, %APPDATA%\Claude on Windows.
+CLAUDE = os.path.join(os.environ["APPDATA"], "Claude") if sys.platform == "win32" else os.path.expanduser("~/Library/Application Support/Claude")
+ROOT = os.path.join(CLAUDE, "claude-code-sessions")
 msgs = []
 files = glob.glob(os.path.join(ROOT, "*", "*", f"{sid}.json")) if sid.startswith("local_") else []
 # A bare transcript id (the home session, as the mod reports it) reads that transcript directly.
-cli = json.load(open(files[0])).get("cliSessionId") or "" if files else sid if sid.replace("-", "").isalnum() and len(sid) == 36 else ""
+cli = json.load(open(files[0], encoding="utf-8")).get("cliSessionId") or "" if files else sid if sid.replace("-", "").isalnum() and len(sid) == 36 else ""
 if cli:
     paths = glob.glob(os.path.expanduser(f"~/.claude*/projects/*/{cli}.jsonl")) if cli else []
     if paths:

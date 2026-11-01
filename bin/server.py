@@ -25,6 +25,9 @@ import threading
 import time
 import urllib.parse
 
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")  # the JSON goes to a pipe, which Windows would write in its ANSI code page
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(os.path.dirname(HERE), "web")
 HOME = os.path.expanduser("~/.qosmopol")
@@ -38,11 +41,13 @@ ORDER = os.path.join(HOME, "sira.json")
 PORT = 47321
 KEEP = 1000
 LOCK = threading.Lock()
+# The Claude desktop app's own folder: ~/Library/Application Support/Claude on macOS, %APPDATA%\Claude on Windows.
+CLAUDE = os.path.join(os.environ["APPDATA"], "Claude") if sys.platform == "win32" else os.path.expanduser("~/Library/Application Support/Claude")
 
 
 def load(path, default):
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         return default
@@ -50,7 +55,7 @@ def load(path, default):
 
 def save(path, value):
     tmp = path + ".tmp"
-    with open(tmp, "w") as f:
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(value, f, ensure_ascii=False)
     os.replace(tmp, path)
 
@@ -65,7 +70,7 @@ def token():
 
 
 def run(script, *args, timeout=60):
-    r = subprocess.run([sys.executable, os.path.join(HERE, script), *args], capture_output=True, text=True, timeout=timeout)
+    r = subprocess.run([sys.executable, os.path.join(HERE, script), *args], capture_output=True, text=True, encoding="utf-8", timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError((r.stderr or f"exit {r.returncode}")[:300])
     return r.stdout
@@ -97,7 +102,7 @@ def scan():
         data["order"] = load(ORDER, [])
         data["homeDir"] = os.path.expanduser("~")
         # the page speaks the language the owner chose in the Claude app (config.json "locale"); the browser decides otherwise
-        data["lang"] = load(os.path.expanduser("~/Library/Application Support/Claude/config.json"), {}).get("locale", "")
+        data["lang"] = load(os.path.join(CLAUDE, "config.json"), {}).get("locale", "")
         data["results"] = load(RESULTS, {})
         data["at"] = int(time.time() * 1000)
         SCAN.update(at=time.time(), data=data)
@@ -106,7 +111,7 @@ def scan():
 
 def enqueue(job):
     job = {**job, "job": secrets.token_hex(6), "at": int(time.time() * 1000)}
-    with LOCK, open(QUEUE, "a") as f:
+    with LOCK, open(QUEUE, "a", encoding="utf-8") as f:
         f.write(json.dumps(job, ensure_ascii=False) + "\n")
     return job["job"]
 
@@ -169,7 +174,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.reply(400, {"error": "invalid session"})
         try:
             if path == "/api/open":
-                subprocess.run(["/usr/bin/open", f"claude://claude.ai/epitaxy/{sid}"], timeout=10, check=True)
+                if sys.platform == "win32":
+                    os.startfile(f"claude://claude.ai/epitaxy/{sid}")
+                else:
+                    subprocess.run(["/usr/bin/open", f"claude://claude.ai/epitaxy/{sid}"], timeout=10, check=True)
                 return self.reply(200, {"ok": True})
             if path == "/api/reveal":  # show a session's own working folder in Finder; never a path from the page
                 sessions = scan()["sessions"]
@@ -177,7 +185,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 folder = (k or {}).get("cwd") or ""
                 if not folder or not os.path.isdir(folder):
                     return self.reply(404, {"error": "no folder"})
-                subprocess.run(["/usr/bin/open", folder], timeout=10, check=True)
+                if sys.platform == "win32":
+                    os.startfile(folder)  # File Explorer
+                else:
+                    subprocess.run(["/usr/bin/open", folder], timeout=10, check=True)
                 return self.reply(200, {"ok": True})
             if path == "/api/read":
                 with LOCK:
@@ -283,6 +294,19 @@ if __name__ == "__main__":
     if "--daemon" in args:
         if answering(PORT):
             print(f"http://127.0.0.1:{PORT}/ already running")
+            sys.exit(0)
+        if sys.platform == "win32":
+            # No fork on Windows: start a copy of this server with no console that outlives its caller.
+            os.makedirs(HOME, exist_ok=True)
+            out = open(os.path.join(HOME, "server.log"), "a")
+            argv = [sys.executable, os.path.abspath(__file__), "--port", str(PORT)]
+            flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            try:
+                subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=out, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB)
+            except OSError:  # the caller's job does not allow leaving it
+                subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=out, creationflags=flags)
+            time.sleep(0.6)
+            print(f"http://127.0.0.1:{PORT}/")
             sys.exit(0)
         if os.fork():
             time.sleep(0.6)
