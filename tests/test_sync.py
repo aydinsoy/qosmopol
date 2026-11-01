@@ -61,6 +61,16 @@ class Sync(unittest.TestCase):
         self.assertFalse(sync.publish([dict(ROW, busy=True)], now=t + sync.MIN_GAP + 300))  # unchanged
         self.assertTrue(sync.publish([dict(ROW, busy=True)], now=t + sync.MIN_GAP + sync.HEARTBEAT + 2))
 
+    def test_the_summary_is_rewritten_in_place(self):
+        t = time.time()
+        sync.publish([dict(ROW, last=t * 1000)], now=t)
+        me = sync.device()["id"]
+        path = os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json")
+        inode = os.stat(path).st_ino
+        sync.publish([dict(ROW, last=t * 1000, cat="completed")], now=t + sync.MIN_GAP + 1)
+        self.assertEqual(os.stat(path).st_ino, inode)  # same file, no delete + create for the sync service to trash
+        self.assertEqual(json.load(open(path, encoding="utf-8"))["sessions"][0]["cat"], "completed")
+
     def test_old_finished_sessions_stay_home(self):
         old = (time.time() - sync.RECENT - 60) * 1000
         sync.publish([dict(ROW, id="local_new", last=time.time() * 1000), dict(ROW, id="local_old", last=old, cat="completed"),

@@ -124,8 +124,12 @@ def publish(rows, now=None):
     body = json.dumps({"device": me["id"], "name": me["name"], "sessions": sessions}, ensure_ascii=False, sort_keys=True)
     if now - _last["at"] < (HEARTBEAT if body == _last["body"] else MIN_GAP):
         return False
-    _save(os.path.join(_dir(base), f"{me['id']}.json"),
-          {"v": VERSION, "device": me["id"], "name": me["name"], "at": int(now * 1000), "os": sys.platform, "sessions": sessions})
+    # Written in place, not as a new file swapped in: iCloud for Windows takes the swap for a deletion and fills its
+    # trash with old copies (2026-11-01). A reader that catches it half written skips it until the next round.
+    os.makedirs(_dir(base), exist_ok=True)
+    with open(os.path.join(_dir(base), f"{me['id']}.json"), "w", encoding="utf-8") as f:
+        json.dump({"v": VERSION, "device": me["id"], "name": me["name"], "at": int(now * 1000), "os": sys.platform,
+                   "sessions": sessions}, f, ensure_ascii=False)
     _last.update(body=body, at=now)
     return True
 
