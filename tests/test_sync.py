@@ -22,6 +22,10 @@ ROW = {"id": "local_aaa", "acc": "A", "title": "Ship the level", "proj": "Space 
 
 class Sync(unittest.TestCase):
     def setUp(self):
+        for f in (sync.GROUPS,):
+            if os.path.exists(f):
+                os.remove(f)
+        sync._peer_groups.update(at=0, rules={})
         self.shared = tempfile.mkdtemp(dir=ROOT)
         self.assertEqual(sync.configure(self.shared), "")
         sync._last.update(body=None, at=0.0)
@@ -134,6 +138,45 @@ class Sync(unittest.TestCase):
         fresh = tempfile.mkdtemp(dir=ROOT)
         self.assertEqual(sync.configure(fresh), "")
         self.assertEqual(os.listdir(fresh), [])
+
+    def test_groups_gather_a_folder_and_a_single_session(self):
+        me = sync.device()["id"]
+        sync.set_groups({f"p:{me}:Projects": "Client Ads", "s:local_x": "Client Ads"})
+        rows = [dict(ROW, id="local_a", proj="Projects"), dict(ROW, id="local_x", proj="Music"),
+                dict(ROW, id="local_b", proj="Website")]
+        names = sync.apply_groups(rows, me)
+        self.assertEqual(names, ["Client Ads"])
+        self.assertEqual([(k["id"], k["proj"], k.get("group", False)) for k in rows],
+                         [("local_a", "Client Ads", True), ("local_x", "Client Ads", True), ("local_b", "Website", False)])
+        self.assertEqual(rows[1]["proj0"], "Music")
+        sync.set_groups({"s:local_x": ""})  # taken out again
+        rows = [dict(ROW, id="local_x", proj="Music")]
+        sync.apply_groups(rows, me)
+        self.assertEqual(rows[0]["proj"], "Music")
+
+    def test_groups_travel_and_the_newest_wins(self):
+        me = sync.device()["id"]
+        sync.set_groups({f"p:{me}:Projects": "Mine"})
+        t = time.time()
+        sync.publish([dict(ROW, proj="Mine", proj0="Projects", last=t * 1000)], now=t)
+        d = json.load(open(os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json"), encoding="utf-8"))
+        self.assertEqual(d["sessions"][0]["proj"], "Projects")  # the folder's name goes out, the group beside it
+        self.assertEqual(d["groups"]["rules"], {f"p:{me}:Projects": "Mine"})
+        later = int(time.time() * 1000) + 5000
+        self.other(sessions=[dict(ROW, id="local_w", proj="shop-example")])
+        path = os.path.join(self.shared, "Qosmopol", "cihazlar", "d2.json")
+        doc = json.load(open(path, encoding="utf-8"))
+        doc["groups"] = {"at": later, "rules": {"p:d2:shop-example": "Client Ads"}}
+        json.dump(doc, open(path, "w", encoding="utf-8"))
+        devices, rows = sync.peers()
+        names = sync.apply_groups(rows, me)
+        self.assertEqual(rows[0]["proj"], "Client Ads")
+        self.assertEqual(sync.groups()["rules"], {"p:d2:shop-example": "Client Ads"})
+        doc["groups"] = {"at": 1, "rules": {"x": "Old"}}  # an older change elsewhere does not undo ours
+        json.dump(doc, open(path, "w", encoding="utf-8"))
+        sync._peer_groups.update(at=0, rules={})
+        sync.peers()
+        self.assertEqual(sync.groups()["rules"], {"p:d2:shop-example": "Client Ads"})
 
     def test_rename(self):
         self.assertEqual(sync.configure(name="  Office   PC "), "")

@@ -27,6 +27,9 @@ export type Konu = {
   devName?: string
   /** That computer has not written its summary for a while. */
   stale?: boolean
+  /** The owner put it under one of their own project names; proj0 is its folder's. */
+  group?: boolean
+  proj0?: string
 }
 
 export type Tarama = {
@@ -40,6 +43,8 @@ export type Tarama = {
   lang?: string
   /** The owner's other computers that share a sync folder. */
   devices?: { id: string; name: string; at: number; stale: boolean; os: string; sessions: number }[]
+  /** The owner's own project names. */
+  groups?: string[]
   error?: string
 }
 

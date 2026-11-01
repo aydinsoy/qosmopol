@@ -20,6 +20,9 @@ import winenv  # noqa: F401  (first: a bare Windows environment gets its home an
 HOME = os.path.expanduser("~/.qosmopol")
 SETTINGS = os.path.join(HOME, "ayar.json")
 DEVICE = os.path.join(HOME, "cihaz.json")
+# The owner's own projects: {"at": ms, "rules": {"s:<session id>" or "p:<device id>:<folder project>": name}}.
+# Claude's own project names are not open to plugins, so the owner gathers sessions under names here.
+GROUPS = os.path.join(HOME, "gruplar.json")
 VERSION = 1
 # A sync service uploads a file only once it stops changing: iCloud left a summary rewritten every 30 s at
 # "needs-upload" for 25 minutes (2026-11-01). So: at most one write per MIN_GAP, an unchanged one per HEARTBEAT.
@@ -31,6 +34,7 @@ RECENT = 30 * 86400  # seconds: older sessions stay home unless they wait for th
 FIELDS = ("id", "acc", "title", "proj", "last", "seen", "created", "turns", "star", "cat", "need", "detail",
           "sumId", "error", "busy", "ask", "model", "effort", "mode", "bridge")
 _last = {"body": None, "at": 0.0}
+_peer_groups = {"at": 0, "rules": {}}  # the newest groups another computer published, seen by peers()
 
 
 def _load(path, default):
@@ -130,6 +134,42 @@ def configure(path=None, name=None):
     return ""
 
 
+def groups():
+    """The owner's groups: this computer's, or another computer's when that one changed them later."""
+    mine = _load(GROUPS, {"at": 0, "rules": {}})
+    if (_peer_groups.get("at") or 0) > (mine.get("at") or 0):
+        mine = {"at": _peer_groups["at"], "rules": dict(_peer_groups["rules"])}
+        _save(GROUPS, mine)
+    return mine
+
+
+def set_groups(changes):
+    """Put keys under a name ('' takes them out); the change reaches the other computers with the next summary."""
+    rules = dict(groups().get("rules") or {})
+    for key, name in changes.items():
+        name = " ".join(str(name or "").split())[:60]
+        if name:
+            rules[key] = name
+        else:
+            rules.pop(key, None)
+    g = {"at": int(time.time() * 1000), "rules": rules}
+    _save(GROUPS, g)
+    _last.update(body=None, at=0.0)  # publish at once, not after the usual gap
+    return g
+
+
+def apply_groups(rows, me):
+    """Give each session the owner's project name; a session's own rule wins over its folder's."""
+    rules = groups().get("rules") or {}
+    for k in rows:
+        k.setdefault("dev", me)
+        k.setdefault("proj0", k.get("proj") or "")
+        name = rules.get("s:" + str(k.get("id"))) or rules.get(f"p:{k['dev']}:{k['proj0']}")
+        if name:
+            k["proj"], k["group"] = name, True
+    return sorted(set(rules.values()))
+
+
 def publish(rows, now=None):
     """Write this computer's summary when it changed or the heartbeat is due. Returns True when written."""
     base = folder()
@@ -138,8 +178,11 @@ def publish(rows, now=None):
     now = time.time() if now is None else now
     me = device()
     keep = lambda k: now - (k.get("last") or 0) / 1000 < RECENT or k.get("ask") or k.get("cat") == "blocked"
-    sessions = [{f: k.get(f) for f in FIELDS} for k in rows if not k.get("remote") and keep(k)]
-    body = json.dumps({"device": me["id"], "name": me["name"], "sessions": sessions}, ensure_ascii=False, sort_keys=True)
+    # a session goes out under its folder's name; the groups travel beside it, for every computer to apply
+    sessions = [{f: (k.get("proj0") or k.get("proj")) if f == "proj" else k.get(f) for f in FIELDS}
+                for k in rows if not k.get("remote") and keep(k)]
+    g = groups()
+    body = json.dumps({"device": me["id"], "name": me["name"], "sessions": sessions, "groups": g}, ensure_ascii=False, sort_keys=True)
     if now - _last["at"] < (HEARTBEAT if body == _last["body"] else MIN_GAP):
         return False
     # Written in place, not as a new file swapped in: iCloud for Windows takes the swap for a deletion and fills its
@@ -148,7 +191,7 @@ def publish(rows, now=None):
     os.makedirs(target, exist_ok=True)
     with open(os.path.join(target, f"{me['id']}.json"), "w", encoding="utf-8") as f:
         json.dump({"v": VERSION, "device": me["id"], "name": me["name"], "at": int(now * 1000), "os": sys.platform,
-                   "sessions": sessions}, f, ensure_ascii=False)
+                   "sessions": sessions, "groups": g}, f, ensure_ascii=False)
     for d in _all_dirs(base):  # our own copy left in a folder we moved out of
         old = os.path.join(d, f"{me['id']}.json")
         if d != target and os.path.exists(old):
@@ -188,6 +231,10 @@ def peers(now=None):
             continue
         if (d.get("at") or 0) > (newest.get(d["device"], {}).get("at") or -1):
             newest[d["device"]] = d  # the same computer in two folders: its latest summary wins
+        g = d.get("groups")
+        if isinstance(g, dict) and isinstance(g.get("rules"), dict) and (g.get("at") or 0) > (_peer_groups.get("at") or 0):
+            rules = {str(a)[:300]: " ".join(str(b).split())[:60] for a, b in list(g["rules"].items())[:2000] if str(b).strip()}
+            _peer_groups.update(at=int(g.get("at") or 0), rules=rules)
     for d in sorted(newest.values(), key=lambda d: str(d.get("name") or "")):
         name = " ".join(str(d.get("name") or "Computer").split())[:40]
         age = now - (d.get("at") or 0) / 1000
@@ -198,8 +245,8 @@ def peers(now=None):
             if not isinstance(k, dict) or not str(k.get("id") or "").startswith("local_"):
                 continue
             row = {f: k.get(f) for f in FIELDS}
-            row.update(proj=f"{row.get('proj') or 'No folder'} · {name}", cwd="", home=False, remote=True,
-                       dev=devices[-1]["id"], devName=name, stale=stale)
+            row.update(proj=f"{row.get('proj') or 'No folder'} · {name}", proj0=row.get("proj") or "No folder", cwd="",
+                       home=False, remote=True, dev=devices[-1]["id"], devName=name, stale=stale)
             if stale:
                 row["busy"] = False  # nobody is reporting it: do not show it as working
             rows.append(row)

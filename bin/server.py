@@ -252,6 +252,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 run("scan.py", "--ac", sid)
                 SCAN["at"] = 0
                 return self.reply(200, {"ok": True, "job": enqueue({"kind": "unarchive", "id": sid}) if local_file(sid) else None})
+            if path == "/api/group":  # sessions or a whole planet under one of the owner's project names ('' takes them out)
+                rows = scan()["sessions"]
+                rules = sync.groups().get("rules") or {}
+                if sid:
+                    keys = ["s:" + sid]
+                else:
+                    planet = str(body.get("planet") or "")[:200]
+                    keys = sorted({("s:" + k["id"]) if ("s:" + k["id"]) in rules else f"p:{k.get('dev', '')}:{k.get('proj0') or k['proj']}"
+                                   for k in rows if k["proj"] == planet})
+                if not keys:
+                    return self.reply(404, {"error": "nothing to move"})
+                sync.set_groups({key: body.get("name") or "" for key in keys})
+                SCAN["at"] = 0
+                return self.reply(200, {"ok": True, "moved": len(keys)})
             if path == "/api/order":  # the owner's own order of projects; [] goes back to automatic
                 order = body.get("order")
                 if not isinstance(order, list) or len(order) > 1000 or not all(isinstance(n, str) and len(n) <= 200 for n in order):

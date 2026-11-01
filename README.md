@@ -62,6 +62,8 @@ Running Claude Code on more than one computer (two Macs, a Mac and a Windows PC)
 - Another computer's session cannot be opened in this computer's Claude app. **Open on claude.ai** opens it to read and reply, as long as that session's Remote Control is on.
 - It is off until you pick a folder, opens no network port, and the server stays on 127.0.0.1. `QOSMOPOL_SYNC_DIR` sets the folder without the web view.
 
+**Your own projects.** Qosmopol groups sessions by the folder they run in, and Claude's own project names are not open to plugins, so one piece of work can be spread over several planets. Use **Move to project…** in a project's ⋯ menu (a whole planet) or **Move to project** in a session's column (one session) to gather them under a name of your choosing; the groups travel with the summary, so every computer shows the same project. **Take out of this project** undoes it.
+
 The design and what comes next (replying and closing across computers) are in [docs/coklu-bilgisayar-tasarim.md](docs/coklu-bilgisayar-tasarim.md).
 
 ## How it works

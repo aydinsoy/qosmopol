@@ -107,10 +107,14 @@ try:
 except OSError:  # an unreadable sync folder must not take this computer's own sessions with it
     devices, remote = [], []
 rows += [k for k in remote if k["id"] not in HIDDEN]
+try:  # the owner's own project names, on this computer's sessions and the others' alike
+    group_names = sync.apply_groups(rows, sync.device()["id"])
+except OSError:
+    group_names = []
 accounts.sort()
 hidden = [{"id": l[0], "proj": l[1] if len(l) > 1 else "", "title": l[2] if len(l) > 2 else l[0]} for l in LINES]
 try:  # the language the owner chose in the Claude app, for the band and the pane
     lang = json.load(open(os.path.join(CLAUDE, "config.json"), encoding="utf-8")).get("locale", "")
 except (OSError, ValueError):
     lang = ""
-print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "hidden": hidden, "lang": lang, "devices": devices}, ensure_ascii=False))
+print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "hidden": hidden, "lang": lang, "devices": devices, "groups": group_names}, ensure_ascii=False))
