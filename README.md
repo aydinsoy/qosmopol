@@ -79,4 +79,4 @@ The microphone works in both (Chrome and Safari speech recognition, Turkish by d
 
 ## License
 
-Proprietary, all rights reserved. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The name "Qosmopol" is not covered by the license.

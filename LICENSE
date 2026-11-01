@@ -1,15 +1,28 @@
-Qosmopol
-Copyright (c) 2026 aydinsoy. All rights reserved.
+MIT License
 
-This software is proprietary. You may install and use it only if you received
-access to it from the copyright holder, and only for your own use. You may not
-copy, publish, distribute, sublicense or sell it, in whole or in part, without
-the copyright holder's written permission.
+Copyright (c) 2026 aydinsoy
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
-Qosmopol is an independent project and is not affiliated with, endorsed by or
-sponsored by Anthropic, PBC. "Claude" and "Claude Code" are trademarks of
-Anthropic, PBC.
+---
+
+"Qosmopol" is the name of this project; the license above covers the code, not
+the name. Qosmopol is an independent project and is not affiliated with,
+endorsed by or sponsored by Anthropic, PBC. "Claude" and "Claude Code" are
+trademarks of Anthropic, PBC.
