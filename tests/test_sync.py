@@ -104,6 +104,16 @@ class Sync(unittest.TestCase):
         devices, rows = sync.peers()
         self.assertEqual([r["id"] for r in rows], ["local_ok"])
 
+    def test_a_duplicate_folder_from_the_sync_service_is_read_too(self):
+        dup = os.path.join(self.shared, "Qosmopol 2", "cihazlar")
+        os.makedirs(dup)
+        with open(os.path.join(dup, "d9.json"), "w", encoding="utf-8") as f:
+            json.dump({"v": 1, "device": "d9", "name": "Windows", "at": int(time.time() * 1000), "sessions": [dict(ROW, id="local_dup")]}, f)
+        self.other(name="Windows", device="d9", at=time.time() - 600, sessions=[dict(ROW, id="local_old")])  # older copy
+        devices, rows = sync.peers()
+        self.assertEqual([d["name"] for d in devices], ["Windows"])
+        self.assertEqual([r["id"] for r in rows], ["local_dup"])
+
     def test_rename(self):
         self.assertEqual(sync.configure(name="  Office   PC "), "")
         self.assertEqual(sync.device()["name"], "Office PC")

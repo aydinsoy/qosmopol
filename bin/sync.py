@@ -83,6 +83,12 @@ def _dir(base):
     return os.path.join(base, "Qosmopol", "cihazlar")
 
 
+def _all_dirs(base):
+    """Every computer's folder to read: a sync service may keep two folders made under the same name as
+    "Qosmopol" and "Qosmopol 2" (Google Drive did, 2026-11-01), and each computer then writes into its own."""
+    return sorted(d for d in glob.glob(os.path.join(base, "Qosmopol*", "cihazlar")) if os.path.isdir(d))
+
+
 def configure(path=None, name=None):
     """Turn sync on with a folder ('' turns it off) and/or rename this computer. Returns an error or ''."""
     s = settings()
@@ -138,7 +144,7 @@ def _icloud_fetch(base):
     """macOS may keep a file iCloud has not downloaded yet as '.<name>.icloud': ask for it, read it next time."""
     if sys.platform != "darwin":
         return
-    for stub in glob.glob(os.path.join(_dir(base), ".*.json.icloud")):
+    for stub in (x for d in _all_dirs(base) for x in glob.glob(os.path.join(d, ".*.json.icloud"))):
         try:
             subprocess.Popen(["/usr/bin/brctl", "download", stub], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError:
@@ -155,10 +161,14 @@ def peers(now=None):
     me = device()["id"]
     _icloud_fetch(base)
     devices, rows = [], []
-    for path in sorted(glob.glob(os.path.join(_dir(base), "*.json"))):
+    newest = {}
+    for path in (x for d in _all_dirs(base) for x in glob.glob(os.path.join(d, "*.json"))):
         d = _load(path, None)
         if not isinstance(d, dict) or d.get("device") in (None, me) or not isinstance(d.get("sessions"), list):
             continue
+        if (d.get("at") or 0) > (newest.get(d["device"], {}).get("at") or -1):
+            newest[d["device"]] = d  # the same computer in two folders: its latest summary wins
+    for d in sorted(newest.values(), key=lambda d: str(d.get("name") or "")):
         name = " ".join(str(d.get("name") or "Computer").split())[:40]
         age = now - (d.get("at") or 0) / 1000
         stale = age > STALE
