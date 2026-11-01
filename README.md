@@ -21,8 +21,6 @@
 
 **Before you install: Python 3.9 or newer is required** (nothing else: no model, no packages). On macOS it comes with Apple's Command Line Tools (`xcode-select --install`); on Windows install it from python.org and restart the Claude app. If it is missing, `/qosmopol` says so.
 
-The repository is private: you need access to it and GitHub set up on your computer (`gh auth login`).
-
 Then, in the Claude Code session you want as the home, run:
 
 ```
