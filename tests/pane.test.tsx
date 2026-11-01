@@ -147,3 +147,26 @@ test('the band above the prompt counts what waits and opens the map, in the app 
   expect(argvs.some(a => a[0] === '/usr/bin/open' && a[1] === 'http://127.0.0.1:47321/')).toBe(true)
   await band.unmount()
 })
+
+test('/qosmopol says why it could not start instead of reporting success', async ($, on) => {
+  const opened: string[] = []
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', (_, e) => { opened.push(e.id); return { value: { isPlaced: true } } })
+  on('process.run', (_, e) => {
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    if (e.argv.includes('claim')) return { value: { exitCode: 1, stdout: '', stderr: 'Traceback (most recent call last):\n  ...\nKeyError: \'APPDATA\'\n' } }
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('env.get', (_, e) => ({ value: e.name === 'OS' ? 'Windows_NT' : undefined }))
+  mock.store(on)
+  mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  const toasts: string[] = []
+  on('ui.toast', (_, e) => { toasts.push(String(e.text)); return { value: undefined } })
+
+  const r = await $.command.run({ command: 'qosmopol' })
+  expect(r.text).toMatch(/could not start: .*KeyError: 'APPDATA'/)
+  expect(toasts.some(t => t.includes("KeyError: 'APPDATA'"))).toBe(true)
+  expect(opened).toEqual([])
+})

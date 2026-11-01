@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import sys
+import winenv  # noqa: F401  (first: a bare Windows environment gets its home and APPDATA back)
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")  # the JSON goes to a pipe, which Windows would write in its ANSI code page

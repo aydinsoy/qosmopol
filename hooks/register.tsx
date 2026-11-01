@@ -58,9 +58,14 @@ const opener = async ($: EngineInterface, url: string) =>
   (await onWindows($)) ? ['rundll32', 'url.dll,FileProtocolHandler', url] : ['/usr/bin/open', url]
 const server = async ($: EngineInterface, ...args: string[]) =>
   $.process.run([...(await python($, 'server.py')), ...args], { timeoutMs: 15_000 })
+// Why a script run failed, from the last line of its output (a traceback ends with the error); '' when it
+// worked. Without this /qosmopol said "open" on Windows while every script had stopped at its first line (2026-11-01).
+const failure = (r: { exitCode: number; stdout: string; stderr: string }) =>
+  r.exitCode === 0 ? '' : cut((r.stderr.trim() || r.stdout.trim()).split('\n').pop() ?? '', 300) || `exit ${r.exitCode}`
 // The full-screen web view, from the pane's button and the band above the prompt alike.
 async function openMap($: EngineInterface) {
-  await server($, '--daemon')
+  const why = failure(await server($, '--daemon'))
+  if (why) return $.ui.toast(`Qosmopol could not start: ${why}`)
   const r = await $.process.run(await opener($, WEB), { timeoutMs: 10_000 })
   if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
 }
@@ -217,8 +222,12 @@ export const register: Register = on => {
       $.ui.toast(problem)
       return { text: problem }
     }
-    await server($, 'claim', String(await $.session.id()))
-    await server($, '--daemon')
+    const why = failure(await server($, 'claim', String(await $.session.id()))) || failure(await server($, '--daemon'))
+    if (why) {
+      const text = `Qosmopol could not start: ${why} / Qosmopol başlatılamadı: ${why}`
+      $.ui.toast(text)
+      return { text }
+    }
     await $.ui.open({ id: PANE, title: TITLE })
     return { text: `Qosmopol is open. Full-screen web view: ${WEB} (this session is now Qosmopol's home session: what you write in the web view comes here).` }
   })

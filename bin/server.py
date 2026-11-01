@@ -23,6 +23,7 @@ import subprocess
 import sys
 import threading
 import time
+import winenv  # noqa: F401  (first: a bare Windows environment gets its home and APPDATA back)
 import urllib.parse
 
 if sys.platform == "win32":
@@ -268,6 +269,22 @@ def done(raw):
     save(RESULTS, dict(sorted(results.items(), key=lambda kv: kv[1]["at"])[-200:]))
 
 
+def started(port):
+    """Exit code of --daemon: 0 once the new server answers, 1 with the last line of its log when it never does."""
+    for _ in range(30):
+        time.sleep(0.2)
+        if answering(port):
+            print(f"http://127.0.0.1:{port}/")
+            return 0
+    try:
+        with open(os.path.join(HOME, "server.log"), errors="replace") as f:
+            lines = [l.strip() for l in f.read()[-2000:].splitlines() if l.strip()]
+    except OSError:
+        lines = []
+    print(f"the server did not start on port {port}" + (f": {lines[-1]}" if lines else ""), file=sys.stderr)
+    return 1
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if args[:1] == ["claim"] and len(args) > 1:
@@ -305,13 +322,9 @@ if __name__ == "__main__":
                 subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=out, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB)
             except OSError:  # the caller's job does not allow leaving it
                 subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=out, creationflags=flags)
-            time.sleep(0.6)
-            print(f"http://127.0.0.1:{PORT}/")
-            sys.exit(0)
+            sys.exit(started(PORT))
         if os.fork():
-            time.sleep(0.6)
-            print(f"http://127.0.0.1:{PORT}/")
-            sys.exit(0)
+            sys.exit(started(PORT))
         os.setsid()
         if os.fork():
             os._exit(0)
