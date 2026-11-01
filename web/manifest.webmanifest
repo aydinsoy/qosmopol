@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Qosmopol",
   "short_name": "Qosmopol",
-  "description": "All your Claude Code projects and sessions on one sky.",
+  "description": "The interactive project map for Claude Code: every project and session at a glance, and what needs you blinks red.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

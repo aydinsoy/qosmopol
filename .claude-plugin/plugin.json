@@ -1,7 +1,7 @@
 {
   "name": "qosmopol",
   "version": "0.1.0",
-  "description": "All your Claude Code projects and sessions on one sky: what needs you blinks red, working agents glow orange; a clickable full-screen map, side-by-side sessions, one command bar with a microphone.",
+  "description": "The interactive project map for Claude Code: every project and session at a glance, what needs you blinks red, working agents glow orange; side-by-side sessions and one command bar with a microphone.",
   "author": { "name": "aydinsoy" },
   "license": "SEE LICENSE IN LICENSE",
   "types": "./types/index.d.ts"

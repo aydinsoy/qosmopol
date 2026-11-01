@@ -1,6 +1,6 @@
 # Qosmopol
 
-**All your Claude Code projects and sessions on one sky.** Projects are planets, their sessions are moons on thin lines. A session that needs you blinks **red**, one where the agent is working glows **orange**, closed ones turn **grey**. Built for people who run many projects with many open sessions in the Claude desktop app and keep missing the one question that has been waiting for hours.
+**The interactive project map for Claude Code** — see every project and session at a glance, and what needs you blinks **red**. Projects are planets, their sessions are moons on thin lines; a session where the agent is working glows **orange**, closed ones turn **grey**. Built for people who run many projects with many open sessions in the Claude desktop app and keep missing the one question that has been waiting for hours.
 
 > Qosmopol is an independent project, not affiliated with or endorsed by Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic, PBC.
 
