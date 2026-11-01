@@ -31,6 +31,17 @@ Then, in the Claude Code session you want as the home, run:
 
 That session opens the pane, starts the local web server and becomes the **home**: messages you send from the web view to "Qosmopol" arrive there, and it relays your messages, archive and reopen actions to the app. Keep it open (a small pop-out window works well).
 
+## How to use: getting to the map
+
+Once installed, there are four ways in, none of them needs typing an address:
+
+1. **The band above the prompt.** Every Claude Code session shows one line above the message box: *Qosmopol · 3 waiting for you · Open map*. Click **Open map**.
+2. **The pane beside the chat.** Type `/` and pick **/qosmopol** from the menu (or type it). The Qosmopol pane opens next to the session; its **Open web view** button opens the map.
+3. **The Dock icon.** Install the web view as an app once (see below); after that the Qosmopol icon in the Dock opens it directly.
+4. **Inside the web view.** The map is the first column, right of the sidebar. If you closed it, click **Map** in the sidebar's Qosmopol section; it also comes back on every reload. The ⤢ button makes it full screen (Esc leaves). The sidebar folds away with the icon right of the Qosmopol name; the same icon in the first column's header brings it back.
+
+On the map, click a moon to open that session as a column, a planet to open its project. *Open in app* in a column header switches the Claude app to that session.
+
 ## Use it as a desktop app
 
 The web view installs like any desktop app, with its own window and Dock icon:
@@ -63,6 +74,8 @@ The microphone works in both (Chrome and Safari speech recognition, Turkish by d
 ## Türkçe
 
 **Qosmopol**, Claude masaüstü uygulamasındaki bütün projeleri ve konuları tek bir siyah haritada gösterir. Senden bir şey bekleyen konu kırmızı yanıp söner, ajanın çalıştığı konu turuncu yanar, kapanmış konular gri olur. Kurduktan sonra ana oturumda `/qosmopol` yaz. Tam ekran hâli `http://127.0.0.1:47321/` adresinde: dairelere basınca konu ya da proje sağda sütun olarak açılır, tek yazma çubuğu ve mikrofonla oradan yönetirsin.
+
+**Haritaya nasıl geçilir:** her Claude Code konusunda yazma kutusunun hemen üstündeki şeritte (*Qosmopol · 3 bekliyor · Haritayı aç*) **Haritayı aç**'a bas; ya da `/` menüsünden **/qosmopol**'u seçip açılan paneldeki **Open web view** düğmesini, ya da Dock'a eklediğin Qosmopol simgesini kullan. Sayfada harita ilk sütundur; kapattıysan soldaki menüde **Harita**'ya bas, sayfa yenilenince de geri gelir. Gereken tek şey Python 3.9 ya da daha yenisi.
 
 ## License
 

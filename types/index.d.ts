@@ -28,6 +28,8 @@ export type Tarama = {
   sessions: Konu[]
   /** Sessions the owner closed in the pane, newest last. */
   hidden?: { id: string; proj: string; title: string }[]
+  /** The language chosen in the Claude app (config.json "locale"), such as "tr" or "en-US"; empty when unknown. */
+  lang?: string
   error?: string
 }
 

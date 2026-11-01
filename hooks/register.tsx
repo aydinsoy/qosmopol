@@ -58,6 +58,12 @@ const opener = async ($: EngineInterface, url: string) =>
   (await onWindows($)) ? ['rundll32', 'url.dll,FileProtocolHandler', url] : ['/usr/bin/open', url]
 const server = async ($: EngineInterface, ...args: string[]) =>
   $.process.run([...(await python($, 'server.py')), ...args], { timeoutMs: 15_000 })
+// The full-screen web view, from the pane's button and the band above the prompt alike.
+async function openMap($: EngineInterface) {
+  await server($, '--daemon')
+  const r = await $.process.run(await opener($, WEB), { timeoutMs: 10_000 })
+  if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
+}
 
 // The web page (bin/server.py) cannot reach the app: it queues what needs it, and the home
 // session's mod carries each job out here and writes the result back for the page to show.
@@ -217,6 +223,23 @@ export const register: Register = on => {
     return { text: `Qosmopol is open. Full-screen web view: ${WEB} (this session is now Qosmopol's home session: what you write in the web view comes here).` }
   })
 
+  // One line above the prompt in every session: what waits for you, and one click to the map.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const t = await read($, tarama)
+    if (e.props.hasSurvey || !t.at) return next(e)  // a survey goes first; no scan yet (or no Python): nothing to say
+    const { Box, Button, Text } = $.ui.resolve(e)
+    const tr = (t.lang ?? '').toLowerCase().startsWith('tr')
+    const n = visible(t.sessions, 7, Date.now()).filter(waiting).length
+    return (
+      <Box>
+        <Text dimColor>Qosmopol · </Text>
+        {n ? <Text color={RED}>{tr ? `${n} bekliyor` : `${n} waiting for you`}</Text> : <Text dimColor>{tr ? 'bekleyen yok' : 'nothing waiting'}</Text>}
+        <Text dimColor> </Text>
+        <Button key="map" label={tr ? 'Haritayı aç' : 'Open map'} onPress={() => openMap($)} />
+      </Box>
+    )
+  })
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const els = $.ui.resolve(e) as any
     const { Box, Text, Button, Svg } = els
@@ -288,11 +311,7 @@ export const register: Register = on => {
         <Text dimColor>✕</Text>
       </Button>
     )
-    const openWeb = async () => {
-      await server($, '--daemon')
-      const r = await $.process.run(await opener($, WEB), { timeoutMs: 10_000 })
-      if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
-    }
+    const openWeb = () => openMap($)
     const toInbox = <Button key="kapat" label="Close all" onPress={() => set(g => ({ ...g, sel: '', cols: [] }))} />
     const row = (k: Konu, prefix: string) => (
       <Box key={`r-${prefix}-${k.id}`} flexDirection="row" gap={1}>

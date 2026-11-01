@@ -99,4 +99,8 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
 
 accounts.sort()
 hidden = [{"id": l[0], "proj": l[1] if len(l) > 1 else "", "title": l[2] if len(l) > 2 else l[0]} for l in LINES]
-print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "hidden": hidden}, ensure_ascii=False))
+try:  # the language the owner chose in the Claude app, for the band and the pane
+    lang = json.load(open(os.path.join(CLAUDE, "config.json"), encoding="utf-8")).get("locale", "")
+except (OSError, ValueError):
+    lang = ""
+print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "hidden": hidden, "lang": lang}, ensure_ascii=False))

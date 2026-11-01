@@ -119,3 +119,31 @@ test('on Windows the scripts run under the py launcher', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /1 waiting for you/ })).toBeDefined()
   await ui.unmount()
 })
+
+test('the band above the prompt counts what waits and opens the map, in the app language', async ($, on) => {
+  const argvs: (readonly string[])[] = []
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    argvs.push(e.argv)
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    return { value: { exitCode: 0, stdout: JSON.stringify({ ...SCAN, lang: 'tr' }), stderr: '' } }
+  })
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const band = await $.ui.mount({
+    plugin: 'qosmopol', component: 'AbovePrompt', surface: 'desktop',
+    props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 90, scroll: { offset: 0, bodyRows: 10 }, view: {} },
+  } as any)
+  expect(await band.find({ type: 'Text', text: /1 bekliyor/ })).toBeDefined()
+  await band.press({ key: 'map' })
+  expect(argvs.some(a => a[0] === '/usr/bin/open' && a[1] === 'http://127.0.0.1:47321/')).toBe(true)
+  await band.unmount()
+})
