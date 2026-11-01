@@ -27,6 +27,7 @@ const gorunum = atom(
 let stopTimer: (() => void) | undefined
 let stopBridge: (() => void) | undefined
 let bridging = false
+let rcAt = 0
 const WEB = 'http://127.0.0.1:47321/'
 const onWindows = async ($: EngineInterface) => (await $.env.get('OS')) === 'Windows_NT'
 // The scripts run under /usr/bin/python3 on macOS and the py launcher's Python 3 on Windows
@@ -72,10 +73,31 @@ async function openMap($: EngineInterface) {
 
 // The web page (bin/server.py) cannot reach the app: it queues what needs it, and the home
 // session's mod carries each job out here and writes the result back for the page to show.
+// Which sessions' Remote Control is on right now: only the app knows, and it tells the home session through its
+// session list. The other computers show "Open on claude.ai" only where it is on (a closed one opened claude.ai's
+// start page, 2026-11-01). Once a minute, from the home session alone.
+async function remoteControl($: EngineInterface) {
+  try {
+    if ((await server($, 'home')).stdout.trim() !== String(await $.session.id())) return
+    const res = await $.mcp.call('ccd_session_mgmt', 'list_sessions', { limit: 200 })
+    const list = JSON.parse((res.content ?? []).map((c: any) => c.text ?? '').join(''))
+    const rc: Record<string, boolean> = {}
+    for (const k of Array.isArray(list) ? list : []) if (typeof k?.sessionId === 'string' && typeof k.remoteControlActive === 'boolean') rc[k.sessionId] = k.remoteControlActive
+    await server($, 'rc', JSON.stringify(rc))
+  } catch {
+    // no list this round: the map keeps the last one for a while, then shows the button as before
+  }
+}
+
 async function bridge($: EngineInterface) {
   if (bridging) return
   bridging = true
   try {
+    const now = Date.now()
+    if (now - rcAt > 60_000) {
+      rcAt = now
+      void remoteControl($)
+    }
     const r = await server($, 'take', String(await $.session.id()))
     let jobs: any[] = []
     try {
@@ -283,7 +305,7 @@ export const register: Register = on => {
     const openSession = async (k: Konu) => {
       await markRead(k.id)
       if (k.remote) {  // on another computer: its Remote Control opens it on claude.ai from here
-        if (!k.bridge) return void $.ui.toast(`This session is on ${k.devName}; open it there.`)
+        if (!k.bridge || k.rc === false) return void $.ui.toast(`This session's Remote Control is off; open it on ${k.devName}.`)
         const r = await $.process.run(await opener($, `https://claude.ai/code/${k.bridge}`), { timeoutMs: 10_000 })
         if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
         return

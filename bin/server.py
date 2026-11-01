@@ -41,6 +41,7 @@ READ = os.path.join(HOME, "okundu.json")
 TOKEN_FILE = os.path.join(HOME, "token")
 SESSION = os.path.join(HOME, "oturum")
 ORDER = os.path.join(HOME, "sira.json")
+RC = os.path.join(HOME, "rc.json")  # which sessions' Remote Control is on, as the home session last saw it
 PORT = 47321
 KEEP = 1000
 LOCK = threading.Lock()
@@ -354,6 +355,15 @@ if __name__ == "__main__":
             print("[]")  # only the home session carries out the queue
         else:
             take()
+        sys.exit(0)
+    if args[:1] == ["rc"] and len(args) > 1:
+        try:
+            seen = json.loads(args[1])
+        except ValueError:
+            sys.exit(1)
+        os.makedirs(HOME, exist_ok=True)
+        save(RC, {"at": int(time.time() * 1000),
+                  "rc": {str(k): bool(v) for k, v in (seen.items() if isinstance(seen, dict) else []) if str(k).startswith("local_")}})
         sys.exit(0)
     if args[:1] == ["done"]:
         done(args[1] if len(args) > 1 else "[]")

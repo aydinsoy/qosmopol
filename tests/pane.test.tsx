@@ -231,3 +231,31 @@ test('sessions on the owner\'s other computers: counted apart in the band, opene
   expect(argvs.some(a => a.some(x => x.includes('epitaxy/local_9')))).toBe(false)
   expect(mcp.some(m => m.includes('local_9'))).toBe(false)
 })
+
+test('the home session reports which sessions have Remote Control on, for the other computers', async ($, on) => {
+  const argvs: (readonly string[])[] = []
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    argvs.push(e.argv)
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    if (e.argv.includes('home')) return { value: { exitCode: 0, stdout: 'cli-1\n', stderr: '' } }
+    if (e.argv.includes('take')) return { value: { exitCode: 0, stdout: '[]', stderr: '' } }
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('mcp.call', (_, e) => ({ value: { isError: false, content: [{ type: 'text', text: JSON.stringify([
+    { sessionId: 'local_1', remoteControlActive: true }, { sessionId: 'local_2', remoteControlActive: false }, { sessionId: 'x' }]) }] } }))
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  const clock = mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
+  await clock.advance(3000)
+  const rc = argvs.find(a => a.includes('rc'))
+  expect(rc).toBeDefined()
+  expect(JSON.parse(rc![rc!.indexOf('rc') + 1])).toEqual({ local_1: true, local_2: false })
+})

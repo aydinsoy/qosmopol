@@ -178,6 +178,16 @@ class Sync(unittest.TestCase):
         sync.peers()
         self.assertEqual(sync.groups()["rules"], {"p:d2:shop-example": "Client Ads"})
 
+    def test_remote_control_state_travels(self):
+        t = time.time()
+        sync.publish([dict(ROW, last=t * 1000, rc=False)], now=t)
+        me = sync.device()["id"]
+        d = json.load(open(os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json"), encoding="utf-8"))
+        self.assertIs(d["sessions"][0]["rc"], False)
+        self.other(sessions=[dict(ROW, id="local_on", rc=True)])
+        _, rows = sync.peers()
+        self.assertIs(rows[0]["rc"], True)
+
     def test_rename(self):
         self.assertEqual(sync.configure(name="  Office   PC "), "")
         self.assertEqual(sync.device()["name"], "Office PC")

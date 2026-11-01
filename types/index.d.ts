@@ -21,6 +21,8 @@ export type Konu = {
   ask?: boolean
   /** Remote Control's id: claude.ai/code/<id> opens the session from any device while it is valid. */
   bridge?: string
+  /** Its Remote Control is on now (the home session reads it from the app); absent when not known. */
+  rc?: boolean
   /** The session lives on another of the owner's computers (bin/sync.py); its project name ends with that computer's name. */
   remote?: boolean
   dev?: string

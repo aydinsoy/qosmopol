@@ -77,6 +77,7 @@
   #plist { width: 0; flex: none; overflow: hidden; display: flex; flex-direction: column; min-height: 0; background: var(--bg); border-right: 1px solid transparent; transition: width .16s ease; }
   #plist { position: relative; }
   .syncrow { display: flex; gap: 6px; margin: 6px 0 8px; }
+  .hnote { font-size: 12px; white-space: nowrap; margin-left: 4px; }
   #menu .mform { display: flex; gap: 6px; padding: 6px 8px; min-width: 260px; }
   #menu .mform input { flex: 1; min-width: 0; background: var(--input); border: 1px solid var(--input-line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; }
   #menu .mform button { width: auto; flex: none; background: var(--btn); color: var(--text); border: 0; border-radius: 6px; padding: 5px 10px; font: inherit; cursor: pointer; }
@@ -574,6 +575,7 @@ function renderPlist() {
 const conv = (talk, hist, k) => talk === undefined ? '<div class="dim">Loading…</div>'
   : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="txt selectable">${md(m.text)}</div></div>`).join('')
   : hist.length ? hist.map(m => `<div class="msg"><div class="meta">Summary · ${ago(m.at)} ago</div><div class="txt selectable">${md(m.text)}</div></div>`).join('')
+  : k?.remote && (k.rc === false || !k.bridge) ? '<div class="dim">The conversation is on another computer, and its Remote Control is off: open it on that computer.</div>'
   : k?.remote ? '<div class="dim">The conversation is on another computer. Open it on claude.ai to read and reply.</div>'
   : '<div class="dim">No transcript on this Mac (another account or the cloud).</div>'
 function topicBody(k) {
@@ -638,7 +640,8 @@ function renderCols() {
     const inApp = k && !k.remote ? k : c === 'home' ? homeRow() : null
     // another computer's session opens on claude.ai, through its Remote Control, from any device
     const appBtn = inApp ? `<button class="btn hbtn" data-act="app" data-id="${esc(inApp.id)}" data-tip="Open in the Claude app: its browser, changes and terminal panes open there, beside the session">${ICON.app}Open in app</button>`
-      : k?.remote && k.bridge ? `<button class="btn hbtn" data-act="web" data-url="https://claude.ai/code/${esc(k.bridge)}" data-tip="Opens this session on claude.ai to read and reply, while its Remote Control is on">${ICON.app}Open on claude.ai</button>` : ''
+      : k?.remote && k.bridge && k.rc !== false ? `<button class="btn hbtn" data-act="web" data-url="https://claude.ai/code/${esc(k.bridge)}" data-tip="Opens this session on claude.ai to read and reply, while its Remote Control is on">${ICON.app}Open on claude.ai</button>`
+      : k?.remote ? `<span class="dim hnote" data-tip="Turn its Remote Control on there, or open it on that computer">Remote Control off</span>` : ''
     const sideBtn = c === S.cols[0] ? `<button class="icon sideopen" data-tip="Show sidebar">${SIDE_ICO}</button>` : ''
     setHTML(el.querySelector('header'), `${sideBtn}${title}${appBtn}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
     if (el.querySelector('.composer')) fillMeta(el.querySelector('.composer'), false)
@@ -914,6 +917,8 @@ const TR = {
   'The conversation is on another computer. Open it on claude.ai to read and reply.': "Konuşma diğer bilgisayarda. Okumak ve cevaplamak için claude.ai'de aç.",
   'Opens this session on claude.ai to read and reply, while its Remote Control is on': "Bu konuyu okumak ve cevaplamak için claude.ai'de açar (Remote Control açıkken)",
   'Hides it from this map; the session stays as it is on the other computer': 'Bu haritadan gizler; konu diğer bilgisayarda olduğu gibi kalır',
+  'Remote Control off': "Remote Control kapalı", 'Turn its Remote Control on there, or open it on that computer': "Orada Remote Control'ü aç ya da konuyu o bilgisayarda aç",
+  'The conversation is on another computer, and its Remote Control is off: open it on that computer.': "Konuşma diğer bilgisayarda ve Remote Control'ü kapalı: konuyu o bilgisayarda aç.",
   'Move to project…': 'Projeye taşı…', 'Move to project': 'Projeye taşı', 'New project…': 'Yeni proje…', 'Take out of this project': 'Bu projeden çıkar',
   'Name of the new project': 'Yeni projenin adı', 'New project name': 'Yeni proje adı', 'Add': 'Ekle', 'Taken out of the project': 'Projeden çıkarıldı',
   'Gather it under one of your own project names, on every computer': 'Kendi proje adlarından birinin altına toplar; her bilgisayarda',

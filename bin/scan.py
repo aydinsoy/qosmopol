@@ -101,6 +101,15 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
         "bridge": (d.get("bridgeSessionIds") or [""])[-1],
     })
 
+# Remote Control on or off, as the home session last read it from the app; too old a reading says nothing.
+try:
+    _rc = json.load(open(os.path.expanduser("~/.qosmopol/rc.json"), encoding="utf-8"))
+    RC = _rc.get("rc") or {} if time.time() - (_rc.get("at") or 0) / 1000 < 600 else {}
+except (OSError, ValueError):
+    RC = {}
+for k in rows:
+    if k["id"] in RC:
+        k["rc"] = RC[k["id"]]
 # The owner's other computers, from the shared sync folder (off until the owner picks one).
 try:
     devices, remote = sync.peers()

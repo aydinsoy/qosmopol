@@ -32,7 +32,7 @@ STALE = 1800  # seconds: a computer that wrote nothing for this long is shown as
 RECENT = 30 * 86400  # seconds: older sessions stay home unless they wait for the owner (keeps the file small)
 # What another computer may see of a session: no folder paths, nothing the map does not show.
 FIELDS = ("id", "acc", "title", "proj", "last", "seen", "created", "turns", "star", "cat", "need", "detail",
-          "sumId", "error", "busy", "ask", "model", "effort", "mode", "bridge")
+          "sumId", "error", "busy", "ask", "model", "effort", "mode", "bridge", "rc")
 _last = {"body": None, "at": 0.0}
 _peer_groups = {"at": 0, "rules": {}}  # the newest groups another computer published, seen by peers()
 
