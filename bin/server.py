@@ -169,6 +169,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             with open(os.path.join(WEB, url.path[1:]), "rb") as f:
                 return self.reply(200, f.read(), static[url.path])
         if url.path in ("/", "/index.html"):
+            # the page carries the API token: only for this computer's own address, never for a name a DNS
+            # rebinding page could point here (found by the public-repo review, 2026-11-01)
+            if (self.headers.get("Host") or "").split(":")[0] not in ("127.0.0.1", "localhost"):
+                return self.reply(403, {"error": "forbidden"})
             html = open(os.path.join(WEB, "index.html"), encoding="utf-8").read().replace("__QOSMOPOL_TOKEN__", TOKEN)
             return self.reply(200, html.encode(), "text/html")
         if not url.path.startswith("/api/"):
