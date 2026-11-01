@@ -57,7 +57,7 @@ The microphone works in both (Chrome and Safari speech recognition, Turkish by d
 
 Running Claude Code on more than one computer (two Macs, a Mac and a Windows PC)? Each Qosmopol sees only its own computer's sessions, because Claude keeps them on that computer's disk. Turn on **Other computers** in the web view's sidebar on each of them and pick the same shared folder (iCloud Drive, Google Drive, Dropbox or OneDrive; Qosmopol suggests the ones it finds):
 
-- Each computer writes a summary of its own sessions to `<folder>/Qosmopol/cihazlar/<device>.json` about every 30 seconds: titles, status, the waiting question and the Remote Control id. No folder paths, no conversations.
+- Each computer writes a summary of its own sessions to `<folder>/Qosmopol/cihazlar/<device>.json` at most every 2 minutes (every 10 when nothing changed, because a sync service uploads a file only once it stops changing), covering the last 30 days and everything still waiting: titles, status, the waiting question and the Remote Control id. No folder paths, no conversations.
 - The others' projects show on the map with the computer's name ("Space Game · MacBook"), and the band above the prompt says "3 waiting for you (+2 on your other computers)".
 - Another computer's session cannot be opened in this computer's Claude app. **Open on claude.ai** opens it to read and reply, as long as that session's Remote Control is on.
 - It is off until you pick a folder, opens no network port, and the server stays on 127.0.0.1. `QOSMOPOL_SYNC_DIR` sets the folder without the web view.

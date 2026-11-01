@@ -45,7 +45,7 @@ class Sync(unittest.TestCase):
         self.assertEqual(sync.configure(os.path.join(ROOT, "nope")), "folder not found")
 
     def test_publish_writes_only_this_computers_sessions_without_paths(self):
-        self.assertTrue(sync.publish([ROW, dict(ROW, id="local_far", remote=True)]))
+        self.assertTrue(sync.publish([dict(ROW, last=time.time() * 1000), dict(ROW, id="local_far", remote=True)]))
         me = sync.device()["id"]
         d = json.load(open(os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json"), encoding="utf-8"))
         self.assertEqual([k["id"] for k in d["sessions"]], ["local_aaa"])
@@ -53,12 +53,21 @@ class Sync(unittest.TestCase):
         self.assertNotIn("home", d["sessions"][0])
         self.assertEqual(d["sessions"][0]["bridge"], "session_01x")
 
-    def test_unchanged_summary_waits_for_the_heartbeat(self):
+    def test_writes_are_rare_enough_for_a_sync_service_to_upload_them(self):
         t = 1000.0
         self.assertTrue(sync.publish([ROW], now=t))
-        self.assertFalse(sync.publish([ROW], now=t + 10))
-        self.assertTrue(sync.publish([ROW], now=t + sync.HEARTBEAT + 1))
-        self.assertTrue(sync.publish([dict(ROW, cat="completed")], now=t + sync.HEARTBEAT + 2))
+        self.assertFalse(sync.publish([dict(ROW, busy=True)], now=t + 30))  # changed, but too soon
+        self.assertTrue(sync.publish([dict(ROW, busy=True)], now=t + sync.MIN_GAP + 1))
+        self.assertFalse(sync.publish([dict(ROW, busy=True)], now=t + sync.MIN_GAP + 300))  # unchanged
+        self.assertTrue(sync.publish([dict(ROW, busy=True)], now=t + sync.MIN_GAP + sync.HEARTBEAT + 2))
+
+    def test_old_finished_sessions_stay_home(self):
+        old = (time.time() - sync.RECENT - 60) * 1000
+        sync.publish([dict(ROW, id="local_new", last=time.time() * 1000), dict(ROW, id="local_old", last=old, cat="completed"),
+                      dict(ROW, id="local_oldwait", last=old, cat="blocked")])
+        me = sync.device()["id"]
+        d = json.load(open(os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json"), encoding="utf-8"))
+        self.assertEqual(sorted(k["id"] for k in d["sessions"]), ["local_new", "local_oldwait"])
 
     def test_peers_skip_this_computer_and_name_the_other(self):
         sync.publish([ROW])

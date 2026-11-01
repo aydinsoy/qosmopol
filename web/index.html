@@ -679,7 +679,7 @@ function syncHTML() {
     ${s.env ? '' : cands ? `<div class="dim">Found on this computer:</div><div class="syncc">${cands}</div>` : '<div class="dim">No iCloud Drive, Google Drive, Dropbox or OneDrive folder found here. Paste the path of any folder your computers share.</div>'}
     <div class="label">Other computers</div>
     ${devs.length ? devs.map(d => `<div class="item"><div class="line"><span class="dot" style="background:${d.stale ? 'var(--grey)' : 'var(--blue)'}"></span><span class="t">${esc(d.name)}</span><span class="age">${ago(d.at)}</span></div><div class="meta" style="padding:2px 0 0 18px">${d.sessions} ${d.sessions === 1 ? 'session' : 'sessions'}${d.stale ? ' · offline' : ''}</div></div>`).join('')
-      : `<div class="dim">${s.enabled ? 'None yet. Turn this on with the same shared folder on your other computers; they show up here within a minute or two.' : 'Turn on to see them.'}</div>`}
+      : `<div class="dim">${s.enabled ? 'None yet. Turn this on with the same shared folder on your other computers; they show up here within a few minutes.' : 'Turn on to see them.'}</div>`}
     <div class="dim" style="margin-top:12px">Their projects show on the map with the computer's name. Open one of their sessions on claude.ai to read and reply (it needs that session's Remote Control to be on).</div>`
 }
 function inboxHTML() {
@@ -905,7 +905,7 @@ const TR = {
   'Pick one below or paste a path': 'Aşağıdan seç ya da bir yol yapıştır', 'Set by QOSMOPOL_SYNC_DIR.': 'QOSMOPOL_SYNC_DIR ile ayarlanmış.', 'Open on claude.ai': "claude.ai'de aç", 'Hide here': 'Burada gizle',
   'Show the sessions of your other computers on this map. Each computer writes a summary of its own sessions (titles, status, the waiting question; no folder paths) into a folder your sync service already shares, and reads the others\' from there. Nothing leaves your computers in any other way.': 'Diğer bilgisayarlarının konularını bu haritada göster. Her bilgisayar kendi konularının özetini (başlık, durum, bekleyen soru; klasör yolları yok) eşitleme servisinin zaten paylaştığı bir klasöre yazar, diğerlerininkini oradan okur. Bilgisayarlarından başka hiçbir yolla veri çıkmaz.',
   'No iCloud Drive, Google Drive, Dropbox or OneDrive folder found here. Paste the path of any folder your computers share.': 'Burada iCloud Drive, Google Drive, Dropbox ya da OneDrive klasörü bulunamadı. Bilgisayarlarının paylaştığı herhangi bir klasörün yolunu yapıştır.',
-  'None yet. Turn this on with the same shared folder on your other computers; they show up here within a minute or two.': 'Henüz yok. Diğer bilgisayarlarında da aynı ortak klasörle aç; bir iki dakika içinde burada görünürler.',
+  'None yet. Turn this on with the same shared folder on your other computers; they show up here within a few minutes.': 'Henüz yok. Diğer bilgisayarlarında da aynı ortak klasörle aç; birkaç dakika içinde burada görünürler.',
   "Their projects show on the map with the computer's name. Open one of their sessions on claude.ai to read and reply (it needs that session's Remote Control to be on).": "Projeleri haritada bilgisayarın adıyla görünür. Konularından birini okumak ve cevaplamak için claude.ai'de aç (o konunun Remote Control'ü açık olmalı).",
   'The conversation is on another computer. Open it on claude.ai to read and reply.': "Konuşma diğer bilgisayarda. Okumak ve cevaplamak için claude.ai'de aç.",
   'Opens this session on claude.ai to read and reply, while its Remote Control is on': "Bu konuyu okumak ve cevaplamak için claude.ai'de açar (Remote Control açıkken)",

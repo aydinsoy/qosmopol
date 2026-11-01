@@ -21,8 +21,12 @@ HOME = os.path.expanduser("~/.qosmopol")
 SETTINGS = os.path.join(HOME, "ayar.json")
 DEVICE = os.path.join(HOME, "cihaz.json")
 VERSION = 1
-HEARTBEAT = 60  # seconds: an unchanged summary is still rewritten this often, so the others see we are alive
-STALE = 180  # seconds: a computer that wrote nothing for this long is shown as offline
+# A sync service uploads a file only once it stops changing: iCloud left a summary rewritten every 30 s at
+# "needs-upload" for 25 minutes (2026-11-01). So: at most one write per MIN_GAP, an unchanged one per HEARTBEAT.
+MIN_GAP = 120  # seconds between two writes, however much changed
+HEARTBEAT = 600  # seconds: an unchanged summary is still rewritten this often, so the others see we are alive
+STALE = 1800  # seconds: a computer that wrote nothing for this long is shown as offline
+RECENT = 30 * 86400  # seconds: older sessions stay home unless they wait for the owner (keeps the file small)
 # What another computer may see of a session: no folder paths, nothing the map does not show.
 FIELDS = ("id", "acc", "title", "proj", "last", "seen", "created", "turns", "star", "cat", "need", "detail",
           "sumId", "error", "busy", "ask", "model", "effort", "mode", "bridge")
@@ -115,9 +119,10 @@ def publish(rows, now=None):
         return False
     now = time.time() if now is None else now
     me = device()
-    sessions = [{f: k.get(f) for f in FIELDS} for k in rows if not k.get("remote")]
+    keep = lambda k: now - (k.get("last") or 0) / 1000 < RECENT or k.get("ask") or k.get("cat") == "blocked"
+    sessions = [{f: k.get(f) for f in FIELDS} for k in rows if not k.get("remote") and keep(k)]
     body = json.dumps({"device": me["id"], "name": me["name"], "sessions": sessions}, ensure_ascii=False, sort_keys=True)
-    if body == _last["body"] and now - _last["at"] < HEARTBEAT:
+    if now - _last["at"] < (HEARTBEAT if body == _last["body"] else MIN_GAP):
         return False
     _save(os.path.join(_dir(base), f"{me['id']}.json"),
           {"v": VERSION, "device": me["id"], "name": me["name"], "at": int(now * 1000), "os": sys.platform, "sessions": sessions})
