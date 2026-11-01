@@ -29,9 +29,30 @@ let stopBridge: (() => void) | undefined
 let bridging = false
 const WEB = 'http://127.0.0.1:47321/'
 const onWindows = async ($: EngineInterface) => (await $.env.get('OS')) === 'Windows_NT'
-// The scripts run under /usr/bin/python3 on macOS and the py launcher's Python 3 on Windows.
+// The scripts run under /usr/bin/python3 on macOS and the py launcher's Python 3 on Windows
+// (QOSMOPOL_PYTHON, when set, names another one).
+const pythonCmd = async ($: EngineInterface) => {
+  const own = await $.env.get('QOSMOPOL_PYTHON')
+  return own ? [own] : (await onWindows($)) ? ['py', '-3'] : ['/usr/bin/python3']
+}
 const python = async ($: EngineInterface, script: string, ...args: string[]) =>
-  [...((await onWindows($)) ? ['py', '-3'] : ['/usr/bin/python3']), `${$.plugin.root}/bin/${script}`, ...args]
+  [...(await pythonCmd($)), `${$.plugin.root}/bin/${script}`, ...args]
+// Without Python 3.9 or newer nothing here can run: say so plainly, once, instead of failing in pieces.
+const PY_MIN = 9
+async function pythonProblem($: EngineInterface): Promise<string | null> {
+  const win = await onWindows($)
+  const fix = win
+    ? 'Install it from python.org, then quit and reopen the Claude app. / python.org\'dan kur, sonra Claude uygulamasını tamamen kapatıp aç.'
+    : 'Run `xcode-select --install` in Terminal, then run /qosmopol again. / Terminal\'de `xcode-select --install` çalıştır, sonra /qosmopol\'u yeniden çalıştır.'
+  try {
+    const r = await $.process.run([...(await pythonCmd($)), '--version'], { timeoutMs: 15_000 })
+    const m = /Python 3\.(\d+)/.exec(r.stdout + r.stderr)
+    if (r.exitCode === 0 && m && Number(m[1]) >= PY_MIN) return null
+    return `Qosmopol needs Python 3.${PY_MIN} or newer${m ? ` (found 3.${m[1]})` : ''}. / Qosmopol için Python 3.${PY_MIN} ya da daha yenisi gerekli. ${fix}`
+  } catch {
+    return `Qosmopol needs Python 3.${PY_MIN} or newer, and none was found. / Qosmopol için Python 3.${PY_MIN} ya da daha yenisi gerekli, bulunamadı. ${fix}`
+  }
+}
 // A URL goes to its handler: open on macOS; on Windows url.dll's, which needs no shell quoting.
 const opener = async ($: EngineInterface, url: string) =>
   (await onWindows($)) ? ['rundll32', 'url.dll,FileProtocolHandler', url] : ['/usr/bin/open', url]
@@ -169,6 +190,7 @@ export const register: Register = on => {
     if (Array.isArray(kept) && (await read($, mesajlar)).length === 0) await update($, mesajlar, () => kept as Mesaj[])
     const keptRead = await $.store.get('okundu')
     if (keptRead && typeof keptRead === 'object') await update($, okundu, o => ({ ...(keptRead as Record<string, number>), ...o }))
+    if (await pythonProblem($)) return next(e)  // /qosmopol tells what to install
     stopTimer?.()
     const timer = $.clock.every(EVERY_MS, () => void scan($))
     stopTimer = () => timer.cancel()
@@ -184,6 +206,11 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'qosmopol' }, async $ => {
+    const problem = await pythonProblem($)
+    if (problem) {
+      $.ui.toast(problem)
+      return { text: problem }
+    }
     await server($, 'claim', String(await $.session.id()))
     await server($, '--daemon')
     await $.ui.open({ id: PANE, title: TITLE })

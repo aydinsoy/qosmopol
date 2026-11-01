@@ -19,6 +19,8 @@
 /plugin install qosmopol --marketplace aydinsoy/qosmopol
 ```
 
+**Before you install: Python 3.9 or newer is required** (nothing else: no model, no packages). On macOS it comes with Apple's Command Line Tools (`xcode-select --install`); on Windows install it from python.org and restart the Claude app. If it is missing, `/qosmopol` says so.
+
 The repository is private: you need access to it and GitHub set up on your computer (`gh auth login`).
 
 Then, in the Claude Code session you want as the home, run:
@@ -49,8 +51,9 @@ The microphone works in both (Chrome and Safari speech recognition, Turkish by d
 
 ## Requirements and limits
 
-- macOS with the Claude desktop app (Code tab) and `python3`.
-- Windows: the same, with Python 3 from python.org (its `py` launcher runs the scripts; restart the Claude app after installing Python so it sees the new PATH). Session records are read from `%APPDATA%\Claude\claude-code-sessions`.
+- macOS with the Claude desktop app (Code tab) and Python 3.9 or newer at `/usr/bin/python3` (Apple's Command Line Tools: `xcode-select --install`).
+- Windows: the same, with Python 3.9 or newer from python.org (its `py` launcher runs the scripts; restart the Claude app after installing Python so it sees the new PATH). Session records are read from `%APPDATA%\Claude\claude-code-sessions`.
+- Another Python can be named with the `QOSMOPOL_PYTHON` environment variable.
 - Sessions of other accounts can be seen and hidden, but not archived or messaged from here.
 - The microphone uses the browser's speech recognition (Chrome and Safari). Where it is missing, macOS dictation (press 🌐/fn twice) works in the command bar.
 - Inside the pane the sky is a picture you cannot click (the app draws it in a sandboxed frame); use the lists, or the web view.

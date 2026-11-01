@@ -30,6 +30,7 @@ test('the sky, the waiting list and the archive draw on desktop and mobile', asy
   const argvs: (readonly string[])[] = []
   on('process.run', (_, e) => {
     argvs.push(e.argv)
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
     return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
   })
   on('env.get', () => ({ value: undefined })) // macOS: no OS variable
@@ -99,6 +100,7 @@ test('on Windows the scripts run under the py launcher', async ($, on) => {
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('process.run', (_, e) => {
     argvs.push(e.argv)
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
     return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
   })
   on('env.get', (_, e) => ({ value: e.name === 'OS' ? 'Windows_NT' : undefined }))
