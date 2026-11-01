@@ -467,8 +467,21 @@ function openCol(c) {
   }
   keep('cols', S.cols); render()
   if (isNew) fitCols(c)
-  requestAnimationFrame(() => document.querySelector(`[data-col="${CSS.escape(c)}"]`)?.scrollIntoView({ inline: 'nearest', behavior: 'smooth' }))
+  requestAnimationFrame(() => showCol(document.querySelector(`#main > [data-col="${CSS.escape(c)}"]`)))
 }
+// Bring a column into view by scrolling the columns area only. scrollIntoView would also scroll the page and the sidebar
+// (Safari does), and as they hide their scrollbars nobody could scroll them back.
+function showCol(el) {
+  const main = $('#main'); if (!el || el.parentElement !== main) return
+  const r = el.getBoundingClientRect(), mr = main.getBoundingClientRect()
+  const dx = r.left < mr.left ? r.left - mr.left : r.right > mr.right ? Math.min(r.right - mr.right, r.left - mr.left) : 0
+  if (dx) main.scrollBy({ left: dx, behavior: 'smooth' })
+}
+// The page, the sidebar, the docked map and the project panel never scroll sideways; if anything does scroll them, put them back.
+document.addEventListener('scroll', e => {
+  const el = e.target === document ? document.scrollingElement : e.target
+  if (el && el.scrollLeft && (el === document.scrollingElement || el === document.body || ['app', 'side', 'mapdock', 'plist'].includes(el.id))) el.scrollLeft = 0
+}, true)
 // A newly opened column makes its own room: the widened columns give way in proportion (down to colMin) so every column
 // stays whole on screen; only when all are at their narrowest does the columns area scroll sideways.
 function fitCols(fresh) {
