@@ -30,8 +30,16 @@ görmek; mümkünse oradan cevap vermek.
 - "Uygulamada aç" `claude://claude.ai/epitaxy/<local_id>` bağlantısını kullanır; bu yalnızca konunun
   bulunduğu bilgisayarda çalışır.
 - Oturum kayıtlarında `bridgeSessionIds` alanı var (bir Mac'te ölçüldü: 597 oturum kaydının 185'inde,
-  arşivlenmemiş 361 kaydın 133'ünde dolu, `session_…` biçiminde). Bunlar Remote Control kimlikleri gibi görünüyor; claude.ai/code üzerinden
-  her cihazdan açılabilen bir bağlantıya dönüşüp dönüşmediği **doğrulanmadı** (bkz. §6).
+  arşivlenmemiş 361 kaydın 133'ünde dolu; `session_…` ya da `cse_…` biçiminde). Bunlar Remote Control
+  kimlikleri. **1 Kasım'da denendi:** `https://claude.ai/code/<kimlik>` bağlantısı, Remote Control'ü açık
+  ya da yakın tarihli konularda claude.ai'nin web sürümünde konuyu bütün konuşmasıyla ve yazma kutusuyla
+  açtı (iki konu: biri o an açık, biri bir gün önceki). Temmuz'dan kalma bir konuda "This session couldn't
+  be found" döndü. Yani bağlantı her konu için değil, yalnızca Remote Control'ü hâlâ geçerli konular için
+  çalışıyor; listenin **son** kimliği kullanılmalı.
+- claude.ai/code'un sol menüsü başka bilgisayarlarda açılmış Remote Control konularını da listeliyor
+  (Mac'teki tarayıcıda Windows'ta açılan iki konu göründü). Bu listenin belgelenmiş bir arayüzü yok;
+  Qosmopol onu kullanıcının claude.ai oturum çerezleriyle okuyamaz ve okumamalı. Ama kullanıcı için
+  bugün de çalışan bir yol: başka bilgisayardaki bir konuya claude.ai/code'dan cevap verilebiliyor.
 - Claude'un Projects listesi bilgisayarda okunabilir düz bir dosya olarak bulunmadı; uygulamanın kendi
   iç deposunda (tarayıcı depolaması) duruyor. Bunun belgelenmiş bir arayüzü yok.
 
@@ -117,7 +125,11 @@ görünmez.
    - Sayaçlar ve yazma kutusunun üstündeki şerit: "3 bekliyor (+2 diğer bilgisayarda)".
    - Uzak konuya tıklayınca sütun açılır, son durum ve bekleyen soru gösterilir. Konuşma metni
      (`konu.py`) uzak bilgisayardan okunamadığı için bu aşamada yalnızca rapor satırları görünür.
-   - "Uygulamada aç" uzak konuda gizlenir; yerine §6'daki doğrulama geçerse "claude.ai'de aç".
+   - "Uygulamada aç" uzak konuda gizlenir; yerine "claude.ai'de aç" çıkar (`https://claude.ai/code/<son
+     bridgeSessionIds>`, doğrulandı). Bağlantı geçersizse claude.ai "bulunamadı" der; bunu harita
+     önceden bilemez, düğmenin altında "Remote Control açıksa" notu yazar.
+   - Bu sayede uzaktaki bir konuya 2. aşamayı beklemeden cevap verilebilir: claude.ai'de açılan konuda
+     doğrudan yazılır.
 2. **Aşama 2 — uzaktan işlem (0.3.0).**
    - Uzak konuya mesaj, kapatma, yeniden açma: iş, hedef cihazın `gelen/<cihaz-id>/` klasörüne bir
      dosya olarak bırakılır; hedef sunucu onu kendi kuyruğuna alır ve oradaki ana oturum köprüsü yapar.
@@ -129,8 +141,9 @@ görünmez.
 
 ## 6. Başlamadan önce doğrulanacaklar
 
-1. `bridgeSessionIds` içindeki `session_…` kimliği `https://claude.ai/code/<kimlik>` gibi bir
-   bağlantıyla başka bir cihazdan açılabiliyor mu; Remote Control kapalı konularda ne oluyor.
+1. ~~Remote Control kimliği claude.ai/code bağlantısıyla açılıyor mu?~~ **Doğrulandı (1 Kasım):**
+   güncel Remote Control konularında açılıyor, eski konularda "bulunamadı" diyor (§2). Kalan soru:
+   kimliğin ne zaman geçersiz olduğu (konu kapanınca mı, belli bir süre sonra mı).
 2. iCloud Drive ve Google Drive'da küçük bir dosyanın Mac ↔ Mac ve Mac ↔ Windows arasında kaç
    saniyede eşitlendiği (her biri için 10 ölçüm).
 3. Windows'ta iCloud Drive klasörünün varsayılan yolu ve eşitlenmemiş ("yalnızca bulutta")
