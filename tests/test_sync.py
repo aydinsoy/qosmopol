@@ -30,6 +30,7 @@ class Sync(unittest.TestCase):
         sync.configure("")
 
     def other(self, name="Windows", at=None, sessions=None, device="d2"):
+        os.makedirs(os.path.join(self.shared, "Qosmopol", "cihazlar"), exist_ok=True)
         path = os.path.join(self.shared, "Qosmopol", "cihazlar", f"{device}.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"v": 1, "device": device, "name": name, "at": int((at or time.time()) * 1000), "os": "win32",
@@ -98,6 +99,7 @@ class Sync(unittest.TestCase):
 
     def test_broken_or_foreign_files_are_ignored(self):
         d = os.path.join(self.shared, "Qosmopol", "cihazlar")
+        os.makedirs(d, exist_ok=True)
         with open(os.path.join(d, "broken.json"), "w") as f:
             f.write("{not json")
         self.other(device="d3", sessions=[{"id": "../../etc"}, "x", dict(ROW, id="local_ok")])
@@ -113,6 +115,25 @@ class Sync(unittest.TestCase):
         devices, rows = sync.peers()
         self.assertEqual([d["name"] for d in devices], ["Windows"])
         self.assertEqual([r["id"] for r in rows], ["local_dup"])
+
+    def test_this_computer_joins_the_folder_the_others_use(self):
+        me = sync.device()["id"]
+        t = time.time()
+        sync.publish([dict(ROW, last=t * 1000)], now=t)  # alone: Qosmopol
+        own = os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json")
+        self.assertTrue(os.path.exists(own))
+        other = os.path.join(self.shared, "Qosmopol 1", "cihazlar")  # the other computer's folder arrives
+        os.makedirs(other)
+        with open(os.path.join(other, "d5.json"), "w", encoding="utf-8") as f:
+            json.dump({"v": 1, "device": "d5", "name": "Mac", "at": int(t * 1000), "sessions": []}, f)
+        sync.publish([dict(ROW, last=t * 1000, cat="completed")], now=t + sync.MIN_GAP + 1)
+        self.assertTrue(os.path.exists(os.path.join(other, f"{me}.json")))
+        self.assertFalse(os.path.exists(own))
+
+    def test_turning_on_makes_no_folder_yet(self):
+        fresh = tempfile.mkdtemp(dir=ROOT)
+        self.assertEqual(sync.configure(fresh), "")
+        self.assertEqual(os.listdir(fresh), [])
 
     def test_rename(self):
         self.assertEqual(sync.configure(name="  Office   PC "), "")

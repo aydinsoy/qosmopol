@@ -83,6 +83,19 @@ def _dir(base):
     return os.path.join(base, "Qosmopol", "cihazlar")
 
 
+def _target(base, me):
+    """The folder this computer writes into: the one the other computers already use. Two computers that each
+    made "Qosmopol" before seeing the other's end up in two cloud folders, and one of them never reaches the
+    other computer at all (Google Drive, 2026-11-01); joining the folder that holds the others' files ends that."""
+    best, best_score = None, (0, 0)
+    for d in _all_dirs(base):
+        files = [os.path.basename(x) for x in glob.glob(os.path.join(d, "*.json"))]
+        score = (sum(f != f"{me}.json" for f in files), int(f"{me}.json" in files))  # others first, then where we are
+        if score > best_score or (score == best_score and best and d < best):
+            best, best_score = d, score
+    return best or _dir(base)
+
+
 def _all_dirs(base):
     """Every computer's folder to read: a sync service may keep two folders made under the same name as
     "Qosmopol" and "Qosmopol 2" (Google Drive did, 2026-11-01), and each computer then writes into its own."""
@@ -97,9 +110,8 @@ def configure(path=None, name=None):
         if path:
             if not os.path.isdir(path):
                 return "folder not found"
-            try:
-                os.makedirs(_dir(path), exist_ok=True)
-                probe = os.path.join(_dir(path), f".yazma-{secrets.token_hex(4)}")
+            try:  # probe the folder itself: making "Qosmopol" here early is how duplicate folders start
+                probe = os.path.join(path, f".qosmopol-yazma-{secrets.token_hex(4)}")
                 open(probe, "w").close()
                 os.remove(probe)
             except OSError as err:
@@ -132,10 +144,18 @@ def publish(rows, now=None):
         return False
     # Written in place, not as a new file swapped in: iCloud for Windows takes the swap for a deletion and fills its
     # trash with old copies (2026-11-01). A reader that catches it half written skips it until the next round.
-    os.makedirs(_dir(base), exist_ok=True)
-    with open(os.path.join(_dir(base), f"{me['id']}.json"), "w", encoding="utf-8") as f:
+    target = _target(base, me["id"])
+    os.makedirs(target, exist_ok=True)
+    with open(os.path.join(target, f"{me['id']}.json"), "w", encoding="utf-8") as f:
         json.dump({"v": VERSION, "device": me["id"], "name": me["name"], "at": int(now * 1000), "os": sys.platform,
                    "sessions": sessions}, f, ensure_ascii=False)
+    for d in _all_dirs(base):  # our own copy left in a folder we moved out of
+        old = os.path.join(d, f"{me['id']}.json")
+        if d != target and os.path.exists(old):
+            try:
+                os.remove(old)
+            except OSError:
+                pass
     _last.update(body=body, at=now)
     return True
 
