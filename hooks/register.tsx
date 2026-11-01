@@ -90,7 +90,9 @@ async function bridge($: EngineInterface) {
         if (j.kind === 'ping') out.push({ job: j.job, ok: true, text: 'bridge is working' })
         else if (j.kind === 'send' && j.id === 'self') {
           // Not awaited: a submitted prompt resolves only once its turn has run, and the bridge must stay free.
-          void $.prompt.submit({ text: String(j.text) })
+          // asUser: it is the owner's own words from the web view, read bare, without the "The qosmopol plugin
+          // sent a message:" frame (owner 2026-11-01: "ön ek gereksiz").
+          void $.prompt.submit({ text: String(j.text), asUser: true })
           out.push({ job: j.job, ok: true, text: 'delivered to the Qosmopol session (runs once it is idle)' })
         } else if (j.kind === 'set') {
           // The app refuses a session re-pricing its own turns: the home session changes only its mode from here.

@@ -170,3 +170,35 @@ test('/qosmopol says why it could not start instead of reporting success', async
   expect(toasts.some(t => t.includes("KeyError: 'APPDATA'"))).toBe(true)
   expect(opened).toEqual([])
 })
+
+test('what the owner writes to the home session from the web view arrives as their own words', async ($, on) => {
+  const prompts: any[] = []
+  let queued = [{ job: 'j1', kind: 'send', id: 'self', text: 'merhaba' }]
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    if (e.argv.includes('take')) {
+      const jobs = queued
+      queued = []
+      return { value: { exitCode: 0, stdout: JSON.stringify(jobs), stderr: '' } }
+    }
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('prompt.submit', (_, e) => {
+    prompts.push(e)
+    return { text: e.text }
+  })
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  const clock = mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
+  await clock.advance(3000)
+  expect(prompts.map(p => p.text)).toEqual(['merhaba'])
+  expect(prompts[0].origin).toMatchObject({ kind: 'plugin', asUser: true })
+})
