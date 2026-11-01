@@ -53,6 +53,17 @@ Qosmopol speaks the language you chose in the Claude app (Turkish or English for
 
 The microphone works in both (Chrome and Safari speech recognition, Turkish by default).
 
+## Several computers on one map
+
+Running Claude Code on more than one computer (two Macs, a Mac and a Windows PC)? Each Qosmopol sees only its own computer's sessions, because Claude keeps them on that computer's disk. Turn on **Other computers** in the web view's sidebar on each of them and pick the same shared folder (iCloud Drive, Google Drive, Dropbox or OneDrive; Qosmopol suggests the ones it finds):
+
+- Each computer writes a summary of its own sessions to `<folder>/Qosmopol/cihazlar/<device>.json` about every 30 seconds: titles, status, the waiting question and the Remote Control id. No folder paths, no conversations.
+- The others' projects show on the map with the computer's name ("Space Game · MacBook"), and the band above the prompt says "3 waiting for you (+2 on your other computers)".
+- Another computer's session cannot be opened in this computer's Claude app. **Open on claude.ai** opens it to read and reply, as long as that session's Remote Control is on.
+- It is off until you pick a folder, opens no network port, and the server stays on 127.0.0.1. `QOSMOPOL_SYNC_DIR` sets the folder without the web view.
+
+The design and what comes next (replying and closing across computers) are in [docs/coklu-bilgisayar-tasarim.md](docs/coklu-bilgisayar-tasarim.md).
+
 ## How it works
 
 - `bin/scan.py` reads the desktop app's own session records (`~/Library/Application Support/Claude/claude-code-sessions`). Waiting = the end-of-turn report says the session is blocked on you, or a turn is paused on a permission. Working = the session's transcript was written in the last 90 seconds.
@@ -74,6 +85,8 @@ The microphone works in both (Chrome and Safari speech recognition, Turkish by d
 ## Türkçe
 
 **Qosmopol**, Claude masaüstü uygulamasındaki bütün projeleri ve konuları tek bir siyah haritada gösterir. Senden bir şey bekleyen konu kırmızı yanıp söner, ajanın çalıştığı konu turuncu yanar, kapanmış konular gri olur. Kurduktan sonra ana oturumda `/qosmopol` yaz. Tam ekran hâli `http://127.0.0.1:47321/` adresinde: dairelere basınca konu ya da proje sağda sütun olarak açılır, tek yazma çubuğu ve mikrofonla oradan yönetirsin.
+
+**Birden çok bilgisayar:** Her bilgisayarda web görünümünün sol menüsündeki **Diğer bilgisayarlar**'ı aç ve aynı ortak klasörü seç (iCloud Drive, Google Drive, Dropbox ya da OneDrive). Diğer bilgisayarların projeleri haritada bilgisayarın adıyla görünür; konularını **claude.ai'de aç** ile okuyup cevaplarsın.
 
 **Haritaya nasıl geçilir:** her Claude Code konusunda yazma kutusunun hemen üstündeki şeritte (*Qosmopol · 3 bekliyor · Haritayı aç*) **Haritayı aç**'a bas; ya da `/` menüsünden **/qosmopol**'u seçip açılan paneldeki **Open web view** düğmesini, ya da Dock'a eklediğin Qosmopol simgesini kullan. Sayfada harita ilk sütundur; kapattıysan soldaki menüde **Harita**'ya bas, sayfa yenilenince de geri gelir. Gereken tek şey Python 3.9 ya da daha yenisi.
 

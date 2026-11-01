@@ -19,6 +19,14 @@ export type Konu = {
   busy?: boolean
   /** The turn is paused on a permission or question for the owner. */
   ask?: boolean
+  /** Remote Control's id: claude.ai/code/<id> opens the session from any device while it is valid. */
+  bridge?: string
+  /** The session lives on another of the owner's computers (bin/sync.py); its project name ends with that computer's name. */
+  remote?: boolean
+  dev?: string
+  devName?: string
+  /** That computer has not written its summary for a while. */
+  stale?: boolean
 }
 
 export type Tarama = {
@@ -30,6 +38,8 @@ export type Tarama = {
   hidden?: { id: string; proj: string; title: string }[]
   /** The language chosen in the Claude app (config.json "locale"), such as "tr" or "en-US"; empty when unknown. */
   lang?: string
+  /** The owner's other computers that share a sync folder. */
+  devices?: { id: string; name: string; at: number; stale: boolean; os: string; sessions: number }[]
   error?: string
 }
 

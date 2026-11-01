@@ -161,7 +161,7 @@ async function closeTopics($: EngineInterface, ks: Konu[], current: string) {
   const notes: string[] = []
   for (const k of ks) {
     await $.process.run(await python($, 'scan.py', '--gizle', k.id, k.proj, k.title), { timeoutMs: 10_000 })
-    if (k.acc !== current) continue
+    if (k.acc !== current || k.remote) continue  // another computer's session is only hidden here
     try {
       const r = await $.mcp.call('ccd_session_mgmt', 'archive_session', { session_id: k.id, reason: 'Closed from the Qosmopol pane' })
       if (r.isError) notes.push(cut((r.content ?? []).map((c: any) => c.text ?? '').join(' '), 90))
@@ -240,11 +240,14 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !t.at) return next(e)  // a survey goes first; no scan yet (or no Python): nothing to say
     const { Box, Button, Text } = $.ui.resolve(e)
     const tr = (t.lang ?? '').toLowerCase().startsWith('tr')
-    const n = visible(t.sessions, 7, Date.now()).filter(waiting).length
+    const all = visible(t.sessions, 7, Date.now()).filter(waiting)
+    const n = all.filter(k => !k.remote).length
+    const far = all.length - n  // waiting on the owner's other computers
     return (
       <Box>
         <Text dimColor>Qosmopol · </Text>
         {n ? <Text color={RED}>{tr ? `${n} bekliyor` : `${n} waiting for you`}</Text> : <Text dimColor>{tr ? 'bekleyen yok' : 'nothing waiting'}</Text>}
+        {far ? <Text dimColor>{tr ? ` (+${far} diğer bilgisayarda)` : ` (+${far} on your other computers)`}</Text> : null}
         <Text dimColor> </Text>
         <Button key="map" label={tr ? 'Haritayı aç' : 'Open map'} onPress={() => openMap($)} />
       </Box>
@@ -279,6 +282,12 @@ export const register: Register = on => {
     }
     const openSession = async (k: Konu) => {
       await markRead(k.id)
+      if (k.remote) {  // on another computer: its Remote Control opens it on claude.ai from here
+        if (!k.bridge) return void $.ui.toast(`This session is on ${k.devName}; open it there.`)
+        const r = await $.process.run(await opener($, `https://claude.ai/code/${k.bridge}`), { timeoutMs: 10_000 })
+        if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
+        return
+      }
       if (k.acc !== t.current) {
         $.ui.toast(`This session belongs to another account (${accLabel(t, k.acc)}); it opens once you sign in with it.`)
       }
@@ -287,6 +296,7 @@ export const register: Register = on => {
     }
     const send = async (k: Konu, text: string) => {
       if (!text.trim()) return
+      if (k.remote) return void $.ui.toast(`This session is on ${k.devName}; reply to it on claude.ai.`)
       try {
         const r = await $.mcp.call('ccd_session_mgmt', 'send_message', { session_id: k.id, message: text })
         const said = (r.content ?? []).map((c: any) => c.text ?? '').join(' ')
@@ -439,7 +449,7 @@ export const register: Register = on => {
         const history = log.filter(m => m.sid === k.id).reverse().slice(0, 5)
         body = (
           <Box flexDirection="column">
-            <Text dimColor>{k.proj} · {accLabel(t, k.acc)} · {ago(k.last, now)} ago</Text>
+            <Text dimColor>{k.remote ? k.proj : `${k.proj} · ${accLabel(t, k.acc)}`} · {ago(k.last, now)} ago</Text>
             {k.need ? <Text color={RED}>Waiting: {k.need}</Text> : running(k) ? <Text color={ORANGE}>Agent working…</Text> : k.detail ? <Text>{k.detail}</Text> : null}
             <Box flexDirection="row" gap={1} marginY={1} flexWrap="wrap">
               <Button key={`yaz-${k.id}`} variant={focused ? 'primary' : 'secondary'} label={focused ? 'The bar writes here' : 'Write here'} onPress={() => set(g => ({ ...g, sel: k.id }))} />

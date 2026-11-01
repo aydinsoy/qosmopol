@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import winenv  # noqa: F401  (first: a bare Windows environment gets its home and APPDATA back)
+import sync
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")  # the JSON goes to a pipe, which Windows would write in its ANSI code page
@@ -96,12 +97,20 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
         "effort": d.get("effort") or "",
         "mode": d.get("permissionMode") or "",
         "home": bool(me) and (d.get("cliSessionId") == me or me in (d.get("priorCliSessionIds") or [])),
+        # Remote Control's id: claude.ai/code/<id> opens the session from any device while it is still valid
+        "bridge": (d.get("bridgeSessionIds") or [""])[-1],
     })
 
+# The owner's other computers, from the shared sync folder (off until the owner picks one).
+try:
+    devices, remote = sync.peers()
+except OSError:  # an unreadable sync folder must not take this computer's own sessions with it
+    devices, remote = [], []
+rows += [k for k in remote if k["id"] not in HIDDEN]
 accounts.sort()
 hidden = [{"id": l[0], "proj": l[1] if len(l) > 1 else "", "title": l[2] if len(l) > 2 else l[0]} for l in LINES]
 try:  # the language the owner chose in the Claude app, for the band and the pane
     lang = json.load(open(os.path.join(CLAUDE, "config.json"), encoding="utf-8")).get("locale", "")
 except (OSError, ValueError):
     lang = ""
-print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "hidden": hidden, "lang": lang}, ensure_ascii=False))
+print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "hidden": hidden, "lang": lang, "devices": devices}, ensure_ascii=False))

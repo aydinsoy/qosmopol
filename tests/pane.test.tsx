@@ -202,3 +202,32 @@ test('what the owner writes to the home session from the web view arrives as the
   expect(prompts.map(p => p.text)).toEqual(['merhaba'])
   expect(prompts[0].origin).toMatchObject({ kind: 'plugin', asUser: true })
 })
+
+test('sessions on the owner\'s other computers: counted apart in the band, opened on claude.ai, never archived here', async ($, on) => {
+  const far = { ...k('local_9', 'Space Game · MacBook', 'Ship the level', 3, { cat: 'blocked', need: 'which ending?' }), remote: true, dev: 'd1', devName: 'MacBook', bridge: 'session_01abc', cwd: '' }
+  const argvs: (readonly string[])[] = []
+  const mcp: string[] = []
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    argvs.push(e.argv)
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    return { value: { exitCode: 0, stdout: JSON.stringify({ ...SCAN, sessions: [...SCAN.sessions, far], devices: [{ id: 'd1', name: 'MacBook', at: now, stale: false, os: 'darwin', sessions: 1 }] }), stderr: '' } }
+  })
+  on('mcp.call', (_, e) => { mcp.push(`${e.tool} ${JSON.stringify(e.args)}`); return { value: { content: [], isError: false } } })
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
+  const band = await $.ui.mount({ plugin: 'qosmopol', component: 'AbovePrompt', surface: 'desktop', props: { hasSurvey: false, bodyColumns: 100 } } as any)
+  expect(await band.find({ type: 'Text', text: /^1 waiting for you$/ })).toBeDefined()
+  expect(await band.find({ type: 'Text', text: /\+1 on your other computers/ })).toBeDefined()
+  await band.unmount()
+  expect(argvs.some(a => a.some(x => x.includes('epitaxy/local_9')))).toBe(false)
+  expect(mcp.some(m => m.includes('local_9'))).toBe(false)
+})

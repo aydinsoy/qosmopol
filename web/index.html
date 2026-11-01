@@ -76,6 +76,10 @@
   @container (max-width: 250px) { #side .seg button { padding: 0 5px; font-size: 11px; } #counts { gap: 8px; font-size: 11.5px; } }
   #plist { width: 0; flex: none; overflow: hidden; display: flex; flex-direction: column; min-height: 0; background: var(--bg); border-right: 1px solid transparent; transition: width .16s ease; }
   #plist { position: relative; }
+  .syncrow { display: flex; gap: 6px; margin: 6px 0 8px; }
+  .syncrow input { flex: 1; min-width: 0; background: var(--input); border: 1px solid var(--input-line); color: var(--text); border-radius: 8px; padding: 6px 9px; font: inherit; }
+  .syncc { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 4px 0 8px; }
+  .syncc .btn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #plist.open { width: var(--plist-w, 320px); border-right-color: var(--line); }
   #plist > header { height: 40px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   #plist > header .title { flex: 1; font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; }
@@ -458,6 +462,7 @@ function openCol(c) {
   const isNew = !S.cols.includes(c)
   if (c.startsWith('k:')) { S.sel = c.slice(2); loadTalk(c.slice(2)); const k = byId().get(S.sel); if (k && S.pp !== k.proj) { S.pp = k.proj; keep('pp', k.proj) } }
   if (c === 'home') loadTalk('home')
+  if (c === 'sync') loadSync()
   if (!S.cols.includes(c)) {
     if (c !== 'harita') { S.mapHand = false; keep('mapHand', undefined) }  // a newly opened column gets its room again
     // the map always sits first, right of the sidebar; when columns run out, the oldest session goes, never the map
@@ -502,6 +507,7 @@ function fitCols(fresh) {
 function pickProject(name) { S.pp = name; keep('pp', name || undefined); render() }
 function closeCol(c) { S.cols = S.cols.filter(x => x !== c); keep('cols', S.cols); render() }
 async function loadTalk(id) {
+  if (byId().get(id)?.remote) { S.talks[id] = []; return renderCols() }  // its transcript is on the other computer
   try { S.talks[id] = (await api('/api/konu?id=' + encodeURIComponent(id))).msgs ?? [] } catch { S.talks[id] = [] }
   renderCols()
 }
@@ -543,7 +549,7 @@ function renderSide() {
   const custom = (d.order ?? []).some(n => !n.startsWith('s:')) ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
   const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`).join('')
-  setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmopol</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div><div class="row${S.cols.includes('inbox') ? ' on' : ''}" data-open="inbox"><span class="dot${visible().some(waiting) ? ' r' : ''}"></span><span class="name">Inbox</span>${visible().filter(waiting).length ? `<span class="badge r" style="margin-left:auto">${visible().filter(waiting).length}</span>` : ''}</div>${closed}`)
+  setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmopol</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div><div class="row${S.cols.includes('inbox') ? ' on' : ''}" data-open="inbox"><span class="dot${visible().some(waiting) ? ' r' : ''}"></span><span class="name">Inbox</span>${visible().filter(waiting).length ? `<span class="badge r" style="margin-left:auto">${visible().filter(waiting).length}</span>` : ''}</div><div class="row${S.cols.includes('sync') ? ' on' : ''}" data-open="sync"><span class="dot" style="background:${(d.devices ?? []).some(x => !x.stale) ? 'var(--blue)' : 'var(--grey)'}"></span><span class="name">Other computers</span>${(d.devices ?? []).length ? `<span class="badge" style="margin-left:auto">${d.devices.length}</span>` : ''}</div>${closed}`)
   fillMeta($('#sidebar-composer'), true)
 }
 function renderPlist() {
@@ -562,19 +568,21 @@ function renderPlist() {
   setHTML(el.querySelector('.body'), sorted.map(k => `<div class="item${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="s:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="icon" data-close="${esc(k.id)}" title="Close session (undoable)">${ICON.x}</button></div>
     <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Waiting for your answer.', 240)) : running(k) ? 'Agent working…' : md(cut(k.detail || 'No summary.', 160))}</div></div>`).join(''))
 }
-const conv = (talk, hist) => talk === undefined ? '<div class="dim">Loading…</div>'
+const conv = (talk, hist, k) => talk === undefined ? '<div class="dim">Loading…</div>'
   : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="txt selectable">${md(m.text)}</div></div>`).join('')
   : hist.length ? hist.map(m => `<div class="msg"><div class="meta">Summary · ${ago(m.at)} ago</div><div class="txt selectable">${md(m.text)}</div></div>`).join('')
+  : k?.remote ? '<div class="dim">The conversation is on another computer. Open it on claude.ai to read and reply.</div>'
   : '<div class="dim">No transcript on this Mac (another account or the cloud).</div>'
 function topicBody(k) {
   const hist = (S.data.messages ?? []).filter(m => m.sid === k.id).slice(-5).reverse()
   const status = waiting(k) ? `<div class="waitbox selectable"><b>Waiting:</b> ${md(k.need || k.detail || 'an answer from you')}</div>` : running(k) ? `<div class="runbox">Agent working…</div>` : k.detail ? `<div class="infobox selectable">${md(k.detail)}</div>` : ''
-  return `<div class="meta">${esc(k.proj)} · ${accLabel(k.acc)} · ${k.turns} turns · ${ago(k.last)} ago</div>${status}
+  return `<div class="meta">${esc(k.proj)}${k.remote ? '' : ` · ${accLabel(k.acc)}`} · ${k.turns} turns · ${ago(k.last)} ago</div>${status}
     <div class="actions">
       <button class="btn" data-act="read" data-id="${esc(k.id)}">${ICON.check}Mark read</button>
-      <button class="btn danger" data-act="close" data-id="${esc(k.id)}">${ICON.archive}Close session</button>
+      ${k.remote ? `<button class="btn" data-act="close" data-id="${esc(k.id)}" data-tip="Hides it from this map; the session stays as it is on the other computer">${ICON.x}Hide here</button>`
+        : `<button class="btn danger" data-act="close" data-id="${esc(k.id)}">${ICON.archive}Close session</button>`}
     </div>
-    <div class="label">Conversation</div>${conv(S.talks[k.id], hist)}`
+    <div class="label">Conversation</div>${conv(S.talks[k.id], hist, k)}`
 }
 function topicItem(k, withProj) {
   return `<div class="item${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}"><div class="line">${dot(k)}<span class="t">${withProj ? `<span class="p">${esc(k.proj)} · </span>` : ''}${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="icon" data-close="${esc(k.id)}" title="Close session (undoable)">${ICON.x}</button></div>
@@ -606,7 +614,7 @@ function renderCols() {
   const main = $('#main'), d = S.data
   if (!d) return
   const ids = byId(), gs = new Map(groups())
-  S.cols = S.cols.filter(c => c === 'harita' || c === 'home' || c === 'inbox' || (c.startsWith('k:') ? ids.has(c.slice(2)) : gs.has(c.slice(2))))
+  S.cols = S.cols.filter(c => c === 'harita' || c === 'home' || c === 'inbox' || c === 'sync' || (c.startsWith('k:') ? ids.has(c.slice(2)) : gs.has(c.slice(2))))
   const dock = $('#mapdock'), docked = S.cols[0] === 'harita', mainCols = docked ? S.cols.slice(1) : S.cols
   document.querySelectorAll('#mapdock > .col, #main > .col').forEach(el => { if (!S.cols.includes(el.dataset.col)) el.remove() })
   if (!mainCols.length) {
@@ -617,14 +625,16 @@ function renderCols() {
     const k = c.startsWith('k:') && ids.get(c.slice(2)), pname = c.startsWith('p:') && c.slice(2)
     if (!el) {
       el = document.createElement('section'); el.className = 'col'; el.dataset.col = c
-      el.innerHTML = `<div class="rz" data-rz="col" title="Drag to resize"></div><header></header><div class="body scroll"></div>` + (c === 'harita' || c === 'inbox' ? '' : `<div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Message this session…' : 'Message Claude…')}</div>`)
+      el.innerHTML = `<div class="rz" data-rz="col" title="Drag to resize"></div><header></header><div class="body scroll"></div>` + (c === 'harita' || c === 'inbox' || c === 'sync' || k?.remote ? '' : `<div class="composer" data-to="${esc(c)}">${composerHTML(k ? 'Message this session…' : 'Message Claude…')}</div>`)
     }
     if (c === 'harita' && docked) { if (el.parentElement !== dock) dock.append(el) }
     else { const j = mainCols.indexOf(c); if (main.children[j] !== el) main.insertBefore(el, main.children[j] ?? null) }
-    const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmopol · home session</span>' : c === 'inbox' ? '<span class="title">Inbox</span>' : '<span class="title">Map</span>'
+    const title = k ? `${dot(k)}<span class="title">${esc(k.title)}</span>` : pname ? `<span class="title">${esc(pname)}</span>` : c === 'home' ? '<span class="dot" style="background:var(--blue)"></span><span class="title">Qosmopol · home session</span>' : c === 'inbox' ? '<span class="title">Inbox</span>' : c === 'sync' ? '<span class="title">Other computers</span>' : '<span class="title">Map</span>'
     // the session itself, with the app's own side panes (browser, changes, terminal), lives in the Claude window
-    const inApp = k || (c === 'home' ? homeRow() : null)
-    const appBtn = inApp ? `<button class="btn hbtn" data-act="app" data-id="${esc(inApp.id)}" data-tip="Open in the Claude app: its browser, changes and terminal panes open there, beside the session">${ICON.app}Open in app</button>` : ''
+    const inApp = k && !k.remote ? k : c === 'home' ? homeRow() : null
+    // another computer's session opens on claude.ai, through its Remote Control, from any device
+    const appBtn = inApp ? `<button class="btn hbtn" data-act="app" data-id="${esc(inApp.id)}" data-tip="Open in the Claude app: its browser, changes and terminal panes open there, beside the session">${ICON.app}Open in app</button>`
+      : k?.remote && k.bridge ? `<button class="btn hbtn" data-act="web" data-url="https://claude.ai/code/${esc(k.bridge)}" data-tip="Opens this session on claude.ai to read and reply, while its Remote Control is on">${ICON.app}Open on claude.ai</button>` : ''
     const sideBtn = c === S.cols[0] ? `<button class="icon sideopen" data-tip="Show sidebar">${SIDE_ICO}</button>` : ''
     setHTML(el.querySelector('header'), `${sideBtn}${title}${appBtn}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
     if (el.querySelector('.composer')) fillMeta(el.querySelector('.composer'), false)
@@ -635,6 +645,10 @@ function renderCols() {
       const list = [...gs.get(pname)].sort((a, b) => Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
       body = `<div class="meta">${list.length} sessions · ${list.filter(waiting).length} waiting · ${list.filter(running).length} running</div><div style="margin:8px -8px 0">${list.map(x => topicItem(x)).join('')}</div>`
     } else if (c === 'inbox') body = inboxHTML()
+    else if (c === 'sync') {
+      if (el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return  // do not wipe what is being typed
+      body = syncHTML()
+    }
     else {
       // height sets the scale (the viewBox ratio gives the width), so a narrower column crops both sides evenly
       const svg = sky(groups()), vb = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
@@ -646,6 +660,27 @@ function renderCols() {
     if (c === 'harita') applyMapView()
   })
   applyWidths()
+}
+// Other computers: each writes a summary of its own sessions into a folder the owner's sync service shares (bin/sync.py).
+async function loadSync() { try { S.sync = await api('/api/sync') } catch (err) { toast('Could not load: ' + err.message) } renderCols() }
+async function saveSync(body, done) {
+  try { S.sync = await api('/api/sync', body); toast(done); await refresh(true) } catch (err) { toast('Could not save: ' + err.message) }
+}
+function syncHTML() {
+  const s = S.sync, devs = S.data.devices ?? []
+  if (!s) return '<div class="dim">Loading…</div>'
+  const cands = s.candidates.map((p, i) => `<button class="btn" data-act="sync-pick" data-i="${i}" title="${esc(p)}">${esc(p)}</button>`).join('')
+  return `<div class="meta">Show the sessions of your other computers on this map. Each computer writes a summary of its own sessions (titles, status, the waiting question; no folder paths) into a folder your sync service already shares, and reads the others' from there. Nothing leaves your computers in any other way.</div>
+    <div class="label">This computer</div>
+    <div class="syncrow"><input id="sync-name" value="${esc(s.device.name)}" maxlength="40"><button class="btn" data-act="sync-name">Rename</button></div>
+    <div class="label">Shared folder</div>
+    ${s.env ? '<div class="dim">Set by QOSMOPOL_SYNC_DIR.</div>' : ''}
+    <div class="syncrow"><input id="sync-folder" value="${esc(s.folder)}" placeholder="${esc(tr('Pick one below or paste a path'))}"${s.env ? ' readonly' : ''}>${s.env ? '' : `<button class="btn" data-act="sync-set">${s.enabled ? 'Save' : 'Turn on'}</button>${s.enabled ? '<button class="btn danger" data-act="sync-off">Turn off</button>' : ''}`}</div>
+    ${s.env ? '' : cands ? `<div class="dim">Found on this computer:</div><div class="syncc">${cands}</div>` : '<div class="dim">No iCloud Drive, Google Drive, Dropbox or OneDrive folder found here. Paste the path of any folder your computers share.</div>'}
+    <div class="label">Other computers</div>
+    ${devs.length ? devs.map(d => `<div class="item"><div class="line"><span class="dot" style="background:${d.stale ? 'var(--grey)' : 'var(--blue)'}"></span><span class="t">${esc(d.name)}</span><span class="age">${ago(d.at)}</span></div><div class="meta" style="padding:2px 0 0 18px">${d.sessions} ${d.sessions === 1 ? 'session' : 'sessions'}${d.stale ? ' · offline' : ''}</div></div>`).join('')
+      : `<div class="dim">${s.enabled ? 'None yet. Turn this on with the same shared folder on your other computers; they show up here within a minute or two.' : 'Turn on to see them.'}</div>`}
+    <div class="dim" style="margin-top:12px">Their projects show on the map with the computer's name. Open one of their sessions on claude.ai to read and reply (it needs that session's Remote Control to be on).</div>`
 }
 function inboxHTML() {
   const shown = visible(), wl = shown.filter(waiting).sort((a, b) => b.last - a.last), old = wl.filter(k => Date.now() - k.last > 7 * DAY)
@@ -865,13 +900,23 @@ const TR = {
   "What you write here or in the sidebar bar goes to Qosmopol's home session; replies show up here.": "Buradan ya da soldaki çubuktan yazdıkların Qosmopol'un ana oturumuna gider; cevaplar burada görünür.",
   'Speech recognition is not available in this browser. Press 🌐 (fn) twice in the text field to use macOS dictation.': 'Bu tarayıcıda konuşma tanıma yok. Yazı alanında 🌐 (fn) tuşuna iki kez basıp Mac dikte ile konuşabilirsin.',
   'This session belongs to another account; it opens once you sign in with that account.': 'Bu konu başka hesapta; o hesapla giriş yapınca açılır.',
+  'Other computers': 'Diğer bilgisayarlar', 'This computer': 'Bu bilgisayar', 'Shared folder': 'Ortak klasör', 'Rename': 'Adını değiştir', 'Turn on': 'Aç', 'Turn off': 'Kapat', 'Save': 'Kaydet', 'Saved': 'Kaydedildi',
+  'Other computers: on': 'Diğer bilgisayarlar: açık', 'Other computers: off': 'Diğer bilgisayarlar: kapalı', 'Found on this computer:': 'Bu bilgisayarda bulunanlar:', 'Turn on to see them.': 'Görmek için aç.',
+  'Pick one below or paste a path': 'Aşağıdan seç ya da bir yol yapıştır', 'Set by QOSMOPOL_SYNC_DIR.': 'QOSMOPOL_SYNC_DIR ile ayarlanmış.', 'Open on claude.ai': "claude.ai'de aç", 'Hide here': 'Burada gizle',
+  'Show the sessions of your other computers on this map. Each computer writes a summary of its own sessions (titles, status, the waiting question; no folder paths) into a folder your sync service already shares, and reads the others\' from there. Nothing leaves your computers in any other way.': 'Diğer bilgisayarlarının konularını bu haritada göster. Her bilgisayar kendi konularının özetini (başlık, durum, bekleyen soru; klasör yolları yok) eşitleme servisinin zaten paylaştığı bir klasöre yazar, diğerlerininkini oradan okur. Bilgisayarlarından başka hiçbir yolla veri çıkmaz.',
+  'No iCloud Drive, Google Drive, Dropbox or OneDrive folder found here. Paste the path of any folder your computers share.': 'Burada iCloud Drive, Google Drive, Dropbox ya da OneDrive klasörü bulunamadı. Bilgisayarlarının paylaştığı herhangi bir klasörün yolunu yapıştır.',
+  'None yet. Turn this on with the same shared folder on your other computers; they show up here within a minute or two.': 'Henüz yok. Diğer bilgisayarlarında da aynı ortak klasörle aç; bir iki dakika içinde burada görünürler.',
+  "Their projects show on the map with the computer's name. Open one of their sessions on claude.ai to read and reply (it needs that session's Remote Control to be on).": "Projeleri haritada bilgisayarın adıyla görünür. Konularından birini okumak ve cevaplamak için claude.ai'de aç (o konunun Remote Control'ü açık olmalı).",
+  'The conversation is on another computer. Open it on claude.ai to read and reply.': "Konuşma diğer bilgisayarda. Okumak ve cevaplamak için claude.ai'de aç.",
+  'Opens this session on claude.ai to read and reply, while its Remote Control is on': "Bu konuyu okumak ve cevaplamak için claude.ai'de açar (Remote Control açıkken)",
+  'Hides it from this map; the session stays as it is on the other computer': 'Bu haritadan gizler; konu diğer bilgisayarda olduğu gibi kalır',
 }
 const TR_WHOLE = [  // a whole text that carries numbers
   [/^(\d+) waiting$/, '$1 bekliyor'], [/^(\d+) running$/, '$1 çalışıyor'], [/^(\d+) unread$/, '$1 okunmamış'], [/^(\d+) sessions? ·$/, '$1 konu ·'], [/^(\d+) sessions? waiting for you$/, '$1 konu seni bekliyor'], [/^(\d+) sessions? running$/, '$1 konu çalışıyor'],
   [/^(\d+) sessions? in the last (\d+) days?$/, 'son $2 günde $1 konu'], [/^(\d+) sessions? in total$/, 'toplam $1 konu'], [/^(\d+) sessions?$/, '$1 konu'],
   [/^Open waiting sessions \((\d+)\)$/, 'Bekleyen konuları aç ($1)'], [/^Close older than 7 days \((\d+)\)$/, '7 günden eskileri kapat ($1)'],
   [/^Close (\d+) old sessions\?$/, '$1 eski konu kapatılsın mı?'], [/^Waiting (\d+)$/, 'Bekleyenler $1'], [/^Messages (\d+)$/, 'Mesajlar $1'],
-  [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^“(.*)” closed$/, '“$1” kapatıldı'], [/^(\d+)m$/, '$1 dk'], [/^(\d+)h$/, '$1 sa'], [/^(\d+)d$/, '$1 g'],
+  [/^(\d+) sessions? · offline$/, '$1 konu · çevrimdışı'], [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^“(.*)” closed$/, '“$1” kapatıldı'], [/^(\d+)m$/, '$1 dk'], [/^(\d+)h$/, '$1 sa'], [/^(\d+)d$/, '$1 g'],
   [/^(Ask permissions|Accept edits|Plan|Auto|Default|Bypass permissions) ▾$/, (m, a) => TR[a] + ' ▾'],
 ]
 const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map titles)
@@ -879,7 +924,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '],
+  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
 ]
@@ -893,7 +938,7 @@ function tr(s, whole = true) {
   return out
 }
 const USER_TEXT = '.txt, .sub, .waitbox, .infobox, script, style'
-const NAME_UI = new Set(['Home session (Claude)', 'Map', 'Inbox', 'Qosmopol · home session'])
+const NAME_UI = new Set(['Home session (Claude)', 'Map', 'Inbox', 'Qosmopol · home session', 'Other computers'])
 function translateDOM() {
   document.documentElement.lang = LANG
   if (LANG !== 'tr') return
@@ -1072,6 +1117,11 @@ document.addEventListener('click', e => {
     if (a === 'autosort') return saveOrder((S.data.order ?? []).filter(n => n.startsWith('s:')))
     if (a === 'pauto') { const mine = new Set((new Map(groups()).get(S.pp) ?? []).map(x => 's:' + x.id)); return saveOrder((S.data.order ?? []).filter(n => !mine.has(n))) }
     if (a === 'app') return openInApp(k)
+    if (a === 'web') return window.open(act.dataset.url, '_blank', 'noopener')
+    if (a === 'sync-pick') { $('#sync-folder').value = S.sync.candidates[+act.dataset.i]; return $('#sync-folder').focus() }
+    if (a === 'sync-set') return saveSync({ folder: $('#sync-folder').value }, 'Other computers: on')
+    if (a === 'sync-off') return saveSync({ folder: '' }, 'Other computers: off')
+    if (a === 'sync-name') return saveSync({ name: $('#sync-name').value }, 'Saved')
     if (a === 'read') return markRead(k)
     if (a === 'close') return closeTopic(k)
     const old = visible().filter(waiting).filter(x => Date.now() - x.last > 7 * DAY)

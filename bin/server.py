@@ -13,6 +13,7 @@ to a queue that the Qosmopol mod (running inside a Claude Code session) carries 
   server.py take [ID]       (for the mod) print and clear the queued jobs, if ID is the home
   server.py done JSON       (for the mod) store results: [{"job": ..., "ok": ..., "text": ...}]
 """
+import glob
 import http.server
 import re
 import json
@@ -24,6 +25,7 @@ import sys
 import threading
 import time
 import winenv  # noqa: F401  (first: a bare Windows environment gets its home and APPDATA back)
+import sync
 import urllib.parse
 
 if sys.platform == "win32":
@@ -107,7 +109,32 @@ def scan():
         data["results"] = load(RESULTS, {})
         data["at"] = int(time.time() * 1000)
         SCAN.update(at=time.time(), data=data)
-        return data
+    try:  # this computer's summary for the owner's other computers; a sync folder that fails must not stop the map
+        sync.publish(data["sessions"])
+    except OSError:
+        pass
+    return data
+
+
+def publisher():
+    """Keeps this computer's summary fresh in the sync folder while no page asks for scans."""
+    while True:
+        time.sleep(30)
+        try:
+            if sync.folder():
+                scan()
+        except Exception:  # noqa: BLE001 - try again next round
+            pass
+
+
+def remote(sid):
+    """The row of a session that lives on another computer, or None."""
+    k = next((x for x in scan()["sessions"] if x["id"] == sid), None)
+    return k if k and k.get("remote") else None
+
+
+def local_file(sid):
+    return bool(glob.glob(os.path.join(CLAUDE, "claude-code-sessions", "*", "*", f"{sid}.json")))
 
 
 def enqueue(job):
@@ -151,6 +178,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         try:
             if url.path == "/api/scan":
                 return self.reply(200, scan())
+            if url.path == "/api/sync":
+                return self.reply(200, sync.state())
             if url.path == "/api/konu":
                 sid = q.get("id", [""])[0]
                 if sid == "home":  # the Qosmopol home session, by its transcript id
@@ -174,6 +203,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if sid and not (sid.startswith("local_") and sid.replace("-", "").replace("_", "").isalnum()):
             return self.reply(400, {"error": "invalid session"})
         try:
+            if path == "/api/sync":  # the shared folder ('' turns sync off) and this computer's name
+                err = sync.configure(body.get("folder"), body.get("name"))
+                if err:
+                    return self.reply(400, {"error": err})
+                SCAN["at"] = 0
+                return self.reply(200, sync.state())
+            # a session on another computer: this computer's Claude app cannot open, message or change it
+            if path in ("/api/open", "/api/send", "/api/set") and sid and remote(sid):
+                return self.reply(409, {"error": "this session is on another computer; open it on claude.ai"})
             if path == "/api/open":
                 if sys.platform == "win32":
                     os.startfile(f"claude://claude.ai/epitaxy/{sid}")
@@ -207,13 +245,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 sess = {k["id"]: k for k in scan()["sessions"]}
                 k = sess.get(sid)
                 run("scan.py", "--gizle", sid, (k or {}).get("proj", ""), (k or {}).get("title", sid))
-                job = enqueue({"kind": "archive", "id": sid}) if k and k["acc"] == scan()["current"] else None
+                job = enqueue({"kind": "archive", "id": sid}) if k and not k.get("remote") and k["acc"] == scan()["current"] else None
                 SCAN["at"] = 0
                 return self.reply(200, {"ok": True, "job": job})
             if path == "/api/reopen":
                 run("scan.py", "--ac", sid)
                 SCAN["at"] = 0
-                return self.reply(200, {"ok": True, "job": enqueue({"kind": "unarchive", "id": sid})})
+                return self.reply(200, {"ok": True, "job": enqueue({"kind": "unarchive", "id": sid}) if local_file(sid) else None})
             if path == "/api/order":  # the owner's own order of projects; [] goes back to automatic
                 order = body.get("order")
                 if not isinstance(order, list) or len(order) > 1000 or not all(isinstance(n, str) and len(n) <= 200 for n in order):
@@ -333,4 +371,5 @@ if __name__ == "__main__":
         os.dup2(out.fileno(), 1)
         os.dup2(out.fileno(), 2)
     TOKEN = token()
+    threading.Thread(target=publisher, daemon=True).start()
     http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
