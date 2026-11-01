@@ -40,6 +40,14 @@ görmek; mümkünse oradan cevap vermek.
   (Mac'teki tarayıcıda Windows'ta açılan iki konu göründü). Bu listenin belgelenmiş bir arayüzü yok;
   Qosmopol onu kullanıcının claude.ai oturum çerezleriyle okuyamaz ve okumamalı. Ama kullanıcı için
   bugün de çalışan bir yol: başka bilgisayardaki bir konuya claude.ai/code'dan cevap verilebiliyor.
+- Kullanıcı gözlemi (1 Kasım): Claude uygulaması bir projeyi (ör. sabitlenmiş bir proje) Mac'te ve
+  Windows'ta **birebir ve anlık** aynı gösteriyor; yani Claude konuları kendi bulutu üzerinden canlı
+  eşitliyor. Ama uygulamanın eklentilere ve oturumlara verdiği resmî araç (`ccd_session_mgmt`
+  `list_sessions`) her iki bilgisayarda da **yalnızca o bilgisayarın** konularını döndürdü (Mac'te 40
+  sonucun hepsi Mac klasörlerinde; o gün Windows'ta açılan, daha yeni konular listede yok; Windows'ta
+  yalnızca 7 yerel konu). Bu eşitlenmiş veri eklentilere açık değil. Anthropic bunu ileride açarsa
+  (ör. `list_sessions`'a başka cihazların konuları) bu tasarımın büyük kısmı gereksizleşir; o zamana
+  kadar Qosmopol kendi eşitlemesini yapmak zorunda.
 - Claude'un Projects listesi bilgisayarda okunabilir düz bir dosya olarak bulunmadı; uygulamanın kendi
   iç deposunda (tarayıcı depolaması) duruyor. Bunun belgelenmiş bir arayüzü yok.
 
