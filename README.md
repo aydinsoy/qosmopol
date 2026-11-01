@@ -50,6 +50,7 @@ The microphone works in both (Chrome and Safari speech recognition, Turkish by d
 ## Requirements and limits
 
 - macOS with the Claude desktop app (Code tab) and `python3`.
+- Windows: the same, with Python 3 from python.org (its `py` launcher runs the scripts; restart the Claude app after installing Python so it sees the new PATH). Session records are read from `%APPDATA%\Claude\claude-code-sessions`.
 - Sessions of other accounts can be seen and hidden, but not archived or messaged from here.
 - The microphone uses the browser's speech recognition (Chrome and Safari). Where it is missing, macOS dictation (press 🌐/fn twice) works in the command bar.
 - Inside the pane the sky is a picture you cannot click (the app draws it in a sandboxed frame); use the lists, or the web view.

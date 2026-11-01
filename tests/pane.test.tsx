@@ -27,7 +27,12 @@ const SCAN = {
 test('the sky, the waiting list and the archive draw on desktop and mobile', async ($, on) => {
   on('command.register', () => ({ value: { command: 'qosmopol' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('process.run', () => ({ value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }))
+  const argvs: (readonly string[])[] = []
+  on('process.run', (_, e) => {
+    argvs.push(e.argv)
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('env.get', () => ({ value: undefined })) // macOS: no OS variable
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   mock.store(on)
   mock.clock(on, { now: Date.now() })
@@ -36,6 +41,8 @@ test('the sky, the waiting list and the archive draw on desktop and mobile', asy
   on('ui.toast', () => ({ value: undefined }))
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(argvs.length).toBeGreaterThan(0)
+  expect(argvs.every(a => a[0] === '/usr/bin/python3')).toBe(true)
 
   // A narrow pane is the mini sky: the map, the waiting and the running, nothing else.
   for (const surface of ['desktop', 'mobile'] as const) {
@@ -84,4 +91,29 @@ test('the sky, the waiting list and the archive draw on desktop and mobile', asy
     expect(await ui.find({ key: 'Website-local_2' })).toBeUndefined()
     await ui.unmount()
   }
+})
+
+test('on Windows the scripts run under the py launcher', async ($, on) => {
+  const argvs: (readonly string[])[] = []
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    argvs.push(e.argv)
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('env.get', (_, e) => ({ value: e.name === 'OS' ? 'Windows_NT' : undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: 'C:/', surface: 'desktop', isInteractive: true })
+  expect(argvs.length).toBeGreaterThan(0)
+  expect(argvs.map(a => `${a[0]} ${a[1]} ${a[2].replace(/.*\/bin\//, 'bin/')}`)).toContain('py -3 bin/scan.py')
+  expect(argvs.every(a => a[0] === 'py' && a[1] === '-3')).toBe(true)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /1 waiting for you/ })).toBeDefined()
+  await ui.unmount()
 })
