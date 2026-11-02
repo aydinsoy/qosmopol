@@ -1047,6 +1047,7 @@ const TR = {
   'Close session (undoable)': 'Konuyu kapat (geri alınabilir)', 'Close its sessions…': 'Konularını kapat…',
   'Show session titles': 'Konu başlıklarını göster', 'Hide session titles': 'Konu başlıklarını gizle',
   "Claude did not allow this change from the map: change it in the Claude app (opening it there).": "Claude bu değişikliğe haritadan izin vermedi: Claude uygulamasında değiştir (orada açılıyor).",
+  'In auto mode Claude does not let the map change this. Change it in the Claude app, under its message box.': 'Otomatik modda Claude bunu haritadan değiştirtmiyor. Claude uygulamasında, yazı kutusunun altından değiştir.',
   'Hidden on the map; the Claude app did not allow archiving it.': 'Haritada gizlendi; Claude arşivlemeye izin vermedi.',
   'Nothing to undo': 'Geri alınacak bir şey yok', 'Session reopened': 'Konu yeniden açıldı', 'Nothing to redo': 'Yinelenecek bir şey yok', 'Session closed again': 'Konu yeniden kapatıldı',
   'Rename…': 'Adını değiştir…', 'Rename': 'Adını değiştir', 'New name': 'Yeni ad',
@@ -1234,6 +1235,11 @@ function plusMenu(comp, anchor) {
 function chipMenu(comp, chip) {
   const k = targetOf(comp), what = chip.dataset.chip, note = comp.querySelector('.note')
   if (!k) return
+  // The change is carried out by the home session; in auto mode Claude's permission check refuses it every time
+  // (2026-11-02). Offering the options then is a lie: say where it is done instead, one click away.
+  if (homeRow()?.mode === 'auto') return openMenu(chip, [{ hd: { mode: 'Permission mode', effort: 'Effort', model: 'Model' }[what] },
+    { hd: 'In auto mode Claude does not let the map change this. Change it in the Claude app, under its message box.' },
+    { label: 'Open in the Claude app', run: () => openInApp(k) }])
   const set = value => api('/api/set', { id: comp.dataset.to.startsWith('k:') ? k.id : '', what, value })
     .then(r => { S.jobs[r.job] = { label: `${what} → ${value}`, at: Date.now(), note, set: k.id }; note.textContent = 'Asking the app… (it may show an approval card)'; setTimeout(() => refresh(true), 3000) })
     .catch(err => { note.textContent = 'Could not change: ' + err.message })
