@@ -66,8 +66,8 @@ class Inbox(unittest.TestCase):
             os.remove(server.TOKEN_FILE)
         os.chmod(server.HOME, 0o755)
         self.assertEqual(len(server.token()), 32)
-        self.assertEqual(os.stat(server.TOKEN_FILE).st_mode & 0o777, 0o600)
-        if sys.platform != "win32":
+        if sys.platform != "win32":  # Windows keeps them private through the user profile's access list, not mode bits
+            self.assertEqual(os.stat(server.TOKEN_FILE).st_mode & 0o777, 0o600)
             self.assertEqual(os.stat(server.HOME).st_mode & 0o777, 0o700)
 
     def test_the_conversation_shows_what_came_through_another_session(self):
