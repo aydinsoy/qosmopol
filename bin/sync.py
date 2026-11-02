@@ -32,7 +32,7 @@ STALE = 1800  # seconds: a computer that wrote nothing for this long is shown as
 RECENT = 30 * 86400  # seconds: older sessions stay home unless they wait for the owner (keeps the file small)
 # What another computer may see of a session: no folder paths, nothing the map does not show.
 FIELDS = ("id", "acc", "title", "proj", "last", "seen", "created", "turns", "star", "cat", "need", "detail",
-          "sumId", "error", "busy", "ask", "model", "effort", "mode", "bridge", "rc")
+          "sumId", "error", "busy", "ask", "model", "effort", "mode", "bridge", "rc", "side")
 _last = {"body": None, "at": 0.0}
 _peer_groups = {"at": 0, "rules": {}}  # the newest groups another computer published, seen by peers()
 
@@ -159,15 +159,17 @@ def set_groups(changes):
 
 
 def apply_groups(rows, me):
-    """Give each session the owner's project name; a session's own rule wins over its folder's."""
+    """Give each session the owner's project name: a session's own rule, then its folder's, then the Claude sidebar
+    group it is filed under. Returns every name in use, for the "Move to project" list."""
     rules = groups().get("rules") or {}
     for k in rows:
         k.setdefault("dev", me)
         k.setdefault("proj0", k.get("proj") or "")
-        name = rules.get("s:" + str(k.get("id"))) or rules.get(f"p:{k['dev']}:{k['proj0']}")
+        side = k.get("side") if isinstance(k.get("side"), str) else ""
+        name = rules.get("s:" + str(k.get("id"))) or rules.get(f"p:{k['dev']}:{k['proj0']}") or side
         if name:
             k["proj"], k["group"] = name, True
-    return sorted(set(rules.values()))
+    return sorted(set(rules.values()) | {k["side"] for k in rows if isinstance(k.get("side"), str) and k["side"]})
 
 
 def publish(rows, now=None):

@@ -75,15 +75,21 @@ async function openMap($: EngineInterface) {
 // session's mod carries each job out here and writes the result back for the page to show.
 // Which sessions' Remote Control is on right now: only the app knows, and it tells the home session through its
 // session list. The other computers show "Open on claude.ai" only where it is on (a closed one opened claude.ai's
-// start page, 2026-11-01). Once a minute, from the home session alone.
+// start page, 2026-11-01). The same list names the sidebar group each session is filed under: the map uses it as
+// the session's project name. Once a minute, from the home session alone.
 async function remoteControl($: EngineInterface) {
   try {
     if ((await server($, 'home')).stdout.trim() !== String(await $.session.id())) return
     const res = await $.mcp.call('ccd_session_mgmt', 'list_sessions', { limit: 200 })
     const list = JSON.parse((res.content ?? []).map((c: any) => c.text ?? '').join(''))
-    const rc: Record<string, boolean> = {}
-    for (const k of Array.isArray(list) ? list : []) if (typeof k?.sessionId === 'string' && typeof k.remoteControlActive === 'boolean') rc[k.sessionId] = k.remoteControlActive
-    await server($, 'rc', JSON.stringify(rc))
+    const rows = Array.isArray(list) ? list : [], rc: Record<string, boolean> = {}, side: Record<string, string> = {}
+    for (const k of rows) {
+      if (typeof k?.sessionId !== 'string') continue
+      if (typeof k.remoteControlActive === 'boolean') rc[k.sessionId] = k.remoteControlActive
+      if (typeof k.group?.name === 'string' && k.group.name.trim()) side[k.sessionId] = k.group.name.trim()
+    }
+    // no `group` key anywhere: the app has not reported its groups yet, so the last names stand
+    await server($, 'rc', JSON.stringify(rc), rows.some(k => k && 'group' in k) ? JSON.stringify(side) : 'null')
   } catch {
     // no list this round: the map keeps the last one for a while, then shows the button as before
   }

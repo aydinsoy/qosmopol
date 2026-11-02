@@ -365,9 +365,17 @@ if __name__ == "__main__":
             seen = json.loads(args[1])
         except ValueError:
             sys.exit(1)
+        try:
+            side = json.loads(args[2]) if len(args) > 2 else None
+        except ValueError:
+            side = None
+        if not isinstance(side, dict):  # the app has not said this round: keep the names it gave last
+            side = (load(RC, {}) or {}).get("side") or {}
         os.makedirs(HOME, exist_ok=True)
         save(RC, {"at": int(time.time() * 1000),
-                  "rc": {str(k): bool(v) for k, v in (seen.items() if isinstance(seen, dict) else []) if str(k).startswith("local_")}})
+                  "rc": {str(k): bool(v) for k, v in (seen.items() if isinstance(seen, dict) else []) if str(k).startswith("local_")},
+                  # the Claude sidebar group each session is filed under: its project name on the map
+                  "side": {str(k): str(v).strip()[:80] for k, v in side.items() if str(k).startswith("local_") and str(v).strip()}})
         sys.exit(0)
     if args[:1] == ["done"]:
         done(args[1] if len(args) > 1 else "[]")

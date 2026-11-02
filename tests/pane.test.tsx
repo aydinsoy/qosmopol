@@ -244,7 +244,8 @@ test('the home session reports which sessions have Remote Control on, for the ot
     return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
   })
   on('mcp.call', (_, e) => ({ value: { isError: false, content: [{ type: 'text', text: JSON.stringify([
-    { sessionId: 'local_1', remoteControlActive: true }, { sessionId: 'local_2', remoteControlActive: false }, { sessionId: 'x' }]) }] } }))
+    { sessionId: 'local_1', remoteControlActive: true, group: { id: 'g1', name: 'Client Ads' } },
+    { sessionId: 'local_2', remoteControlActive: false, group: null }, { sessionId: 'x' }]) }] } }))
   on('env.get', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   mock.store(on)
@@ -258,4 +259,5 @@ test('the home session reports which sessions have Remote Control on, for the ot
   const rc = argvs.find(a => a.includes('rc'))
   expect(rc).toBeDefined()
   expect(JSON.parse(rc![rc!.indexOf('rc') + 1])).toEqual({ local_1: true, local_2: false })
+  expect(JSON.parse(rc![rc!.indexOf('rc') + 2])).toEqual({ local_1: 'Client Ads' })  // the sidebar group names the project
 })

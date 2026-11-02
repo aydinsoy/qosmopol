@@ -314,6 +314,7 @@
       <div id="counts">Scanning…</div>
       <div class="seg" id="days"></div>
       <div class="seg" id="themes"></div>
+      <div class="seg" id="names"></div>
     </div>
     <div id="tree" class="scroll"></div>
     <div class="composer" id="sidebar-composer" data-to="home"></div>
@@ -346,7 +347,7 @@ const ICON = {
 
 // On a first visit the map and the inbox are open.
 // cols: the map comes back on every load, even after it was closed
-const S = { data: null, days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: (c => c.includes('harita') ? c : ['harita', ...c])(kept('cols', ['harita']).filter(c => !c.startsWith('p:'))), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false, mapHand: kept('mapHand', false) }
+const S = { data: null, names: kept('names', 'project'), days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: (c => c.includes('harita') ? c : ['harita', ...c])(kept('cols', ['harita']).filter(c => !c.startsWith('p:'))), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false, mapHand: kept('mapHand', false) }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined
@@ -542,6 +543,7 @@ function renderSide() {
   setHTML($('#counts'), `<span class="w"><b>${w}</b> waiting</span><span class="o"><b>${r}</b> running</span><span><b>${n}</b> unread</span>`)
   const th = document.documentElement.dataset.theme
   setHTML($('#days'), [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + (x === 1 ? ' day' : ' days') : 'All'}</button>`).join(''))
+  setHTML($('#names'), [['project', 'Project names', 'Your own names and the Claude sidebar groups'], ['folder', 'Folder names', 'Each session under the folder it runs in']].map(([v, l, tip]) => `<button data-names="${v}" data-tip="${tip}" class="${S.names === v ? 'on' : ''}">${l}</button>`).join(''))
   setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
@@ -919,6 +921,8 @@ const TR = {
   'Hides it from this map; the session stays as it is on the other computer': 'Bu haritadan gizler; konu diğer bilgisayarda olduğu gibi kalır',
   'Remote Control off': "Remote Control kapalı", 'Turn its Remote Control on there, or open it on that computer': "Orada Remote Control'ü aç ya da konuyu o bilgisayarda aç",
   'The conversation is on another computer, and its Remote Control is off: open it on that computer.': "Konuşma diğer bilgisayarda ve Remote Control'ü kapalı: konuyu o bilgisayarda aç.",
+  'Project names': 'Proje adları', 'Folder names': 'Klasör adları', 'Your own names and the Claude sidebar groups': 'Kendi verdiğin adlar ve Claude kenar çubuğu grupları', 'Each session under the folder it runs in': 'Her konu çalıştığı klasörün altında',
+  'Rename…': 'Adını değiştir…', 'Rename': 'Adını değiştir', 'New name': 'Yeni ad',
   'Move to project…': 'Projeye taşı…', 'Move to project': 'Projeye taşı', 'New project…': 'Yeni proje…', 'Take out of this project': 'Bu projeden çıkar',
   'Name of the new project': 'Yeni projenin adı', 'New project name': 'Yeni proje adı', 'Add': 'Ekle', 'Taken out of the project': 'Projeden çıkarıldı',
   'Gather it under one of your own project names, on every computer': 'Kendi proje adlarından birinin altına toplar; her bilgisayarda',
@@ -936,7 +940,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
+  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
 ]
@@ -983,9 +987,10 @@ function openMenu(anchor, items) {
   const m = $('#menu')
   // an item with input is a small form inside the menu (a new name), run with what was typed
   m.innerHTML = items.map(it => it.hd ? `<div class="hd">${esc(it.hd)}</div>`
-    : it.input ? `<form class="mform" data-mf="${MENU.push(it.run) - 1}"><input name="v" maxlength="60" autocomplete="off" placeholder="${esc(tr(it.input))}"><button type="submit">${esc(tr(it.button || 'Add'))}</button></form>`
+    : it.input ? `<form class="mform" data-mf="${MENU.push(it.run) - 1}"><input name="v" maxlength="60" autocomplete="off" placeholder="${esc(tr(it.input))}" value="${esc(it.value ?? '')}"><button type="submit">${esc(tr(it.button || 'Add'))}</button></form>`
     : `<button data-mi="${MENU.push(it.run) - 1}"><span class="ck">${it.on ? '✓' : ''}</span>${esc(it.label)}</button>`).join('')
   m.classList.add('on')
+  const field = m.querySelector('.mform input'); if (field) { field.focus(); field.select() }
   const r = anchor.getBoundingClientRect(), h = m.offsetHeight, w = m.offsetWidth
   m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px'
   m.style.top = (r.top - h - 6 > 8 ? r.top - h - 6 : r.bottom + 6) + 'px'
@@ -997,8 +1002,8 @@ document.addEventListener('submit', e => {
   closeMenu(); if (v && run) run(v)
 })
 function closeMenu() { $('#menu').classList.remove('on'); document.querySelectorAll('.more.open').forEach(b => b.classList.remove('open')) }
-// The owner's own projects: Claude's project names are not open to plugins, so sessions and whole planets are
-// gathered here under names of the owner's choosing (bin/sync.py keeps them, and the other computers get them too).
+// The owner's own projects: beyond the Claude sidebar groups (which the map takes as they are), sessions and whole
+// planets are gathered here under names of the owner's choosing (bin/sync.py keeps them, and the other computers get them too).
 function groupMenu(anchor, target, current) {
   const names = S.data.groups ?? []
   const go = name => api('/api/group', { ...target, name }).then(() => { toast(name ? `Moved to ${name}` : 'Taken out of the project'); return refresh(true) }).catch(err => toast('Could not move: ' + err.message))
@@ -1006,6 +1011,18 @@ function groupMenu(anchor, target, current) {
     ...names.filter(n => n !== current).map(n => ({ label: n, run: () => go(n) })),
     { input: 'New project name', button: 'Add', run: go },
     ...(current && names.includes(current) ? [{ label: 'Take out of this project', run: () => go('') }] : [])])
+  anchor.classList?.add('open')
+}
+// A planet's own name: its folder's, unless the owner gives it the name they use in Claude's sidebar. Same rules as
+// "Move to project" underneath, so the name holds on every computer and new sessions in that folder get it too.
+function renameMenu(anchor, name) {
+  const go = v => v === name ? null : api('/api/group', { planet: name, name: v }).then(() => {
+    toast(`Renamed to ${v}`)
+    const order = S.data.order ?? []  // the renamed planet keeps its place in the owner's order
+    if (order.includes(name) && !order.includes(v)) saveOrder(order.map(n => n === name ? v : n))
+    return refresh(true)
+  }).catch(err => toast('Could not rename: ' + err.message))
+  openMenu(anchor, [{ hd: 'Rename' }, { input: 'New name', value: name, button: 'Save', run: go }])
   anchor.classList?.add('open')
 }
 // The ⋯ menu of a sidebar row: a project, or a session started without one.
@@ -1026,7 +1043,9 @@ function rowMenu(row, anchor) {
       { label: 'Mark all as read', run: async () => { for (const k of list) await api('/api/read', { id: k.id }).catch(() => {}); refresh(true) } },
       { label: 'Move to top', run: () => moveTo(row, 'top') },
       { label: 'Move to bottom', run: () => moveTo(row, 'bottom') },
-      { label: 'Move to project…', run: () => groupMenu(anchor, { planet: name }, name) },
+      ...(S.names === 'folder' ? [] : [  // names are given in the project view, where they show
+        { label: 'Rename…', run: () => renameMenu(anchor, name) },
+        { label: 'Move to project…', run: () => groupMenu(anchor, { planet: name }, name) }]),
     ]
   } else {
     const k = ids.get(row.dataset.open.slice(2)); if (!k) return
@@ -1133,6 +1152,7 @@ document.addEventListener('click', e => {
   const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
   const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
   const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Reopen', at: Date.now() }; toast('Session reopened'); refresh(true) })
+  const nm = t.closest('[data-names]'); if (nm) { S.names = nm.dataset.names; keep('names', S.names); return refresh(true) }
   const pick = t.closest('[data-theme-pick]'); if (pick) { document.documentElement.dataset.theme = pick.dataset.themePick; keep('theme', pick.dataset.themePick); return renderSide() }
   const days = t.closest('[data-days]'); if (days) { S.days = +days.dataset.days; keep('days', S.days); return render() }
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
@@ -1382,8 +1402,13 @@ document.addEventListener('gesturechange', e => {
 $('#sidebar-composer').innerHTML = composerHTML('Message Claude… (home session)')
 
 // --- data: sessions every 10 s, open conversations every 15 s; bridge results show under the bar that sent them
+// "Folder names": every session back under the folder it runs in, whatever project name it carries.
+function byFolder(d) {
+  if (S.names === 'folder') for (const k of d.sessions ?? []) if (k.proj0) k.proj = k.remote ? `${k.proj0} · ${k.devName}` : k.proj0
+  return d
+}
 async function refresh(now) {
-  try { S.data = await api('/api/scan' + (now ? '?t=' + Date.now() : '')); if (S.data.lang) LANG = /^tr/i.test(S.data.lang) ? 'tr' : 'en' } catch (err) { $('#counts').textContent = 'Cannot reach the server: ' + err.message; return }
+  try { S.data = byFolder(await api('/api/scan' + (now ? '?t=' + Date.now() : ''))); if (S.data.lang) LANG = /^tr/i.test(S.data.lang) ? 'tr' : 'en' } catch (err) { $('#counts').textContent = 'Cannot reach the server: ' + err.message; return }
   for (const [job, j] of Object.entries(S.jobs)) {
     const r = S.data.results?.[job], out = j.note?.isConnected ? j.note : $('#sidebar-composer .note')
     if (r) { out.textContent = r.ok ? `✓ delivered · ${j.label}` : `✗ not delivered · ${j.label}: ${r.text}`; delete S.jobs[job] }

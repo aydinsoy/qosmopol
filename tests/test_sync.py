@@ -178,6 +178,20 @@ class Sync(unittest.TestCase):
         sync.peers()
         self.assertEqual(sync.groups()["rules"], {"p:d2:shop-example": "Client Ads"})
 
+    def test_the_claude_sidebar_group_names_the_project_unless_the_owner_did(self):
+        me = sync.device()["id"]
+        rows = [dict(ROW, id="local_a", proj="Projects", side="Client Ads"), dict(ROW, id="local_b", proj="Projects")]
+        self.assertEqual(sync.apply_groups(rows, me), ["Client Ads"])
+        self.assertEqual([(k["proj"], k["proj0"]) for k in rows], [("Client Ads", "Projects"), ("Projects", "Projects")])
+        sync.set_groups({"s:local_a": "Website"})  # a name given on the map wins
+        rows = [dict(ROW, id="local_a", proj="Projects", side="Client Ads")]
+        sync.apply_groups(rows, me)
+        self.assertEqual(rows[0]["proj"], "Website")
+        t = time.time()
+        sync.publish([dict(ROW, last=t * 1000, side="Client Ads")], now=t)  # the other computers learn it too
+        d = json.load(open(os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json"), encoding="utf-8"))
+        self.assertEqual(d["sessions"][0]["side"], "Client Ads")
+
     def test_remote_control_state_travels(self):
         t = time.time()
         sync.publish([dict(ROW, last=t * 1000, rc=False)], now=t)
