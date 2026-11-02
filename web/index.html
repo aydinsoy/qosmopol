@@ -278,10 +278,10 @@
   /* hover: the circle under the pointer grows, nearby moons ease away, everything eases back on leave */
   .bigmap svg circle { transform-box: fill-box; transform-origin: center; }
   .bigmap svg line { transform-box: view-box; transform-origin: 0 0; }
-  /* session labels: small and dim, shown from the start (owner 2026-11-02: "baştan beri görünsün") */
-  .bigmap [data-k] text { opacity: 1; transition: opacity .2s; }
+  /* session labels show once the map is zoomed in, or on hover (shown from the start they crowded the map, 2026-11-02) */
+  .bigmap [data-k] text { opacity: 0; transition: opacity .2s; }
   .bigmap.zoomed [data-k] text { opacity: 1; }
-  .bigmap [data-k].hov text, .bigmap [data-k].near text { opacity: 1; }
+  .bigmap [data-k].hov text, .bigmap [data-k].near text, .bigmap.labels [data-k] text { opacity: 1; }
   .bigmap g.mx { opacity: 0; pointer-events: none; transition: opacity .15s; }
   /* the × stays about 12 px on screen however small or zoomed the map is drawn (--mxs, set in sizeMarks) */
   .bigmap g.mxs { transform: scale(var(--mxs, 1)); transform-box: fill-box; transform-origin: center; }
@@ -293,6 +293,8 @@
   .mapview svg { height: 100%; width: auto; display: block; }
   .maptools { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 3; }
   .maptools button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--input-line); background: var(--input); color: var(--text2); display: inline-flex; align-items: center; justify-content: center; cursor: default; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .maptools button.txt { font-size: 12px; font-weight: 600; }
+  .maptools button.on { color: var(--text); background: var(--seg-on); }
   .maptools button:hover { color: var(--text); background: color-mix(in srgb, var(--input), var(--text) 6%); }
   .maptools svg.i { width: 15px; height: 15px; }
   .col.mapfull { position: fixed; inset: 0; z-index: 55; width: auto !important; flex: none !important; border: 0; }
@@ -356,7 +358,7 @@ const ICON = {
 
 // On a first visit the map and the inbox are open.
 // cols: the map comes back on every load, even after it was closed
-const S = { data: null, names: kept('names', 'project'), days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: (c => c.includes('harita') ? c : ['harita', ...c])(kept('cols', ['harita']).filter(c => !c.startsWith('p:'))), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false, mapHand: kept('mapHand', false) }
+const S = { data: null, labels: false, names: kept('names', 'project'), days: kept('days', 7), open: new Set(kept('open', [])), pp: kept('pp', ''), cols: (c => c.includes('harita') ? c : ['harita', ...c])(kept('cols', ['harita']).filter(c => !c.startsWith('p:'))), sel: '', tab: 'bekleyen', filter: 'hepsi', proj: '', talks: {}, jobs: {}, confirmOld: false, mapHand: kept('mapHand', false) }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined
@@ -705,7 +707,7 @@ function renderCols() {
       // height sets the scale (the viewBox ratio gives the width), so a narrower column crops both sides evenly
       const svg = sky(groups()), vb = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
       const full = el.classList.contains('mapfull')
-      body = `<div class="bigmap"><div class="mapview">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maptools"><button data-map="reset" data-tip="Center and reset zoom">${ICON.refresh}</button><button data-map="full" data-tip="${full ? 'Exit full screen' : 'Full screen'}">${full ? ICON.shrink : ICON.expand}</button></div></div><div class="maplegend">Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more.</div>`
+      body = `<div class="bigmap${S.labels ? ' labels' : ''}"><div class="mapview">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maptools"><button data-map="labels" class="txt${S.labels ? ' on' : ''}" data-tip="${S.labels ? 'Hide session titles' : 'Show session titles'}">Aa</button><button data-map="reset" data-tip="Center and reset zoom">${ICON.refresh}</button><button data-map="full" data-tip="${full ? 'Exit full screen' : 'Full screen'}">${full ? ICON.shrink : ICON.expand}</button></div></div><div class="maplegend">Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more.</div>`
     }
     // a conversation follows its newest lines at the bottom while the owner is there, and stays put once they scroll up
     const b = el.querySelector('.body'), first = b._html === undefined, atEnd = first || b.scrollHeight - b.scrollTop - b.clientHeight < 60
@@ -983,6 +985,7 @@ const TR = {
   'The conversation is on another computer, and its Remote Control is off: open it on that computer.': "Konuşma diğer bilgisayarda ve Remote Control'ü kapalı: konuyu o bilgisayarda aç.",
   'Project names': 'Proje adları', 'Folder names': 'Klasör adları', 'Your own names and the Claude sidebar groups': 'Kendi verdiğin adlar ve Claude kenar çubuğu grupları', 'Each session under the folder it runs in': 'Her konu çalıştığı klasörün altında',
   'Close session (undoable)': 'Konuyu kapat (geri alınabilir)', 'Close its sessions…': 'Konularını kapat…',
+  'Show session titles': 'Konu başlıklarını göster', 'Hide session titles': 'Konu başlıklarını gizle',
   'Rename…': 'Adını değiştir…', 'Rename': 'Adını değiştir', 'New name': 'Yeni ad',
   'Move to project…': 'Projeye taşı…', 'Move to project': 'Projeye taşı', 'New project…': 'Yeni proje…', 'Take out of this project': 'Bu projeden çıkar',
   'Name of the new project': 'Yeni projenin adı', 'New project name': 'Yeni proje adı', 'Add': 'Ekle', 'Taken out of the project': 'Projeden çıkarıldı',
@@ -1340,6 +1343,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey
 document.addEventListener('change', e => { if (e.target.id === 'projsel') { S.proj = e.target.value; renderCols() } })
 $('#app').addEventListener('click', e => {
   const tool = e.target.closest('[data-map]')
+  // session titles on the map: off at every start (owner 2026-11-02: "başlangıçta görünmesin"), a click shows them
+  if (tool?.dataset.map === 'labels') { S.labels = !S.labels; return renderCols() }
   if (tool) return tool.dataset.map === 'reset' ? resetMapView() : toggleMapFull()
   if (e.target.closest('.bigmap') && !S.justDragged) onSkyClick(e)
 })
