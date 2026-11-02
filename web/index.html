@@ -283,6 +283,8 @@
   .bigmap.zoomed [data-k] text { opacity: 1; }
   .bigmap [data-k].hov text, .bigmap [data-k].near text { opacity: 1; }
   .bigmap g.mx { opacity: 0; pointer-events: none; transition: opacity .15s; }
+  /* the × stays about 12 px on screen however small or zoomed the map is drawn (--mxs, set in sizeMarks) */
+  .bigmap g.mxs { transform: scale(var(--mxs, 1)); transform-box: fill-box; transform-origin: center; }
   .bigmap .hov > g.mx { opacity: .85; pointer-events: auto; }
   .bigmap g.mx:hover { opacity: 1; }
   .bigmap g.mx:hover path { stroke: var(--text); }
@@ -451,7 +453,7 @@ function sky(gs, { labels = true } = {}) {
       o.push(`<text x="${lx}" y="${top}" text-anchor="${anchor}" font-size="5.5" fill="var(--label)" style="pointer-events:none"><tspan x="${lx}">${esc(l1)}</tspan>${l2 ? `<tspan x="${lx}" dy="6.5">${esc(l2)}</tspan>` : ''}</text>`)
       // a quiet × at the top right of the grown moon (1.8× on hover): closes the session, undoable
       const qx = +(mx + mr * 1.8 * 0.72 + 2).toFixed(1), qy = +(my - mr * 1.8 * 0.72 - 2).toFixed(1)
-      o.push(`<g class="mx" data-close-k="${esc(k.id)}" data-tip="Close session (undoable)"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--seg-on)" stroke="var(--line)" stroke-width="0.4"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--dim)" stroke-width="0.7" stroke-linecap="round"/></g></g>`)
+      o.push(`<g class="mx" data-close-k="${esc(k.id)}" data-tip="Close session (undoable)"><g class="mxs"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--seg-on)" stroke="var(--line)" stroke-width="0.4"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--dim)" stroke-width="0.7" stroke-linecap="round"/></g></g></g>`)
     })
     o.push(`<g data-p="${esc(p.name)}" data-c="${p.x},${p.y},${p.r}" data-tip="${esc(`${p.name}\n${p.list.length} sessions · ${nWait} waiting for you`)}" data-tipbig="1">`)
     if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5"/>`)
@@ -462,7 +464,7 @@ function sky(gs, { labels = true } = {}) {
     if (labels) o.push(`<text x="${p.x}" y="${p.y + p.outer + 4}" text-anchor="middle" font-size="12" fill="var(--label)">${esc(p.name)}</text>`)
     if (p.list.some(k => !k.remote)) {
       const qx = +(p.x + p.r * 1.12 * 0.72 + 3).toFixed(1), qy = +(p.y - p.r * 1.12 * 0.72 - 3).toFixed(1)
-      o.push(`<g class="mx" data-close-p="${esc(p.name)}" data-tip="Close its sessions…"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--seg-on)" stroke="var(--line)" stroke-width="0.4"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--dim)" stroke-width="0.7" stroke-linecap="round"/></g>`)
+      o.push(`<g class="mx" data-close-p="${esc(p.name)}" data-tip="Close its sessions…"><g class="mxs"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--seg-on)" stroke="var(--line)" stroke-width="0.4"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--dim)" stroke-width="0.7" stroke-linecap="round"/></g></g>`)
     }
     o.push('</g>')
   }
@@ -759,6 +761,7 @@ function inboxHTML() {
 const W = kept('widths', {})
 let colMin = 260
 function applyWidths() {
+  requestAnimationFrame(sizeMarks)  // once the new widths are laid out
   if (W.side) document.documentElement.style.setProperty('--side-w', W.side + 'px')
   if (W.plist) document.documentElement.style.setProperty('--plist-w', W.plist + 'px')
   const cols = [...document.querySelectorAll('#main > .col')]
@@ -1419,7 +1422,15 @@ function applyMapView() {
   const v = document.querySelector('.mapview'); if (!v) return
   v.style.transform = `translate(${MV.x}px, ${MV.y}px) scale(${MV.s})`
   v.parentElement.classList.toggle('zoomed', MV.s >= 1.5)
+  sizeMarks()
 }
+// A × is 8.4 map units wide: 2-3 px in a narrow column (Windows, 2026-11-02), 30 px zoomed in. Keep it near 12 px.
+function sizeMarks() {
+  const svg = document.querySelector('.bigmap svg'), w = svg?.viewBox.baseVal.width; if (!w) return
+  const px = svg.getBoundingClientRect().width / w * 8.4
+  svg.style.setProperty('--mxs', Math.min(6, Math.max(0.25, 12 / (px || 12))).toFixed(2))
+}
+addEventListener('resize', () => sizeMarks())
 const saveMapView = () => keep('mapView', { x: Math.round(MV.x), y: Math.round(MV.y), s: +MV.s.toFixed(3) })
 function resetMapView() {
   const v = document.querySelector('.mapview')
