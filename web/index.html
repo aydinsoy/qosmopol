@@ -281,6 +281,12 @@
   /* session labels show only once the map is zoomed in, where they have room */
   .bigmap [data-k] text { opacity: 0; transition: opacity .2s; }
   .bigmap.zoomed [data-k] text { opacity: 1; }
+  .bigmap [data-k].hov text, .bigmap [data-k].near text { opacity: 1; }
+  .bigmap g.mx { opacity: 0; pointer-events: none; transition: opacity .15s; }
+  .bigmap .hov > g.mx { opacity: .85; pointer-events: auto; }
+  .bigmap g.mx:hover { opacity: 1; }
+  .bigmap g.mx:hover path { stroke: var(--text); }
+  svg g.mx { cursor: pointer; }
   .mapview { height: 100%; flex: none; transform-origin: 0 0; will-change: transform; }
   .mapview svg { height: 100%; width: auto; display: block; }
   .maptools { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 3; }
@@ -430,7 +436,7 @@ function sky(gs, { labels = true } = {}) {
       // closed moons have no ring and fade 10% a day after their last activity, gone after ten days
       const fade = w || run || isNew ? 1 : Math.max(0, 1 - (Date.now() - k.last) / (10 * DAY))
       const tip = `${p.name} · ${k.title}\n${w ? 'WAITING FOR YOU' : run ? 'Agent working' : isNew ? 'New reply' : 'Closed'} · ${ago(k.last)} ago${k.need ? '\n' + k.need : ''}`
-      o.push(`<g data-k="${esc(k.id)}" data-c="${mx},${my}" data-l="${ex},${ey}" opacity="${fade.toFixed(2)}" data-tip="${esc(tip)}" data-tipbig="1">`)
+      o.push(`<g data-k="${esc(k.id)}" data-pl="${esc(p.name)}" data-c="${mx},${my}" data-l="${ex},${ey}" opacity="${fade.toFixed(2)}" data-tip="${esc(tip)}" data-tipbig="1">`)
       o.push(`<line x1="${ex}" y1="${ey}" x2="${mx}" y2="${my}" stroke="${w ? 'var(--red)' : run ? 'var(--orange)' : 'var(--mline)'}" stroke-width="${w || run ? 0.9 : 0.6}"/>`)
       o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 7}" fill="transparent"/>`)
       if (w) o.push(`<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="var(--red)" opacity="0.45"><animate attributeName="opacity" values="0.5;0;0.5" dur="0.9s" repeatCount="indefinite"/></circle>`)
@@ -442,7 +448,10 @@ function sky(gs, { labels = true } = {}) {
       const l1 = clip(words.slice(0, 2).join(' ')), l2 = clip(words.slice(2, 4).join(' ') + (words.length > 4 ? '…' : ''))
       const cx2 = Math.cos(a), cy2 = Math.sin(a), lx = +(mx + cx2 * (mr + 5)).toFixed(1), ly = +(my + cy2 * (mr + 5)).toFixed(1)
       const anchor = cx2 > 0.35 ? 'start' : cx2 < -0.35 ? 'end' : 'middle', top = cy2 < -0.35 ? ly - 7 : cy2 > 0.35 ? ly + 3 : ly - 2
-      o.push(`<text x="${lx}" y="${top}" text-anchor="${anchor}" font-size="5.5" fill="var(--label)" style="pointer-events:none"><tspan x="${lx}">${esc(l1)}</tspan>${l2 ? `<tspan x="${lx}" dy="6.5">${esc(l2)}</tspan>` : ''}</text></g>`)
+      o.push(`<text x="${lx}" y="${top}" text-anchor="${anchor}" font-size="5.5" fill="var(--label)" style="pointer-events:none"><tspan x="${lx}">${esc(l1)}</tspan>${l2 ? `<tspan x="${lx}" dy="6.5">${esc(l2)}</tspan>` : ''}</text>`)
+      // a quiet × at the top right of the grown moon (1.8× on hover): closes the session, undoable
+      const qx = +(mx + mr * 1.8 * 0.72 + 2).toFixed(1), qy = +(my - mr * 1.8 * 0.72 - 2).toFixed(1)
+      o.push(`<g class="mx" data-close-k="${esc(k.id)}" data-tip="Close session (undoable)"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--seg-on)" stroke="var(--line)" stroke-width="0.4"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--dim)" stroke-width="0.7" stroke-linecap="round"/></g></g>`)
     })
     o.push(`<g data-p="${esc(p.name)}" data-c="${p.x},${p.y},${p.r}" data-tip="${esc(`${p.name}\n${p.list.length} sessions · ${nWait} waiting for you`)}" data-tipbig="1">`)
     if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5"/>`)
@@ -451,6 +460,10 @@ function sky(gs, { labels = true } = {}) {
     o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${lively ? 'var(--planet)' : 'var(--planet-dim)'}"/>`)
     o.push(`<text x="${p.x}" y="${p.y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--planet-text)">${p.list.length}</text>`)
     if (labels) o.push(`<text x="${p.x}" y="${p.y + p.outer + 4}" text-anchor="middle" font-size="12" fill="var(--label)">${esc(p.name)}</text>`)
+    if (p.list.some(k => !k.remote)) {
+      const qx = +(p.x + p.r * 1.12 * 0.72 + 3).toFixed(1), qy = +(p.y - p.r * 1.12 * 0.72 - 3).toFixed(1)
+      o.push(`<g class="mx" data-close-p="${esc(p.name)}" data-tip="Close its sessions…"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--seg-on)" stroke="var(--line)" stroke-width="0.4"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--dim)" stroke-width="0.7" stroke-linecap="round"/></g>`)
+    }
     o.push('</g>')
   }
   o.push('</svg>')
@@ -467,7 +480,22 @@ function toApp(k) {
   if (onWeb(k)) return window.open(`https://claude.ai/code/${encodeURIComponent(k.bridge)}`, '_blank', 'noopener')
   toast("This session is on another computer and its Remote Control is off: open it there.")
 }
+async function closePlanet(anchor, name) {
+  const list = (new Map(groups()).get(name) ?? []).filter(k => !k.remote)
+  if (!list.length) return
+  // after the click that follows this pointerup, which would close a menu opened now as a click outside it
+  setTimeout(() => openMenu(anchor, [{ hd: name }, { label: `Close its ${list.length} sessions on this computer`, run: async () => {
+    let n = 0
+    for (const k of list) { try { await api('/api/close', { id: k.id }); n++ } catch {} }
+    S.cols = S.cols.filter(c => !list.some(k => c === 'k:' + k.id)); keep('cols', S.cols)
+    toast(`${n} sessions closed`, async () => { for (const k of list) await api('/api/reopen', { id: k.id }).catch(() => {}); refresh(true) })
+    refresh(true)
+  } }]))
+}
 function onSkyClick(e, fallback) {
+  const xk = e.target.closest('[data-close-k]'), xp = e.target.closest('[data-close-p]')
+  if (xk) { const k = byId().get(xk.dataset.closeK); return k && closeTopic(k) }
+  if (xp) return closePlanet(xp, xp.dataset.closeP)
   const m = e.target.closest('[data-k]'), p = e.target.closest('[data-p]')
   if (m && (e.metaKey || e.ctrlKey)) return toApp(byId().get(m.dataset.k))
   if (m) return openCol('k:' + m.dataset.k)
@@ -594,7 +622,7 @@ const conv = (talk, hist, k) => talk === undefined ? '<div class="dim">Loading�
   : k?.remote ? '<div class="dim">The conversation is on another computer. Open it on claude.ai to read and reply.</div>'
   : '<div class="dim">No transcript on this Mac (another account or the cloud).</div>'
 function topicBody(k) {
-  const hist = (S.data.messages ?? []).filter(m => m.sid === k.id).slice(-5).reverse()
+  const hist = (S.data.messages ?? []).filter(m => m.sid === k.id).slice(-5)  // oldest first: the newest ends the column
   const status = waiting(k) ? `<div class="waitbox selectable"><b>Waiting:</b> ${md(k.need || k.detail || 'an answer from you')}</div>` : running(k) ? `<div class="runbox">Agent working…</div>` : k.detail ? `<div class="infobox selectable">${md(k.detail)}</div>` : ''
   return `<div class="meta">${esc(k.proj)}${k.remote && k.group ? ` · ${esc(k.devName)}` : ''}${k.remote ? '' : ` · ${accLabel(k.acc)}`} · ${esc(+k.turns || 0)} turns · ${ago(k.last)} ago</div>${status}
     <div class="actions">
@@ -677,8 +705,9 @@ function renderCols() {
       const full = el.classList.contains('mapfull')
       body = `<div class="bigmap"><div class="mapview">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maptools"><button data-map="reset" data-tip="Center and reset zoom">${ICON.refresh}</button><button data-map="full" data-tip="${full ? 'Exit full screen' : 'Full screen'}">${full ? ICON.shrink : ICON.expand}</button></div></div><div class="maplegend">Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more.</div>`
     }
-    const b = el.querySelector('.body'), first = b._html === undefined
-    if (setHTML(b, body) && (k || c === 'home') && (first || c === 'home')) b.scrollTop = b.scrollHeight
+    // a conversation follows its newest lines at the bottom while the owner is there, and stays put once they scroll up
+    const b = el.querySelector('.body'), first = b._html === undefined, atEnd = first || b.scrollHeight - b.scrollTop - b.clientHeight < 60
+    if (setHTML(b, body) && (k || c === 'home') && (atEnd || c === 'home')) b.scrollTop = b.scrollHeight
     if (c === 'harita') applyMapView()
   })
   applyWidths()
@@ -800,10 +829,11 @@ document.addEventListener('pointerup', () => {
   keep('widths', W); applyWidths()
 })
 document.addEventListener('dblclick', e => {  // a moon: its session in the Claude app
+  if (e.target.closest?.('g.mx')) return  // two quick clicks on a × are two closes, not an open
   const m = e.target.closest?.('svg [data-k]'); if (m) { e.preventDefault(); return toApp(byId().get(m.dataset.k)) }
 })
 document.addEventListener('contextmenu', e => {
-  const m = e.target.closest?.('svg [data-k]'), k = m && byId().get(m.dataset.k); if (!k) return
+  const m = !e.target.closest?.('g.mx') && e.target.closest?.('svg [data-k]'), k = m && byId().get(m.dataset.k); if (!k) return
   e.preventDefault()
   openMenu(m, [{ hd: k.title },
     { label: k.remote ? 'Open on claude.ai' : 'Open in the Claude app', run: () => toApp(k) },
@@ -949,6 +979,7 @@ const TR = {
   'Remote Control off': "Remote Control kapalı", 'Turn its Remote Control on there, or open it on that computer': "Orada Remote Control'ü aç ya da konuyu o bilgisayarda aç",
   'The conversation is on another computer, and its Remote Control is off: open it on that computer.': "Konuşma diğer bilgisayarda ve Remote Control'ü kapalı: konuyu o bilgisayarda aç.",
   'Project names': 'Proje adları', 'Folder names': 'Klasör adları', 'Your own names and the Claude sidebar groups': 'Kendi verdiğin adlar ve Claude kenar çubuğu grupları', 'Each session under the folder it runs in': 'Her konu çalıştığı klasörün altında',
+  'Close session (undoable)': 'Konuyu kapat (geri alınabilir)', 'Close its sessions…': 'Konularını kapat…',
   'Rename…': 'Adını değiştir…', 'Rename': 'Adını değiştir', 'New name': 'Yeni ad',
   'Move to project…': 'Projeye taşı…', 'Move to project': 'Projeye taşı', 'New project…': 'Yeni proje…', 'Take out of this project': 'Bu projeden çıkar',
   'Name of the new project': 'Yeni projenin adı', 'New project name': 'Yeni proje adı', 'Add': 'Ekle', 'Taken out of the project': 'Projeden çıkarıldı',
@@ -967,7 +998,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^↪ via (.+)$/, '↪ $1 üzerinden'], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
+  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Close its (\d+) sessions on this computer$/, 'Bu bilgisayardaki $1 konusunu kapat'], [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^↪ via (.+)$/, '↪ $1 üzerinden'], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
 ]
@@ -1344,9 +1375,10 @@ function lensStep(now) {
       else { st[p] = st[t]; st[v] = 0 }
     }
     const isPlanet = 'p' in g.dataset
-    g.querySelectorAll(isPlanet ? 'circle' : 'circle, text').forEach(el => {
+    g.querySelectorAll(isPlanet ? 'circle:not(.mx)' : 'circle:not(.mx), text').forEach(el => {
       el.style.transform = el.tagName === 'text' ? `translate(${st.x}px, ${st.y}px)` : `translate(${st.x}px, ${st.y}px) scale(${st.s})`
     })
+    g.querySelectorAll('g.mx').forEach(el => { el.style.transform = `translate(${st.x}px, ${st.y}px)` })
     if (st.line) { st.line.setAttribute('x2', (st.x2 + st.x).toFixed(2)); st.line.setAttribute('y2', (st.y2 + st.y).toFixed(2)) }
   }
   lensRaf = moving ? requestAnimationFrame(lensStep) : 0
@@ -1356,6 +1388,11 @@ function hoverMap(g) {
   if (g === hovG) return
   hovG = g
   const svg = document.querySelector('.bigmap svg'); if (!svg) return
+  svg.querySelectorAll('.hov, .near').forEach(el => el.classList.remove('hov', 'near'))
+  if (g) {
+    g.classList.add('hov')
+    if ('p' in g.dataset) svg.querySelectorAll('[data-k]').forEach(m => { if (m.dataset.pl === g.dataset.p) m.classList.add('near') })
+  }
   const moons = [...svg.querySelectorAll('[data-k]')], planets = [...svg.querySelectorAll('[data-p]')]
   const [hx, hy, hr] = g ? g.dataset.c.split(',').map(Number) : [0, 0, 0], isPlanet = g && 'p' in g.dataset
   const reach = isPlanet ? hr + 70 : 90, push = isPlanet ? 16 : 13
