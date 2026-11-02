@@ -456,8 +456,17 @@ function sky(gs, { labels = true } = {}) {
   o.push('</svg>')
   return o.join('')
 }
+// A moon straight to its session where it lives: the Claude app here, claude.ai for another computer's (while its
+// Remote Control is on). Double-click, ⌘/Ctrl-click or the right-click menu on the map (owner 2026-11-02).
+function toApp(k) {
+  if (!k) return
+  if (!k.remote) return openInApp(k)
+  if (k.bridge && k.rc !== false) return window.open(`https://claude.ai/code/${encodeURIComponent(k.bridge)}`, '_blank', 'noopener')
+  toast("This session is on another computer and its Remote Control is off: open it there.")
+}
 function onSkyClick(e, fallback) {
   const m = e.target.closest('[data-k]'), p = e.target.closest('[data-p]')
+  if (m && (e.metaKey || e.ctrlKey)) return toApp(byId().get(m.dataset.k))
   if (m) return openCol('k:' + m.dataset.k)
   if (p) return pickProject(p.dataset.p)
   if (fallback) fallback()
@@ -663,7 +672,7 @@ function renderCols() {
       // height sets the scale (the viewBox ratio gives the width), so a narrower column crops both sides evenly
       const svg = sky(groups()), vb = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
       const full = el.classList.contains('mapfull')
-      body = `<div class="bigmap"><div class="mapview">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maptools"><button data-map="reset" data-tip="Center and reset zoom">${ICON.refresh}</button><button data-map="full" data-tip="${full ? 'Exit full screen' : 'Full screen'}">${full ? ICON.shrink : ICON.expand}</button></div></div><div class="maplegend">Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column.</div>`
+      body = `<div class="bigmap"><div class="mapview">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maptools"><button data-map="reset" data-tip="Center and reset zoom">${ICON.refresh}</button><button data-map="full" data-tip="${full ? 'Exit full screen' : 'Full screen'}">${full ? ICON.shrink : ICON.expand}</button></div></div><div class="maplegend">Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more.</div>`
     }
     const b = el.querySelector('.body'), first = b._html === undefined
     if (setHTML(b, body) && (k || c === 'home') && (first || c === 'home')) b.scrollTop = b.scrollHeight
@@ -787,6 +796,17 @@ document.addEventListener('pointerup', () => {
   rz.h.classList.remove('on'); document.body.classList.remove('resizing'); rz = null
   keep('widths', W); applyWidths()
 })
+document.addEventListener('dblclick', e => {  // a moon: its session in the Claude app
+  const m = e.target.closest?.('svg [data-k]'); if (m) { e.preventDefault(); return toApp(byId().get(m.dataset.k)) }
+})
+document.addEventListener('contextmenu', e => {
+  const m = e.target.closest?.('svg [data-k]'), k = m && byId().get(m.dataset.k); if (!k) return
+  e.preventDefault()
+  openMenu(m, [{ hd: k.title },
+    { label: k.remote ? 'Open on claude.ai' : 'Open in the Claude app', run: () => toApp(k) },
+    { label: 'Open its column', run: () => openCol('k:' + k.id) },
+    ...(k.remote ? [] : [{ label: 'Mark read', run: () => markRead(k) }])])
+})
 document.addEventListener('dblclick', e => {  // double-click a strip: back to the default width
   const h = e.target.closest('.rz'); if (!h) return
   if (h.dataset.rz === 'side') { delete W.side; document.documentElement.style.removeProperty('--side-w') }
@@ -906,7 +926,9 @@ const TR = {
   'Max': 'En yüksek', 'Default effort': 'Varsayılan efor', 'Default model': 'Varsayılan model', 'Change for this session': 'Bu konu için değiştir',
   "The home session's model and effort change in the Claude app's own menu": 'Ana oturumun modeli ve eforu Claude uygulamasının kendi menüsünden değişir',
   'Asking the app… (it may show an approval card)': 'Uygulamaya soruluyor… (onay kartı çıkabilir)',
-  'Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column.': 'Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · mavi: son 24 saatte yeni cevap · gri: kapanmış, 10 günde solup kaybolur. Daireye bas: sütunu açılır.',
+  'Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more.': 'Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · mavi: son 24 saatte yeni cevap · gri: kapanmış, 10 günde solup kaybolur. Daireye bas: sütunu açılır. Aya çift tıkla ya da ⌘/Ctrl ile tıkla: Claude uygulamasında açılır; sağ tık: diğer seçenekler.',
+  'Open in the Claude app': 'Claude uygulamasında aç', 'Open its column': 'Sütununu aç', 'Open on claude.ai': "claude.ai'de aç",
+  "This session is on another computer and its Remote Control is off: open it there.": 'Bu konu başka bir bilgisayarda ve Remote Control kapalı: orada aç.',
   "What you write here or in the sidebar bar goes to Qosmopol's home session; replies show up here.": "Buradan ya da soldaki çubuktan yazdıkların Qosmopol'un ana oturumuna gider; cevaplar burada görünür.",
   'Speech recognition is not available in this browser. Press 🌐 (fn) twice in the text field to use macOS dictation.': 'Bu tarayıcıda konuşma tanıma yok. Yazı alanında 🌐 (fn) tuşuna iki kez basıp Mac dikte ile konuşabilirsin.',
   'This session belongs to another account; it opens once you sign in with that account.': 'Bu konu başka hesapta; o hesapla giriş yapınca açılır.',
