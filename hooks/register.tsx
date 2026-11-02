@@ -40,20 +40,32 @@ const pythonCmd = async ($: EngineInterface) => {
 }
 const python = async ($: EngineInterface, script: string, ...args: string[]) =>
   [...(await pythonCmd($)), `${$.plugin.root}/bin/${script}`, ...args]
+// The Claude app's own language (its config.json "locale"), read without Python, so that what is said before the
+// first scan speaks it too. Unknown: English (owner 2026-11-02: no Turkish words for someone using Claude in English).
+async function isTr($: EngineInterface) {
+  try {
+    const base = (await onWindows($)) ? `${await $.env.get('APPDATA')}\\Claude` : `${await $.env.get('HOME')}/Library/Application Support/Claude`
+    return /^tr/i.test(String(JSON.parse(String(await $.fs.read(`${base}/config.json`))).locale ?? ''))
+  } catch {
+    return false
+  }
+}
 // Without Python 3.9 or newer nothing here can run: say so plainly, once, instead of failing in pieces.
 const PY_MIN = 9
 async function pythonProblem($: EngineInterface): Promise<string | null> {
-  const win = await onWindows($)
+  const win = await onWindows($), tr = await isTr($)
   const fix = win
-    ? 'Install it from python.org, then quit and reopen the Claude app. / python.org\'dan kur, sonra Claude uygulamasını tamamen kapatıp aç.'
-    : 'Run `xcode-select --install` in Terminal, then run /qosmopol again. / Terminal\'de `xcode-select --install` çalıştır, sonra /qosmopol\'u yeniden çalıştır.'
+    ? (tr ? "python.org'dan kur, sonra Claude uygulamasını tamamen kapatıp aç." : 'Install it from python.org, then quit and reopen the Claude app.')
+    : (tr ? "Terminal'de `xcode-select --install` çalıştır, sonra /qosmopol'u yeniden çalıştır." : 'Run `xcode-select --install` in Terminal, then run /qosmopol again.')
   try {
     const r = await $.process.run([...(await pythonCmd($)), '--version'], { timeoutMs: 15_000 })
     const m = /Python 3\.(\d+)/.exec(r.stdout + r.stderr)
     if (r.exitCode === 0 && m && Number(m[1]) >= PY_MIN) return null
-    return `Qosmopol needs Python 3.${PY_MIN} or newer${m ? ` (found 3.${m[1]})` : ''}. / Qosmopol için Python 3.${PY_MIN} ya da daha yenisi gerekli. ${fix}`
+    return tr ? `Qosmopol için Python 3.${PY_MIN} ya da daha yenisi gerekli${m ? ` (bulunan: 3.${m[1]})` : ''}. ${fix}`
+      : `Qosmopol needs Python 3.${PY_MIN} or newer${m ? ` (found 3.${m[1]})` : ''}. ${fix}`
   } catch {
-    return `Qosmopol needs Python 3.${PY_MIN} or newer, and none was found. / Qosmopol için Python 3.${PY_MIN} ya da daha yenisi gerekli, bulunamadı. ${fix}`
+    return tr ? `Qosmopol için Python 3.${PY_MIN} ya da daha yenisi gerekli, bulunamadı. ${fix}`
+      : `Qosmopol needs Python 3.${PY_MIN} or newer, and none was found. ${fix}`
   }
 }
 // A URL goes to its handler: open on macOS; on Windows url.dll's, which needs no shell quoting.
@@ -67,10 +79,10 @@ const failure = (r: { exitCode: number; stdout: string; stderr: string }) =>
   r.exitCode === 0 ? '' : cut((r.stderr.trim() || r.stdout.trim()).split('\n').pop() ?? '', 300) || `exit ${r.exitCode}`
 // The full-screen web view, from the pane's button and the band above the prompt alike.
 async function openMap($: EngineInterface) {
-  const why = failure(await server($, '--daemon'))
-  if (why) return $.ui.toast(`Qosmopol could not start: ${why}`)
+  const why = failure(await server($, '--daemon')), tr = await isTr($)
+  if (why) return $.ui.toast(`${tr ? 'Qosmopol başlatılamadı' : 'Qosmopol could not start'}: ${why}`)
   const r = await $.process.run(await opener($, WEB), { timeoutMs: 10_000 })
-  if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
+  if (r.exitCode !== 0) $.ui.toast((tr ? 'Açılamadı: ' : 'Could not open: ') + r.stderr.slice(0, 120))
 }
 
 // The web page (bin/server.py) cannot reach the app: it queues what needs it, and the home
@@ -205,7 +217,7 @@ async function scan($: EngineInterface) {
       const list = await update($, mesajlar, old => [...old, ...fresh].sort((a, b) => a.at - b.at).slice(-KEEP))
       await $.store.set('mesajlar', list)
       const newWait = fresh.filter(m => m.cat === 'blocked' && now - m.at < 10 * 60_000)
-      if (known.size && newWait.length) $.ui.toast(`Qosmopol: ${newWait[0].proj} · ${cut(newWait[0].title, 50)} seni bekliyor`)
+      if (known.size && newWait.length) $.ui.toast(`Qosmopol: ${newWait[0].proj} · ${cut(newWait[0].title, 50)} ${/^tr/i.test(d.lang ?? '') ? 'seni bekliyor' : 'is waiting for you'}`)
     }
     const nWait = d.sessions.filter(waiting).filter(k => now - k.last < 30 * DAY).length
     for (const c of (await read($, gorunum)).cols ?? []) if (c.startsWith('k:')) await loadTalk($, c.slice(2))
@@ -289,7 +301,7 @@ export const register: Register = on => {
     }
     const why = failure(await server($, 'claim', String(await $.session.id()))) || failure(await server($, '--daemon'))
     if (why) {
-      const text = `Qosmopol could not start: ${why} / Qosmopol başlatılamadı: ${why}`
+      const text = (await isTr($)) ? `Qosmopol başlatılamadı: ${why}` : `Qosmopol could not start: ${why}`
       $.ui.toast(text)
       return { text }
     }
@@ -323,6 +335,7 @@ export const register: Register = on => {
     const Input = els.Input
     const Select = els.Select
     const t = await read($, tarama)
+    const L = (en: string, trs: string) => (/^tr/i.test(t.lang ?? '') ? trs : en)  // the pane speaks the app's language
     const v = await read($, gorunum)
     const readAt = await read($, okundu)
     const log = await read($, mesajlar)
@@ -346,20 +359,20 @@ export const register: Register = on => {
     const openSession = async (k: Konu) => {
       await markRead(k.id)
       if (k.remote) {  // on another computer: its Remote Control opens it on claude.ai from here
-        if (!k.bridge || k.rc === false) return void $.ui.toast(`This session's Remote Control is off; open it on ${k.devName}.`)
+        if (!k.bridge || k.rc === false) return void $.ui.toast(L(`This session's Remote Control is off; open it on ${k.devName}.`, `Bu konunun Remote Control'ü kapalı; ${k.devName} üzerinde aç.`))
         const r = await $.process.run(await opener($, `https://claude.ai/code/${k.bridge}`), { timeoutMs: 10_000 })
-        if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
+        if (r.exitCode !== 0) $.ui.toast(L('Could not open: ', 'Açılamadı: ') + r.stderr.slice(0, 120))
         return
       }
       if (k.acc !== t.current) {
-        $.ui.toast(`This session belongs to another account (${accLabel(t, k.acc)}); it opens once you sign in with it.`)
+        $.ui.toast(L(`This session belongs to another account (${accLabel(t, k.acc)}); it opens once you sign in with it.`, `Bu konu başka bir hesaba ait (${accLabel(t, k.acc)}); o hesapla girince açılır.`))
       }
       const r = await $.process.run(await opener($, `claude://claude.ai/epitaxy/${k.id}`), { timeoutMs: 10_000 })
-      if (r.exitCode !== 0) $.ui.toast(`Could not open: ${r.stderr.slice(0, 120)}`)
+      if (r.exitCode !== 0) $.ui.toast(L('Could not open: ', 'Açılamadı: ') + r.stderr.slice(0, 120))
     }
     const send = async (k: Konu, text: string) => {
       if (!text.trim()) return
-      if (k.remote) return void $.ui.toast(`This session is on ${k.devName}; reply to it on claude.ai.`)
+      if (k.remote) return void $.ui.toast(L(`This session is on ${k.devName}; reply to it on claude.ai.`, `Bu konu ${k.devName} üzerinde; claude.ai'den cevap ver.`))
       try {
         const r = await $.mcp.call('ccd_session_mgmt', 'send_message', { session_id: k.id, message: text })
         const said = (r.content ?? []).map((c: any) => c.text ?? '').join(' ')
@@ -369,7 +382,7 @@ export const register: Register = on => {
           await update($, konusma, all => ({ ...all, [k.id]: [...(all[k.id] ?? []), { role: 'sen', text }] }))
         }
       } catch (err) {
-        $.ui.toast(`Could not send: ${cut(String(err), 160)}`)
+        $.ui.toast(L('Could not send: ', 'Gönderilemedi: ') + cut(String(err), 160))
       }
     }
 
@@ -396,7 +409,7 @@ export const register: Register = on => {
       </Button>
     )
     const openWeb = () => openMap($)
-    const toInbox = <Button key="kapat" label="Close all" onPress={() => set(g => ({ ...g, sel: '', cols: [] }))} />
+    const toInbox = <Button key="kapat" label={L('Close all', 'Hepsini kapat')} onPress={() => set(g => ({ ...g, sel: '', cols: [] }))} />
     const row = (k: Konu, prefix: string) => (
       <Box key={`r-${prefix}-${k.id}`} flexDirection="row" gap={1}>
         {closeBtn(k, 't')}
@@ -417,17 +430,17 @@ export const register: Register = on => {
         </Text>
         <Box flexDirection="row" gap={1} flexWrap="wrap" marginTop={1}>
           {[1, 7, 30, 0].map(d => (
-            <Button key={`gun-${d}`} variant={v.days === d ? 'primary' : 'secondary'} label={d === 0 ? 'All' : `${d} ${d === 1 ? 'day' : 'days'}`} onPress={() => set(g => ({ ...g, days: d }))} />
+            <Button key={`gun-${d}`} variant={v.days === d ? 'primary' : 'secondary'} label={d === 0 ? L('All', 'Hepsi') : L(`${d} ${d === 1 ? 'day' : 'days'}`, `${d} gün`)} onPress={() => set(g => ({ ...g, days: d }))} />
           ))}
-          <Button key="yenile" label="Yenile" onPress={() => scan($)} />
-          <Button key="web" variant="primary" label="Open web view" onPress={() => openWeb()} />
+          <Button key="yenile" label={L('Refresh', 'Yenile')} onPress={() => scan($)} />
+          <Button key="web" variant="primary" label={L('Open web view', 'Web görünümünü aç')} onPress={() => openWeb()} />
         </Box>
       </Box>
     )
 
     const tree = (
       <Box flexDirection="column">
-        <Text weight="bold">Projeler</Text>
+        <Text weight="bold">{L('Projects', 'Projeler')}</Text>
         {order.map(([name, list]) => {
           const isOpen = v.open.includes(name)
           const w = list.filter(waiting).length
@@ -454,11 +467,11 @@ export const register: Register = on => {
         {closed.length > 0 && (
           <Box flexDirection="column" marginTop={1}>
             <Button key="pb-__kapali" plain onPress={() => set(g => ({ ...g, open: g.open.includes('__kapali') ? g.open.filter(x => x !== '__kapali') : [...g.open, '__kapali'] }))}>
-              {v.open.includes('__kapali') ? '▾' : '▸'} <Text weight="bold">Closed</Text> <Text dimColor>{closed.length}</Text>
+              {v.open.includes('__kapali') ? '▾' : '▸'} <Text weight="bold">{L('Closed', 'Kapatılanlar')}</Text> <Text dimColor>{closed.length}</Text>
             </Button>
             {v.open.includes('__kapali') && [...closed].reverse().map(h => (
               <Box key={`k-${h.id}`} flexDirection="row" gap={1} paddingLeft={2}>
-                <Button key={`geri-${h.id}`} label="Reopen" onPress={() => reopen($, h.id)} />
+                <Button key={`geri-${h.id}`} label={L('Reopen', 'Yeniden aç')} onPress={() => reopen($, h.id)} />
                 <Text dimColor>{h.proj} · {cut(h.title, Math.max(16, leftCols - 24))}</Text>
               </Box>
             ))}
@@ -467,7 +480,7 @@ export const register: Register = on => {
       </Box>
     )
 
-    const svg = sky(groups, now, readAt, v.sel)
+    const svg = sky(groups, now, readAt, v.sel, /^tr/i.test(t.lang ?? ''))
     // The map's frame has no height of its own: size it from the viewBox so it keeps its shape.
     const box = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
     const ratio = box ? +box[2] / +box[1] : 0.6
@@ -484,14 +497,14 @@ export const register: Register = on => {
       </Box>
     )
 
-    const legend = <Text dimColor>Blinking red: something needs you · orange: agent working · grey: closed · white ring: unread reply. Hover for the title.</Text>
+    const legend = <Text dimColor>{L('Blinking red: something needs you · orange: agent working · grey: closed · white ring: unread reply. Hover for the title.', 'Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · gri: kapanmış · beyaz halka: okunmamış cevap. Başlık için üzerine gel.')}</Text>
 
     const target = v.sel && openCols.includes(`k:${v.sel}`) ? byId.get(v.sel) : undefined
     // One command bar: it writes to the focused topic column, or to this Qosmopol session when none is focused.
     const bar = Input && (
       <Box flexDirection="column" marginTop={1}>
         <Text dimColor>{target ? `→ ${target.proj} · ${cut(target.title, Math.max(16, leftCols - 14))}` : '→ Qosmopol (this session, Claude)'}</Text>
-        <Input key={`bar-${target?.id ?? 'ben'}`} rows={2} placeholder="Type or dictate (press 🌐 twice)" submitLabel="Send" onSubmit={(text: string) => {
+        <Input key={`bar-${target?.id ?? 'ben'}`} rows={2} placeholder={L('Type or dictate (press 🌐 twice)', 'Yaz ya da söyle (🌐 tuşuna iki kez bas)')} submitLabel={L('Send', 'Gönder')} onSubmit={(text: string) => {
           if (!text.trim()) return
           if (target) void send(target, text)
           else void $.prompt.submit({ text })
@@ -513,17 +526,17 @@ export const register: Register = on => {
         body = (
           <Box flexDirection="column">
             <Text dimColor>{k.remote ? k.proj : `${k.proj} · ${accLabel(t, k.acc)}`} · {ago(k.last, now)} ago</Text>
-            {k.need ? <Text color={RED}>Waiting: {k.need}</Text> : running(k) ? <Text color={ORANGE}>Agent working…</Text> : k.detail ? <Text>{k.detail}</Text> : null}
+            {k.need ? <Text color={RED}>{L('Waiting: ', 'Bekliyor: ')}{k.need}</Text> : running(k) ? <Text color={ORANGE}>{L('Agent working…', 'Ajan çalışıyor…')}</Text> : k.detail ? <Text>{k.detail}</Text> : null}
             <Box flexDirection="row" gap={1} marginY={1} flexWrap="wrap">
-              <Button key={`yaz-${k.id}`} variant={focused ? 'primary' : 'secondary'} label={focused ? 'The bar writes here' : 'Write here'} onPress={() => set(g => ({ ...g, sel: k.id }))} />
-              <Button key={`ac-${k.id}`} label="Open in app" onPress={() => openSession(k)} />
-              <Button key={`ok-${k.id}`} label="Mark read" onPress={() => markRead(k.id)} />
-              <Button key={`kk-${k.id}`} label={k.acc === t.current ? 'Close session (archive)' : 'Close session (hide)'} onPress={async () => {
+              <Button key={`yaz-${k.id}`} variant={focused ? 'primary' : 'secondary'} label={focused ? L('The bar writes here', 'Çubuk buraya yazıyor') : L('Write here', 'Buraya yaz')} onPress={() => set(g => ({ ...g, sel: k.id }))} />
+              <Button key={`ac-${k.id}`} label={L('Open in app', 'Uygulamada aç')} onPress={() => openSession(k)} />
+              <Button key={`ok-${k.id}`} label={L('Mark read', 'Okundu')} onPress={() => markRead(k.id)} />
+              <Button key={`kk-${k.id}`} label={k.acc === t.current ? L('Close session (archive)', 'Konuyu kapat (arşivle)') : L('Close session (hide)', 'Konuyu kapat (gizle)')} onPress={async () => {
                 await closeCol(c)
                 await closeTopics($, [k], t.current)
               }} />
             </Box>
-            <Text weight="bold">Conversation</Text>
+            <Text weight="bold">{L('Conversation', 'Konuşma')}</Text>
             {talk.length === 0 && history.length === 0 && <Text dimColor>{k.id in talks ? 'No transcript on this Mac (another account or the cloud).' : 'Loading…'}</Text>}
             {talk.length === 0 && history.map(m => (
               <Box key={`h-${m.id}`} flexDirection="column" marginTop={1}>
@@ -533,7 +546,7 @@ export const register: Register = on => {
             ))}
             {talk.map((m, i) => (
               <Box key={`c-${k.id}-${i}`} flexDirection="column" marginTop={1}>
-                {m.role === 'sen' ? <Text color="#4da3ff" weight="bold">Sen</Text> : <Text dimColor weight="bold">Claude</Text>}
+                {m.role === 'sen' ? <Text color="#4da3ff" weight="bold">{L('You', 'Sen')}</Text> : <Text dimColor weight="bold">Claude</Text>}
                 <Text>{cut(m.text, colCols * 14)}</Text>
               </Box>
             ))}
@@ -567,7 +580,7 @@ export const register: Register = on => {
               <Svg source={svg} alt={alt} width={bigW} height={Math.max(240, Math.min(1600, Math.round(bigW * ratio)))} isInteractive />
             </Box>
             {legend}
-            <Button key="kucult" label="Shrink" onPress={() => closeCol('harita')} />
+            <Button key="kucult" label={L('Shrink', 'Küçült')} onPress={() => closeCol('harita')} />
           </Box>
         )
       }
@@ -602,8 +615,8 @@ export const register: Register = on => {
     } else {
       const tabs = (
         <Box flexDirection="row" gap={1} flexWrap="wrap" marginBottom={1}>
-          <Button key="t-harita" variant={v.tab === 'harita' ? 'primary' : 'secondary'} label={`Bekleyenler (${waitList.length})`} onPress={() => set(g => ({ ...g, tab: 'harita' }))} />
-          <Button key="t-mesaj" variant={v.tab === 'mesajlar' ? 'primary' : 'secondary'} label={`Messages (${log.filter(m => msgUnread(m, byId, readAt)).length} new)`} onPress={() => set(g => ({ ...g, tab: 'mesajlar' }))} />
+          <Button key="t-harita" variant={v.tab === 'harita' ? 'primary' : 'secondary'} label={`${L('Waiting', 'Bekleyenler')} (${waitList.length})`} onPress={() => set(g => ({ ...g, tab: 'harita' }))} />
+          <Button key="t-mesaj" variant={v.tab === 'mesajlar' ? 'primary' : 'secondary'} label={`${L('Messages', 'Mesajlar')} (${log.filter(m => msgUnread(m, byId, readAt)).length} ${L('new', 'yeni')})`} onPress={() => set(g => ({ ...g, tab: 'mesajlar' }))} />
         </Box>
       )
       if (v.tab === 'mesajlar') {
@@ -623,13 +636,13 @@ export const register: Register = on => {
             {tabs}
             <Box flexDirection="row" gap={1} flexWrap="wrap" marginBottom={1}>
               {(['hepsi', 'okunmamis', 'okunmus', 'bekleyen'] as const).map(f => (
-                <Button key={`f-${f}`} variant={v.filter === f ? 'primary' : 'secondary'} label={{ hepsi: 'All', okunmamis: 'Unread', okunmus: 'Read', bekleyen: 'Waiting' }[f]} onPress={() => set(g => ({ ...g, filter: f, limit: 40 }))} />
+                <Button key={`f-${f}`} variant={v.filter === f ? 'primary' : 'secondary'} label={{ hepsi: L('All', 'Hepsi'), okunmamis: L('Unread', 'Okunmamış'), okunmus: L('Read', 'Okunmuş'), bekleyen: L('Waiting', 'Bekleyen') }[f]} onPress={() => set(g => ({ ...g, filter: f, limit: 40 }))} />
               ))}
               {Select && (
-                <Select key="proj" label="Project" value={v.proj} options={[{ value: '', label: 'All projects' }, ...projs.map(p => ({ value: p, label: p }))]} onSelect={(p: string) => set(g => ({ ...g, proj: p, limit: 40 }))} />
+                <Select key="proj" label={L('Project', 'Proje')} value={v.proj} options={[{ value: '', label: L('All projects', 'Bütün projeler') }, ...projs.map(p => ({ value: p, label: p }))]} onSelect={(p: string) => set(g => ({ ...g, proj: p, limit: 40 }))} />
               )}
             </Box>
-            {list.length === 0 && <Text dimColor>Bu filtrede mesaj yok.</Text>}
+            {list.length === 0 && <Text dimColor>{L('No messages for this filter.', 'Bu filtrede mesaj yok.')}</Text>}
             {list.slice(0, v.limit).map(m => {
               const u = msgUnread(m, byId, readAt)
               return (
@@ -642,19 +655,19 @@ export const register: Register = on => {
                 </Button>
               )
             })}
-            {list.length > v.limit && <Button key="daha" label={`Daha fazla (${list.length - v.limit})`} onPress={() => set(g => ({ ...g, limit: g.limit + 40 }))} />}
+            {list.length > v.limit && <Button key="daha" label={`${L('More', 'Daha fazla')} (${list.length - v.limit})`} onPress={() => set(g => ({ ...g, limit: g.limit + 40 }))} />}
           </Box>
         )
       } else {
         right = (
           <Box flexDirection="column">
             {tabs}
-            {waitList.length === 0 && <Text dimColor>Nothing is waiting for you.</Text>}
+            {waitList.length === 0 && <Text dimColor>{L('Nothing is waiting for you.', 'Seni bekleyen bir şey yok.')}</Text>}
             {old.length > 0 && (
               <Box flexDirection="row" gap={1} flexWrap="wrap" marginBottom={1}>
-                {v.onay !== 'eski' && <Button key="eski" label={`Close older than 7 days (${old.length})`} onPress={() => set(g => ({ ...g, onay: 'eski' }))} />}
-                {v.onay === 'eski' && <Button key="eski-onay" variant="primary" label={`Yes, close ${old.length}`} onPress={async () => { await set(g => ({ ...g, onay: '' })); await closeTopics($, old, t.current) }} />}
-                {v.onay === 'eski' && <Button key="eski-vazgec" label="Cancel" onPress={() => set(g => ({ ...g, onay: '' }))} />}
+                {v.onay !== 'eski' && <Button key="eski" label={L(`Close older than 7 days (${old.length})`, `7 günden eskileri kapat (${old.length})`)} onPress={() => set(g => ({ ...g, onay: 'eski' }))} />}
+                {v.onay === 'eski' && <Button key="eski-onay" variant="primary" label={L(`Yes, close ${old.length}`, `Evet, ${old.length} konuyu kapat`)} onPress={async () => { await set(g => ({ ...g, onay: '' })); await closeTopics($, old, t.current) }} />}
+                {v.onay === 'eski' && <Button key="eski-vazgec" label={L('Cancel', 'Vazgeç')} onPress={() => set(g => ({ ...g, onay: '' }))} />}
               </Box>
             )}
             {waitList.map(k => (
@@ -688,7 +701,7 @@ export const register: Register = on => {
             <Box backgroundColor="#181818" marginY={1}>
               <Svg source={svg} alt={alt} width={miniW} height={Math.round(miniW * ratio)} isInteractive />
             </Box>
-          ) : <Text dimColor>No sessions in this time range.</Text>}
+          ) : <Text dimColor>{L('No sessions in this time range.', 'Bu zaman aralığında konu yok.')}</Text>}
           {waitList.map(k => (
             <Button key={`mw-${k.id}`} plain onPress={async () => { await set(g => ({ ...g, sel: k.id })); await openSession(k) }}>
               <Text color={RED}>●</Text> <Text weight="bold">{k.proj}</Text> · {cut(k.title, Math.max(12, cols - 16))}
@@ -705,7 +718,7 @@ export const register: Register = on => {
                 <Text dimColor>{miniTarget ? `→ ${miniTarget.proj} · ${cut(miniTarget.title, Math.max(12, cols - 22))}` : '→ Qosmopol (Claude)'}</Text>
                 {miniTarget && <Button key="hedef-sil" plain onPress={() => set(g => ({ ...g, sel: '' }))}><Text dimColor>✕</Text></Button>}
               </Box>
-              <Input key={`mini-bar-${miniTarget?.id ?? 'ben'}`} rows={2} placeholder="Type or dictate (🌐 twice)" submitLabel="Send" onSubmit={(text: string) => {
+              <Input key={`mini-bar-${miniTarget?.id ?? 'ben'}`} rows={2} placeholder={L('Type or dictate (🌐 twice)', 'Yaz ya da söyle (🌐 iki kez)')} submitLabel={L('Send', 'Gönder')} onSubmit={(text: string) => {
                 if (!text.trim()) return
                 if (miniTarget) void send(miniTarget, text)
                 else void $.prompt.submit({ text })
@@ -713,9 +726,9 @@ export const register: Register = on => {
             </Box>
           )}
           <Button key="web-mini" plain onPress={() => openWeb()}>
-            <Text color="#4da3ff">⤢ Open the web view: clickable map, columns, microphone</Text>
+            <Text color="#4da3ff">{L('⤢ Open the web view: clickable map, columns, microphone', '⤢ Web görünümünü aç: tıklanır harita, sütunlar, mikrofon')}</Text>
           </Button>
-          <Text dimColor>Click a session to open it in the app. For side by side, drag it from the sidebar or right-click → Open in → Split view. Widen the pane for details.</Text>
+          <Text dimColor>{L('Click a session to open it in the app. For side by side, drag it from the sidebar or right-click → Open in → Split view. Widen the pane for details.', 'Uygulamada açmak için bir konuya tıkla. Yan yana görmek için kenar çubuğundan sürükle ya da sağ tık → Open in → Split view. Ayrıntılar için paneli genişlet.')}</Text>
         </Box>
       )
     }

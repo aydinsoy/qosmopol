@@ -33,7 +33,7 @@ export function visible(all: Konu[], days: number, now: number) {
 
 export function accLabel(t: Tarama, acc: string) {
   const i = t.accounts.indexOf(acc)
-  return `H${i + 1}${acc === t.current ? '' : ' · other'}`
+  return `H${i + 1}${acc === t.current ? '' : /^tr/i.test(t.lang ?? '') ? ' · diğer' : ' · other'}`
 }
 
 export type Planet = { name: string; moons: Konu[]; r: number; outer: number; x: number; y: number }
@@ -64,7 +64,7 @@ export function layout(groups: Map<string, Konu[]>) {
   return placed
 }
 
-export function sky(groups: Map<string, Konu[]>, now: number, readAt: Record<string, number>, sel: string) {
+export function sky(groups: Map<string, Konu[]>, now: number, readAt: Record<string, number>, sel: string, tr = false) {
   const planets = layout(groups)
   if (planets.length === 0) return ''
   const minX = Math.min(...planets.map(p => p.x - p.outer)) - 20
@@ -102,7 +102,7 @@ export function sky(groups: Map<string, Konu[]>, now: number, readAt: Record<str
       const isNew = !isWait && unread(k, readAt)
       const isRun = running(k)
       const fill = isWait ? RED : isRun ? ORANGE : DONE
-      const tip = `${p.name} · ${k.title}\n${isWait ? 'WAITING FOR YOU' : isRun ? 'Agent working' : isNew ? 'Unread reply' : 'Read'} · ${ago(k.last, now)} ago${k.need ? `\n${k.need}` : ''}`
+      const tip = `${p.name} · ${k.title}\n${isWait ? (tr ? 'SENİ BEKLİYOR' : 'WAITING FOR YOU') : isRun ? (tr ? 'Ajan çalışıyor' : 'Agent working') : isNew ? (tr ? 'Okunmamış cevap' : 'Unread reply') : (tr ? 'Okundu' : 'Read')} · ${ago(k.last, now)}${tr ? ' önce' : ' ago'}${k.need ? `\n${k.need}` : ''}`
       out.push(`<a href="claude://claude.ai/epitaxy/${k.id}" target="_top" style="cursor:pointer"><g><title>${esc(tip)}</title>`)
       out.push(`<line x1="${ex}" y1="${ey}" x2="${mx}" y2="${my}" stroke="${isWait ? RED : isRun ? ORANGE : '#3a3a3a'}" stroke-width="${isWait || isRun ? 0.9 : 0.6}"/>`)
       if (isWait) out.push(`<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="${RED}" opacity="0.45"><animate attributeName="opacity" values="0.5;0;0.5" dur="0.9s" repeatCount="indefinite"/></circle>`)

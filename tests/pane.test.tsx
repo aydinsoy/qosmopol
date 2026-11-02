@@ -307,3 +307,43 @@ test('what the owner writes to any other session arrives there as their own word
   const done = argvs.find(a => a.includes('done'))
   expect(JSON.parse(done![done!.indexOf('done') + 1])[0]).toMatchObject({ job: 'abc', ok: true })
 })
+
+for (const lang of ['en-US', 'tr-TR']) test(`the pane speaks the app's language only (${lang})`, async ($, on) => {
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    return { value: { exitCode: 0, stdout: JSON.stringify({ ...SCAN, lang }), stderr: '' } }
+  })
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop', props: { ...PANE.props, bodyColumns: 180 } })
+  const seen: string[] = []
+  const look = async () => { for (const e of [...await ui.findAll({ type: 'Text' }), ...await ui.findAll({ type: 'Button' })]) seen.push(e.text || String(e.props.label ?? '')) }
+  await look()
+  await ui.press({ key: 'w-local_1' })  // a session's column
+  await look()
+  await ui.press({ key: 'kapat' })  // back to the lists: the waiting and the messages tabs
+  await look()
+  await ui.press({ key: 't-mesaj' })
+  await look()
+  await ui.unmount()
+  const words = seen.join(' | ')
+  if (lang === 'en-US') {
+    // the sample sessions' own titles are English: any Turkish here came from the pane itself
+    expect(words).not.toMatch(/[ğüşöçıİĞÜŞÖÇ]|\b(Yenile|Projeler|Bekleyenler|Daha fazla|Sen|Konuşma|Hepsi|bekliyor)\b/)
+    expect(words).toMatch(/Projects/)
+  } else {
+    expect(words).toMatch(/Projeler/)
+    expect(words).toMatch(/Yenile/)
+    expect(words).toMatch(/Konuşma/)
+    expect(words).not.toMatch(/\b(Projects|Refresh|Conversation|Open in app|Mark read)\b/)
+  }
+})

@@ -1019,9 +1019,16 @@ function tr(s, whole = true) {
 }
 const USER_TEXT = '.txt, .sub, .waitbox, .infobox, script, style'
 const NAME_UI = new Set(['Home session (Claude)', 'Map', 'Inbox', 'Qosmopol · home session', 'Other computers'])
+// What was translated keeps its English: the page starts in the browser's language and learns Claude's own from the
+// first scan, and a Turkish browser with Claude in English must not keep Turkish words (2026-11-02).
+const TRANSLATED = []  // [text node or element, attribute or null, the English it had]
+function untranslateDOM() {
+  for (const [n, a, en] of TRANSLATED.splice(0)) if (n.isConnected) a ? n.setAttribute(a, en) : (n.nodeValue = en)
+}
 function translateDOM() {
   document.documentElement.lang = LANG
-  if (LANG !== 'tr') return
+  if (LANG !== 'tr') return untranslateDOM()
+  if (TRANSLATED.length > 20000) TRANSLATED.splice(0, TRANSLATED.length, ...TRANSLATED.filter(([n]) => n.isConnected))
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => {
     const p = n.parentElement
     if (!p || (p.closest(USER_TEXT) && !p.matches('.waitbox > b'))) return NodeFilter.FILTER_REJECT
@@ -1033,11 +1040,11 @@ function translateDOM() {
     const p = n.parentElement, inName = p.closest('.name, .t, .p, .title')
     if (inName && !NAME_UI.has(n.nodeValue.trim()) && !/^\d+ sessions?$/.test(n.nodeValue.trim())) continue
     const v = tr(n.nodeValue)
-    if (v !== n.nodeValue) n.nodeValue = v
+    if (v !== n.nodeValue) { TRANSLATED.push([n, null, n.nodeValue]); n.nodeValue = v }
   }
   for (const el of document.querySelectorAll('[placeholder], [title], [data-tip]')) {
     if (el.matches('.row, .item')) continue  // their title is a session's own name
-    for (const a of ['placeholder', 'title', 'data-tip']) { const v = el.getAttribute(a); if (v) { const t = tr(v); if (t !== v) el.setAttribute(a, t) } }
+    for (const a of ['placeholder', 'title', 'data-tip']) { const v = el.getAttribute(a); if (v) { const t = tr(v); if (t !== v) { TRANSLATED.push([el, a, v]); el.setAttribute(a, t) } } }
   }
 }
 let trQueued = false
@@ -1492,7 +1499,7 @@ function byFolder(d) {
   return d
 }
 async function refresh(now) {
-  try { S.data = byFolder(await api('/api/scan' + (now ? '?t=' + Date.now() : ''))); if (S.data.lang) LANG = /^tr/i.test(S.data.lang) ? 'tr' : 'en' } catch (err) { $('#counts').textContent = 'Cannot reach the server: ' + err.message; return }
+  try { S.data = byFolder(await api('/api/scan' + (now ? '?t=' + Date.now() : ''))); if (S.data.lang) { const was = LANG; LANG = /^tr/i.test(S.data.lang) ? 'tr' : 'en'; if (was !== LANG) translateDOM() } } catch (err) { $('#counts').textContent = 'Cannot reach the server: ' + err.message; return }
   for (const [job, j] of Object.entries(S.jobs)) {
     const r = S.data.results?.[job], out = j.note?.isConnected ? j.note : $('#sidebar-composer .note')
     if (r) { out.textContent = r.ok ? `✓ delivered · ${j.label}` : `✗ not delivered · ${j.label}: ${r.text}`; delete S.jobs[job] }
