@@ -1046,6 +1046,7 @@ const TR = {
   'Project names': 'Proje adları', 'Folder names': 'Klasör adları', 'Your own names and the Claude sidebar groups': 'Kendi verdiğin adlar ve Claude kenar çubuğu grupları', 'Each session under the folder it runs in': 'Her konu çalıştığı klasörün altında',
   'Close session (undoable)': 'Konuyu kapat (geri alınabilir)', 'Close its sessions…': 'Konularını kapat…',
   'Show session titles': 'Konu başlıklarını göster', 'Hide session titles': 'Konu başlıklarını gizle',
+  "Claude did not allow this change from the map: change it in the Claude app (opening it there).": "Claude bu değişikliğe haritadan izin vermedi: Claude uygulamasında değiştir (orada açılıyor).",
   'Hidden on the map; the Claude app did not allow archiving it.': 'Haritada gizlendi; Claude arşivlemeye izin vermedi.',
   'Nothing to undo': 'Geri alınacak bir şey yok', 'Session reopened': 'Konu yeniden açıldı', 'Nothing to redo': 'Yinelenecek bir şey yok', 'Session closed again': 'Konu yeniden kapatıldı',
   'Rename…': 'Adını değiştir…', 'Rename': 'Adını değiştir', 'New name': 'Yeni ad',
@@ -1234,7 +1235,7 @@ function chipMenu(comp, chip) {
   const k = targetOf(comp), what = chip.dataset.chip, note = comp.querySelector('.note')
   if (!k) return
   const set = value => api('/api/set', { id: comp.dataset.to.startsWith('k:') ? k.id : '', what, value })
-    .then(r => { S.jobs[r.job] = { label: `${what} → ${value}`, at: Date.now(), note }; note.textContent = 'Asking the app… (it may show an approval card)'; setTimeout(() => refresh(true), 3000) })
+    .then(r => { S.jobs[r.job] = { label: `${what} → ${value}`, at: Date.now(), note, set: k.id }; note.textContent = 'Asking the app… (it may show an approval card)'; setTimeout(() => refresh(true), 3000) })
     .catch(err => { note.textContent = 'Could not change: ' + err.message })
   const models = [...new Set([k.model, ...(S.data.sessions ?? []).map(x => x.model)].filter(Boolean))].sort()
   const items = what === 'mode' ? Object.entries(MODES).map(([v, l]) => ({ label: l, on: k.mode === v, run: () => set(v) }))
@@ -1566,6 +1567,13 @@ async function refresh(now) {
     const r = S.data.results?.[job], out = j.note?.isConnected ? j.note : $('#sidebar-composer .note')
     // a close already shows on the map; the Claude app may refuse the archive (its permission check, 2026-11-02): say so
     if (j.kind && (r || Date.now() - j.at > 20000)) { if (j.kind === 'archive' && r && !r.ok) refused++; delete S.jobs[job]; continue }
+    // a model, effort or mode change the app refused from here (its permission check, as in auto mode): say it plainly and
+    // take the owner to the session in the Claude app, where it is one click (2026-11-02: four refused clicks in a row)
+    if (r && j.set && !r.ok && /refused|classifier|permission/i.test(r.text)) {
+      out.textContent = "Claude did not allow this change from the map: change it in the Claude app (opening it there)."
+      const k = byId().get(j.set); if (k) openInApp(k)
+      delete S.jobs[job]; continue
+    }
     if (r) { out.textContent = r.ok ? `✓ delivered · ${j.label}` : `✗ not delivered · ${j.label}: ${r.text}`; delete S.jobs[job] }
     else if (Date.now() - j.at > 20000) { out.textContent = `${j.label}: the bridge is not answering. Is the home session open?`; delete S.jobs[job] }
   }
