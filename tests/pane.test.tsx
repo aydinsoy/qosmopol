@@ -276,10 +276,13 @@ test('what the owner writes to any other session arrives there as their own word
     return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
   })
   on('fs.list', () => ({ value: Object.entries(files).map(([p, t]) => ({ name: p.split('/').pop()!, kind: 'file' as const, size: t.length, mtimeMs: 0, isLink: false })) }))
-  on('fs.read', (_, e) => ({ value: files[e.path] }))
+  // the engine hands paths on in the platform's own spelling (C:\q\gelen\... on Windows): compare them as /q/gelen/...
+  const norm = (p: string) => p.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '')
+  on('fs.read', (_, e) => ({ value: files[norm(e.path)] }))
   on('fs.write', (_, e) => {
-    writes.push([e.path, e.text])
-    if (e.path in files) files[e.path] = e.text
+    const path = norm(e.path)
+    writes.push([path, e.text])
+    if (path in files) files[path] = e.text
     return { value: undefined }
   })
   on('prompt.submit', (_, e) => {

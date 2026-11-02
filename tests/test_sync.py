@@ -209,6 +209,18 @@ class Sync(unittest.TestCase):
         self.assertEqual(d["sessions"][0]["sub"], "#Game")
         self.assertNotIn("rule", d["sessions"][0])
 
+    def test_a_hostile_summary_stays_plain_data(self):
+        evil = "<img src=x onerror=alert(1)>"
+        self.other(sessions=[dict(ROW, id="local_ok\"><b>", turns=evil, model=evil, last="soon", star="yes", busy=1,
+                                  cat="blocked<script>", rc="on", title=["not", "text"], need=evil * 200, extra=evil)])
+        _, rows = sync.peers()
+        r = rows[0]
+        self.assertEqual((r["id"], r["turns"], r["last"], r["star"], r["busy"], r["cat"], r["rc"], r["title"]),
+                         ("local_okb", 0, 0, False, False, "blockedscript", None, ""))
+        self.assertEqual(r["model"], evil[:60])  # text stays text: the page escapes it
+        self.assertLessEqual(len(r["need"]), 600)
+        self.assertNotIn("extra", r)
+
     def test_remote_control_state_travels(self):
         t = time.time()
         sync.publish([dict(ROW, last=t * 1000, rc=False)], now=t)

@@ -70,11 +70,15 @@ def save(path, value):
 
 
 def token():
-    os.makedirs(HOME, exist_ok=True)
+    os.makedirs(HOME, mode=0o700, exist_ok=True)
+    try:
+        os.chmod(HOME, 0o700)  # the queue, the archive and the inboxes are the owner's alone
+    except OSError:
+        pass
     if not os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, "w") as f:
+        fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)  # private from its first byte
+        with os.fdopen(fd, "w") as f:
             f.write(secrets.token_hex(16))
-        os.chmod(TOKEN_FILE, 0o600)
     return open(TOKEN_FILE).read().strip()
 
 
@@ -244,8 +248,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 sid = q.get("id", [""])[0]
                 if sid == "home":  # the Qosmopol home session, by its transcript id
                     sid = open(SESSION).read().strip() if os.path.exists(SESSION) else ""
-                elif not sid.startswith("local_"):
-                    sid = ""
+                elif not re.fullmatch(r"local_[A-Za-z0-9_-]{1,80}", sid):
+                    sid = ""  # no glob characters or paths reach konu.py
                 return self.reply(200, json.loads(run("konu.py", sid)))
         except Exception as err:  # noqa: BLE001 - the page shows it
             return self.reply(500, {"error": str(err)[:300]})

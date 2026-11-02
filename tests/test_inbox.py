@@ -61,6 +61,15 @@ class Inbox(unittest.TestCase):
         server.unclaimed()
         self.assertFalse(os.path.exists(receipt))
 
+    def test_the_token_and_the_folder_are_the_owners_alone(self):
+        if os.path.exists(server.TOKEN_FILE):
+            os.remove(server.TOKEN_FILE)
+        os.chmod(server.HOME, 0o755)
+        self.assertEqual(len(server.token()), 32)
+        self.assertEqual(os.stat(server.TOKEN_FILE).st_mode & 0o777, 0o600)
+        if sys.platform != "win32":
+            self.assertEqual(os.stat(server.HOME).st_mode & 0o777, 0o700)
+
     def test_the_conversation_shows_what_came_through_another_session(self):
         proj = os.path.join(ROOT, ".claude", "projects", "p")
         os.makedirs(proj, exist_ok=True)

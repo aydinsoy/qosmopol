@@ -158,6 +158,32 @@ def set_groups(changes):
     return g
 
 
+def clean(k):
+    """A session row from another computer's summary, every field coerced to its own type and length. That file is
+    only as trustworthy as the shared folder: a stray or hostile value must stay plain text on the page."""
+    def text(v, n):
+        return v[:n] if isinstance(v, str) else ""
+
+    def num(v):
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v == v and abs(v) < 1e16 else 0
+
+    def flag(v):
+        return v is True
+
+    row = {"id": "".join(c for c in text(k.get("id"), 80) if c.isalnum() or c in "_-"),
+           "acc": text(k.get("acc"), 80), "title": text(k.get("title"), 120), "proj": text(k.get("proj"), 120),
+           "last": num(k.get("last")), "seen": num(k.get("seen")), "created": num(k.get("created")),
+           "turns": int(num(k.get("turns"))), "star": flag(k.get("star")),
+           "cat": "".join(c for c in text(k.get("cat"), 30) if c.isalnum() or c == "_"), "need": text(k.get("need"), 600),
+           "detail": text(k.get("detail"), 600), "sumId": text(k.get("sumId"), 80), "error": flag(k.get("error")),
+           "busy": flag(k.get("busy")), "ask": flag(k.get("ask")), "model": text(k.get("model"), 60),
+           "effort": text(k.get("effort"), 20), "mode": text(k.get("mode"), 30),
+           "bridge": "".join(c for c in text(k.get("bridge"), 80) if c.isalnum() or c in "_-"),
+           "rc": k.get("rc") if isinstance(k.get("rc"), bool) else None,
+           "side": text(k.get("side"), 80), "sub": text(k.get("sub"), 200)}
+    return {f: row.get(f) for f in FIELDS}
+
+
 def apply_groups(rows, me):
     """Give each session the owner's project name: a session's own rule, then its subfolder's (the deepest one),
     then its project folder's, then the Claude sidebar group it is filed under. Returns every name in use, for the
@@ -251,7 +277,7 @@ def peers(now=None):
         for k in d["sessions"]:
             if not isinstance(k, dict) or not str(k.get("id") or "").startswith("local_"):
                 continue
-            row = {f: k.get(f) for f in FIELDS}
+            row = clean(k)
             row.update(proj=f"{row.get('proj') or 'No folder'} · {name}", proj0=row.get("proj") or "No folder", cwd="",
                        home=False, remote=True, dev=devices[-1]["id"], devName=name, stale=stale)
             if stale:
