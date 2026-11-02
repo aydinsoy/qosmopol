@@ -260,11 +260,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/group":  # sessions or a whole planet under one of the owner's project names ('' takes them out)
                 rows = scan()["sessions"]
                 rules = sync.groups().get("rules") or {}
-                if sid:
+                folder = next((k for k in rows if k["id"] == str(body.get("folder") or "")), None)
+                if folder:  # every session in that session's subfolder, now and later, on its own computer
+                    base = f"{folder.get('dev', '')}:{folder.get('proj0') or folder['proj']}"
+                    keys = [f"f:{base}/{folder['sub']}" if folder.get("sub") else f"p:{base}"]
+                elif sid:
                     keys = ["s:" + sid]
-                else:
-                    planet = str(body.get("planet") or "")[:200]
-                    keys = sorted({("s:" + k["id"]) if ("s:" + k["id"]) in rules else f"p:{k.get('dev', '')}:{k.get('proj0') or k['proj']}"
+                else:  # a planet: change the rules that named its sessions; the rest go by their folder (or one by one
+                    planet = str(body.get("planet") or "")[:200]  # when a Claude sidebar group named them)
+                    keys = sorted({k.get("rule") or ("s:" + k["id"] if k.get("side") else f"p:{k.get('dev', '')}:{k.get('proj0') or k['proj']}")
                                    for k in rows if k["proj"] == planet})
                 if not keys:
                     return self.reply(404, {"error": "nothing to move"})

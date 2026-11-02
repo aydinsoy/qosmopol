@@ -940,7 +940,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
+  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
 ]
@@ -1005,12 +1005,13 @@ function closeMenu() { $('#menu').classList.remove('on'); document.querySelector
 // The owner's own projects: beyond the Claude sidebar groups (which the map takes as they are), sessions and whole
 // planets are gathered here under names of the owner's choosing (bin/sync.py keeps them, and the other computers get them too).
 function groupMenu(anchor, target, current) {
-  const names = S.data.groups ?? []
+  const names = S.data.groups ?? [], k = target.id && byId().get(target.id)
   const go = name => api('/api/group', { ...target, name }).then(() => { toast(name ? `Moved to ${name}` : 'Taken out of the project'); return refresh(true) }).catch(err => toast('Could not move: ' + err.message))
   openMenu(anchor, [{ hd: 'Move to project' },
     ...names.filter(n => n !== current).map(n => ({ label: n, run: () => go(n) })),
     { input: 'New project name', button: 'Add', run: go },
-    ...(current && names.includes(current) ? [{ label: 'Take out of this project', run: () => go('') }] : [])])
+    ...(current && names.includes(current) ? [{ label: 'Take out of this project', run: () => go('') }] : []),
+    ...(k?.sub ? [{ label: `The whole folder “${k.sub.split('/').pop()}” instead…`, run: () => setTimeout(() => folderMenu(anchor, k)) }] : [])])
   anchor.classList?.add('open')
 }
 // A planet's own name: its folder's, unless the owner gives it the name they use in Claude's sidebar. Same rules as
@@ -1025,6 +1026,8 @@ function renameMenu(anchor, name) {
   openMenu(anchor, [{ hd: 'Rename' }, { input: 'New name', value: name, button: 'Save', run: go }])
   anchor.classList?.add('open')
 }
+// A subfolder (Media/#Game) as one project: its sessions, and the ones started there later, on this computer.
+const folderMenu = (anchor, k) => groupMenu(anchor, { folder: k.id }, k.rule?.startsWith('f:') ? k.proj : '')
 // The ⋯ menu of a sidebar row: a project, or a session started without one.
 function moveTo(row, end) {
   const names = [...row.parentElement.querySelectorAll('.row[data-drag]')].map(r => r.dataset.drag).filter(n => n !== row.dataset.drag)
@@ -1056,6 +1059,7 @@ function rowMenu(row, anchor) {
       { label: 'Mark read', run: () => markRead(k) },
       { label: 'Move to top', run: () => moveTo(row, 'top') },
       { label: 'Move to project…', run: () => groupMenu(anchor, { id: k.id }, k.group ? k.proj : '') },
+      ...(k.sub ? [{ label: `Move folder “${k.sub.split('/').pop()}” to project…`, run: () => folderMenu(anchor, k) }] : []),
       { label: 'Close session', run: () => closeTopic(k) },
     ]
   }

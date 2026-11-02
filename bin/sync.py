@@ -32,7 +32,7 @@ STALE = 1800  # seconds: a computer that wrote nothing for this long is shown as
 RECENT = 30 * 86400  # seconds: older sessions stay home unless they wait for the owner (keeps the file small)
 # What another computer may see of a session: no folder paths, nothing the map does not show.
 FIELDS = ("id", "acc", "title", "proj", "last", "seen", "created", "turns", "star", "cat", "need", "detail",
-          "sumId", "error", "busy", "ask", "model", "effort", "mode", "bridge", "rc", "side")
+          "sumId", "error", "busy", "ask", "model", "effort", "mode", "bridge", "rc", "side", "sub")
 _last = {"body": None, "at": 0.0}
 _peer_groups = {"at": 0, "rules": {}}  # the newest groups another computer published, seen by peers()
 
@@ -159,16 +159,21 @@ def set_groups(changes):
 
 
 def apply_groups(rows, me):
-    """Give each session the owner's project name: a session's own rule, then its folder's, then the Claude sidebar
-    group it is filed under. Returns every name in use, for the "Move to project" list."""
+    """Give each session the owner's project name: a session's own rule, then its subfolder's (the deepest one),
+    then its project folder's, then the Claude sidebar group it is filed under. Returns every name in use, for the
+    "Move to project" list. The rule that named a session stays on it, so renaming its planet changes that rule."""
     rules = groups().get("rules") or {}
     for k in rows:
         k.setdefault("dev", me)
         k.setdefault("proj0", k.get("proj") or "")
         side = k.get("side") if isinstance(k.get("side"), str) else ""
-        name = rules.get("s:" + str(k.get("id"))) or rules.get(f"p:{k['dev']}:{k['proj0']}") or side
-        if name:
-            k["proj"], k["group"] = name, True
+        parts = [p for p in (k.get("sub") if isinstance(k.get("sub"), str) else "").split("/") if p]
+        keys = ["s:" + str(k.get("id"))] + [f"f:{k['dev']}:{k['proj0']}/" + "/".join(parts[:n]) for n in range(len(parts), 0, -1)]
+        rule = next((key for key in keys + [f"p:{k['dev']}:{k['proj0']}"] if rules.get(key)), None)
+        if rule:
+            k["proj"], k["group"], k["rule"] = rules[rule], True, rule
+        elif side:
+            k["proj"], k["group"] = side, True
     return sorted(set(rules.values()) | {k["side"] for k in rows if isinstance(k.get("side"), str) and k["side"]})
 
 

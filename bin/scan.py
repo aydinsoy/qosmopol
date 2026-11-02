@@ -56,6 +56,15 @@ def project(path):
     return parts[-1]
 
 
+def subfolder(path):
+    """The folder below the project's own, as in Media/#Game → "#Game": one project folder often holds several pieces
+    of work, and a folder rule can gather one of them on its own. '' when the session runs in the project folder."""
+    parts = (path or "").replace("\\", "/").rstrip("/").split("/")
+    if "/scratch-workspaces/" in path or "Projects" not in parts:
+        return ""
+    return "/".join(parts[parts.index("Projects") + 2:])
+
+
 accounts, rows, current = [], [], ""
 for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
     acc = os.path.relpath(f, ROOT).split(os.sep)[0]
@@ -77,6 +86,7 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
         "acc": acc,
         "title": (d.get("title") or "Untitled session")[:120],
         "proj": project(cwd),
+        "sub": subfolder(cwd),
         "cwd": cwd,
         "last": d.get("lastActivityAt") or 0,
         "seen": d.get("lastFocusedAt") or 0,

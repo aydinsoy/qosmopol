@@ -192,6 +192,23 @@ class Sync(unittest.TestCase):
         d = json.load(open(os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json"), encoding="utf-8"))
         self.assertEqual(d["sessions"][0]["side"], "Client Ads")
 
+    def test_a_subfolder_is_its_own_project_and_the_deepest_rule_wins(self):
+        me = sync.device()["id"]
+        sync.set_groups({f"f:{me}:Media/#Game": "Space Game", f"f:{me}:Media/#Game/assets": "Art", f"p:{me}:Media": "Channel",
+                         "s:local_one": "Website"})
+        rows = [dict(ROW, id="local_a", proj="Media", sub="#Game"), dict(ROW, id="local_b", proj="Media", sub="#Game/assets/x"),
+                dict(ROW, id="local_c", proj="Media", sub="#Music"), dict(ROW, id="local_one", proj="Media", sub="#Game"),
+                dict(ROW, id="local_d", proj="Media", sub="#Game", side="Client Ads")]
+        sync.apply_groups(rows, me)
+        self.assertEqual([(k["proj"], k.get("rule")) for k in rows],
+                         [("Space Game", f"f:{me}:Media/#Game"), ("Art", f"f:{me}:Media/#Game/assets"),
+                          ("Channel", f"p:{me}:Media"), ("Website", "s:local_one"), ("Space Game", f"f:{me}:Media/#Game")])
+        t = time.time()
+        sync.publish([dict(ROW, last=t * 1000, sub="#Game")], now=t)  # the other computers group it the same way
+        d = json.load(open(os.path.join(self.shared, "Qosmopol", "cihazlar", f"{me}.json"), encoding="utf-8"))
+        self.assertEqual(d["sessions"][0]["sub"], "#Game")
+        self.assertNotIn("rule", d["sessions"][0])
+
     def test_remote_control_state_travels(self):
         t = time.time()
         sync.publish([dict(ROW, last=t * 1000, rc=False)], now=t)
