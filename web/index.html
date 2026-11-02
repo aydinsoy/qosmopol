@@ -64,6 +64,7 @@
   .col > header .hbtn { height: 24px; padding: 0 8px; flex: none; white-space: nowrap; }
   .icon { width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .icon:hover { background: var(--hover); color: var(--text); }
+  .msg .via { font-size: 11px; color: var(--dim); margin: 0 0 2px; text-align: right; }
   .seg { display: flex; background: var(--seg); border-radius: 7px; padding: 2px; gap: 2px; }
   .seg button { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 22px; padding: 0 9px; border: 0; border-radius: 5px; background: none; color: var(--dim); font-size: 11.5px; }
   .seg button:hover { color: var(--text); }
@@ -575,7 +576,7 @@ function renderPlist() {
     <div class="sub${waiting(k) ? ' red' : running(k) ? ' orange' : ''}">${waiting(k) ? md(cut(k.need || k.detail || 'Waiting for your answer.', 240)) : running(k) ? 'Agent working…' : md(cut(k.detail || 'No summary.', 160))}</div></div>`).join(''))
 }
 const conv = (talk, hist, k) => talk === undefined ? '<div class="dim">Loading…</div>'
-  : talk.length ? talk.map(m => `<div class="msg ${m.role}"><div class="txt selectable">${md(m.text)}</div></div>`).join('')
+  : talk.length ? talk.map(m => `<div class="msg ${m.role}">${m.via ? `<div class="via">↪ via ${esc(m.via)}</div>` : ''}<div class="txt selectable">${md(m.text)}</div></div>`).join('')
   : hist.length ? hist.map(m => `<div class="msg"><div class="meta">Summary · ${ago(m.at)} ago</div><div class="txt selectable">${md(m.text)}</div></div>`).join('')
   : k?.remote && (k.rc === false || !k.bridge) ? '<div class="dim">The conversation is on another computer, and its Remote Control is off: open it on that computer.</div>'
   : k?.remote ? '<div class="dim">The conversation is on another computer. Open it on claude.ai to read and reply.</div>'
@@ -940,7 +941,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
+  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^↪ via (.+)$/, '↪ $1 üzerinden'], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
 ]

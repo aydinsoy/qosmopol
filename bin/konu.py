@@ -30,6 +30,11 @@ if cli:
             except ValueError:
                 continue
             kind = d.get("type")
+            origin = d.get("origin") if isinstance(d.get("origin"), dict) else {}
+            if kind == "user" and origin.get("kind") == "peer" and isinstance(origin.get("body"), str) and origin["body"].strip():
+                # what came through the app from another session (the map's own before 0.3.7): shown, with where from
+                msgs.append({"role": "sen", "text": origin["body"].strip(), "via": str(origin.get("name") or "another session")[:60]})
+                continue
             if kind not in ("user", "assistant") or d.get("isSidechain") or d.get("isMeta"):
                 continue
             content = (d.get("message") or {}).get("content")

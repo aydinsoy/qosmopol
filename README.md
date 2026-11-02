@@ -38,7 +38,7 @@ Once installed, there are four ways in, none of them needs typing an address:
 3. **The Dock icon.** Install the web view as an app once (see below); after that the Qosmopol icon in the Dock opens it directly.
 4. **Inside the web view.** The map is the first column, right of the sidebar. If you closed it, click **Map** in the sidebar's Qosmopol section; it also comes back on every reload. The ⤢ button makes it full screen (Esc leaves). The sidebar folds away with the icon right of the Qosmopol name; the same icon in the first column's header brings it back.
 
-On the map, click a moon to open that session as a column, a planet to open its project. *Open in app* in a column header switches the Claude app to that session.
+On the map, click a moon to open that session as a column, a planet to open its project. *Open in app* in a column header switches the Claude app to that session. What you write in a column reaches that session as your own message, the same as typing it in the app: the session's own Qosmopol mod puts it in. A session that is not running gets it through the app instead, which wakes it; the column then marks it as having come through the Qosmopol session.
 
 ## Use it as a desktop app
 

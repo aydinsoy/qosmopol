@@ -28,6 +28,8 @@ let stopTimer: (() => void) | undefined
 let stopBridge: (() => void) | undefined
 let bridging = false
 let rcAt = 0
+let inbox = ''  // this session's own inbox (bin/server.py INBOX), '' until the server has made it
+let aliveAt = 0
 const WEB = 'http://127.0.0.1:47321/'
 const onWindows = async ($: EngineInterface) => (await $.env.get('OS')) === 'Windows_NT'
 // The scripts run under /usr/bin/python3 on macOS and the py launcher's Python 3 on Windows
@@ -95,10 +97,41 @@ async function remoteControl($: EngineInterface) {
   }
 }
 
+// What the owner writes to this session from the web view, put in as their own words. The app's send_message would
+// frame it as another session's message, which Claude weighs as a teammate's note, not the owner's instruction.
+// Every session reads its own inbox through $.fs (no process per tick); an emptied file is the receipt.
+async function deliver($: EngineInterface) {
+  if (!inbox) return
+  try {
+    const now = Date.now()
+    if (now - aliveAt > 5000) {  // the server leaves messages here only while this beats
+      aliveAt = now
+      await $.fs.write(`${inbox}/.canli`, String(now))
+    }
+    for (const f of await $.fs.list(inbox)) {
+      if (f.kind !== 'file' || !f.size || !f.name.endsWith('.json')) continue
+      const path = `${inbox}/${f.name}`
+      let m: { job?: unknown; text?: unknown }
+      try {
+        m = JSON.parse(String(await $.fs.read(path)))
+      } catch {
+        continue  // taken by the home session meanwhile, or half written: the next tick sees
+      }
+      await $.fs.write(path, '')
+      if (typeof m.text !== 'string' || !m.text.trim()) continue
+      void $.prompt.submit({ text: m.text, asUser: true })  // not awaited: it resolves only once its turn has run
+      await server($, 'done', JSON.stringify([{ job: String(m.job), ok: true, text: 'delivered as your message (runs once it is idle)' }]))
+    }
+  } catch {
+    // no inbox this tick; the server sends through the app when the message is left lying
+  }
+}
+
 async function bridge($: EngineInterface) {
   if (bridging) return
   bridging = true
   try {
+    await deliver($)
     const now = Date.now()
     if (now - rcAt > 60_000) {
       rcAt = now
@@ -237,6 +270,8 @@ export const register: Register = on => {
     stopTimer = () => timer.cancel()
     void scan($)
     stopBridge?.()
+    const box = await server($, 'inbox', String(await $.session.id())).catch(() => undefined)
+    inbox = box && !failure(box) ? box.stdout.trim().replace(/\\/g, '/') : ''
     const bt = $.clock.every(2500, () => void bridge($))
     stopBridge = () => bt.cancel()
     void server($, '--daemon')

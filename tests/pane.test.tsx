@@ -261,3 +261,46 @@ test('the home session reports which sessions have Remote Control on, for the ot
   expect(JSON.parse(rc![rc!.indexOf('rc') + 1])).toEqual({ local_1: true, local_2: false })
   expect(JSON.parse(rc![rc!.indexOf('rc') + 2])).toEqual({ local_1: 'Client Ads' })  // the sidebar group names the project
 })
+
+test('what the owner writes to any other session arrives there as their own words, through its own inbox', async ($, on) => {
+  const prompts: any[] = [], writes: [string, string][] = [], argvs: (readonly string[])[] = []
+  const files: Record<string, string> = { '/q/gelen/cli-2/abc.json': JSON.stringify({ job: 'abc', id: 'local_2', text: 'devam et' }) }
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    argvs.push(e.argv)
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    if (e.argv.includes('home')) return { value: { exitCode: 0, stdout: 'cli-home\n', stderr: '' } }  // not this one
+    if (e.argv.includes('inbox')) return { value: { exitCode: 0, stdout: '/q/gelen/cli-2\n', stderr: '' } }
+    if (e.argv.includes('take')) return { value: { exitCode: 0, stdout: '[]', stderr: '' } }
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('fs.list', () => ({ value: Object.entries(files).map(([p, t]) => ({ name: p.split('/').pop()!, kind: 'file' as const, size: t.length, mtimeMs: 0, isLink: false })) }))
+  on('fs.read', (_, e) => ({ value: files[e.path] }))
+  on('fs.write', (_, e) => {
+    writes.push([e.path, e.text])
+    if (e.path in files) files[e.path] = e.text
+    return { value: undefined }
+  })
+  on('prompt.submit', (_, e) => {
+    prompts.push(e)
+    return { text: e.text }
+  })
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  const clock = mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-2' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
+  await clock.advance(3000)
+  await clock.advance(3000)
+  expect(prompts.map(p => p.text)).toEqual(['devam et'])  // once, though the bridge ran twice
+  expect(prompts[0].origin).toMatchObject({ kind: 'plugin', asUser: true })
+  expect(files['/q/gelen/cli-2/abc.json']).toBe('')  // the receipt
+  expect(writes.some(([p]) => p === '/q/gelen/cli-2/.canli')).toBe(true)  // the heartbeat the server checks
+  const done = argvs.find(a => a.includes('done'))
+  expect(JSON.parse(done![done!.indexOf('done') + 1])[0]).toMatchObject({ job: 'abc', ok: true })
+})

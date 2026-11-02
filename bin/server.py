@@ -42,6 +42,11 @@ TOKEN_FILE = os.path.join(HOME, "token")
 SESSION = os.path.join(HOME, "oturum")
 ORDER = os.path.join(HOME, "sira.json")
 RC = os.path.join(HOME, "rc.json")  # which sessions' Remote Control is on, as the home session last saw it
+# One small inbox per running session, by its transcript id: the session's own mod puts what the owner writes there in
+# as the owner's own words. Through the app (send_message) it would arrive as another session's message, which Claude
+# takes as a teammate's note rather than an instruction, and the owner would not see it as theirs (2026-11-02).
+INBOX = os.path.join(HOME, "gelen")
+ALIVE, LATE = 15, 12  # a mod that wrote its heartbeat within ALIVE seconds is running; one that left a message LATE gave up
 PORT = 47321
 KEEP = 1000
 LOCK = threading.Lock()
@@ -136,6 +141,56 @@ def remote(sid):
 
 def local_file(sid):
     return bool(glob.glob(os.path.join(CLAUDE, "claude-code-sessions", "*", "*", f"{sid}.json")))
+
+
+def cli_of(sid):
+    """The transcript id the session's own mod knows itself by ('' when there is none)."""
+    for p in glob.glob(os.path.join(CLAUDE, "claude-code-sessions", "*", "*", f"{sid}.json")):
+        try:
+            cli = str(json.load(open(p, encoding="utf-8")).get("cliSessionId") or "")
+        except (OSError, ValueError):
+            continue
+        if cli and cli.replace("-", "").isalnum():
+            return cli
+    return ""
+
+
+def to_inbox(sid, text):
+    """Leave the message for the session's own mod when it is running; None when it is not (the app delivers it)."""
+    cli = cli_of(sid) if sid.startswith("local_") else ""
+    box = os.path.join(INBOX, cli)
+    try:
+        if not cli or time.time() - os.path.getmtime(os.path.join(box, ".canli")) > ALIVE:
+            return None
+    except OSError:
+        return None
+    job = secrets.token_hex(6)
+    with open(os.path.join(box, job + ".json"), "w", encoding="utf-8") as f:
+        json.dump({"job": job, "id": sid, "text": text, "at": int(time.time() * 1000)}, f, ensure_ascii=False)
+    return job
+
+
+def unclaimed():
+    """Messages a session's mod left lying (it closed meanwhile): the home session sends them through the app instead.
+    Emptied files are the mods' receipts; they go once they are a minute old."""
+    jobs = []
+    for path in glob.glob(os.path.join(INBOX, "*", "*.json")):
+        try:
+            age = time.time() - os.path.getmtime(path)
+            if os.path.getsize(path) == 0:
+                if age > 60:
+                    os.remove(path)
+                continue
+            if age < LATE:
+                continue
+            os.replace(path, path + ".alindi")  # taken: the mod can no longer read it
+            with open(path + ".alindi", encoding="utf-8") as f:
+                m = json.load(f)
+            os.remove(path + ".alindi")
+            jobs.append({"kind": "send", "id": str(m["id"]), "text": str(m["text"]), "job": str(m["job"]), "at": m.get("at", 0)})
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return jobs
 
 
 def enqueue(job):
@@ -245,7 +300,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 text = str(body.get("text") or "").strip()[:8000]
                 if not text:
                     return self.reply(400, {"error": "empty message"})
-                return self.reply(200, {"job": enqueue({"kind": "send", "id": sid or "self", "text": text})})
+                return self.reply(200, {"job": sid and to_inbox(sid, text) or enqueue({"kind": "send", "id": sid or "self", "text": text})})
             if path == "/api/close":
                 sess = {k["id"]: k for k in scan()["sessions"]}
                 k = sess.get(sid)
@@ -307,13 +362,13 @@ def answering(port):
 def take():
     """Hand the queued jobs to the mod and empty the queue, atomically."""
     os.makedirs(HOME, exist_ok=True)
+    jobs = unclaimed()
     tmp = QUEUE + ".alindi"
     try:
         os.replace(QUEUE, tmp)
     except FileNotFoundError:
-        print("[]")
+        print(json.dumps(jobs, ensure_ascii=False))
         return
-    jobs = []
     for line in open(tmp, encoding="utf-8"):
         try:
             jobs.append(json.loads(line))
@@ -353,6 +408,11 @@ if __name__ == "__main__":
         os.makedirs(HOME, exist_ok=True)
         with open(SESSION, "w") as f:
             f.write(args[1])
+        sys.exit(0)
+    if args[:1] == ["inbox"] and len(args) > 1 and args[1].replace("-", "").isalnum():
+        box = os.path.join(INBOX, args[1])  # this session's own inbox, made ready for its mod
+        os.makedirs(box, exist_ok=True)
+        print(box)
         sys.exit(0)
     if args[:1] == ["home"]:
         print(open(SESSION).read().strip() if os.path.exists(SESSION) else "")
