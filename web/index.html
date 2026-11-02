@@ -278,14 +278,14 @@
   /* hover: the circle under the pointer grows, nearby moons ease away, everything eases back on leave */
   .bigmap svg circle { transform-box: fill-box; transform-origin: center; }
   .bigmap svg line { transform-box: view-box; transform-origin: 0 0; }
-  /* session labels show only once the map is zoomed in, where they have room */
-  .bigmap [data-k] text { opacity: 0; transition: opacity .2s; }
+  /* session labels: small and dim, shown from the start (owner 2026-11-02: "baştan beri görünsün") */
+  .bigmap [data-k] text { opacity: 1; transition: opacity .2s; }
   .bigmap.zoomed [data-k] text { opacity: 1; }
   .bigmap [data-k].hov text, .bigmap [data-k].near text { opacity: 1; }
   .bigmap g.mx { opacity: 0; pointer-events: none; transition: opacity .15s; }
   /* the × stays about 12 px on screen however small or zoomed the map is drawn (--mxs, set in sizeMarks) */
   .bigmap g.mxs { transform: scale(var(--mxs, 1)); transform-box: fill-box; transform-origin: center; }
-  .bigmap .hov > g.mx { opacity: .85; pointer-events: auto; }
+  .bigmap .hov > g.mx { opacity: 1; pointer-events: auto; }
   .bigmap g.mx:hover { opacity: 1; }
   .bigmap g.mx:hover path { stroke: var(--text); }
   svg g.mx { cursor: pointer; }
@@ -453,7 +453,7 @@ function sky(gs, { labels = true } = {}) {
       o.push(`<text x="${lx}" y="${top}" text-anchor="${anchor}" font-size="5.5" fill="var(--label)" style="pointer-events:none"><tspan x="${lx}">${esc(l1)}</tspan>${l2 ? `<tspan x="${lx}" dy="6.5">${esc(l2)}</tspan>` : ''}</text>`)
       // a quiet × at the top right of the grown moon (1.8× on hover): closes the session, undoable
       const qx = +(mx + mr * 1.8 * 0.72 + 2).toFixed(1), qy = +(my - mr * 1.8 * 0.72 - 2).toFixed(1)
-      o.push(`<g class="mx" data-close-k="${esc(k.id)}" data-tip="Close session (undoable)"><g class="mxs"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--seg-on)" stroke="var(--line)" stroke-width="0.4"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--dim)" stroke-width="0.7" stroke-linecap="round"/></g></g></g>`)
+      o.push(`<g class="mx" data-close-k="${esc(k.id)}" data-tip="Close session (undoable)"><g class="mxs"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--text)" fill-opacity="0.22" stroke="var(--text)" stroke-opacity="0.55" stroke-width="0.5"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--text)" stroke-width="0.9" stroke-linecap="round"/></g></g></g>`)
     })
     o.push(`<g data-p="${esc(p.name)}" data-c="${p.x},${p.y},${p.r}" data-tip="${esc(`${p.name}\n${p.list.length} sessions · ${nWait} waiting for you`)}" data-tipbig="1">`)
     if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5"/>`)
@@ -464,7 +464,7 @@ function sky(gs, { labels = true } = {}) {
     if (labels) o.push(`<text x="${p.x}" y="${p.y + p.outer + 4}" text-anchor="middle" font-size="12" fill="var(--label)">${esc(p.name)}</text>`)
     if (p.list.some(k => !k.remote)) {
       const qx = +(p.x + p.r * 1.12 * 0.72 + 3).toFixed(1), qy = +(p.y - p.r * 1.12 * 0.72 - 3).toFixed(1)
-      o.push(`<g class="mx" data-close-p="${esc(p.name)}" data-tip="Close its sessions…"><g class="mxs"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--seg-on)" stroke="var(--line)" stroke-width="0.4"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--dim)" stroke-width="0.7" stroke-linecap="round"/></g></g>`)
+      o.push(`<g class="mx" data-close-p="${esc(p.name)}" data-tip="Close its sessions…"><g class="mxs"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--text)" fill-opacity="0.22" stroke="var(--text)" stroke-opacity="0.55" stroke-width="0.5"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--text)" stroke-width="0.9" stroke-linecap="round"/></g></g>`)
     }
     o.push('</g>')
   }
