@@ -237,7 +237,7 @@
   #menu button { display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 6px; font-size: 13px; }
   #menu button:hover { background: var(--hover); }
   #menu .ck { width: 14px; color: var(--blue); }
-  #menu .hd { font-size: 11px; color: var(--dim); padding: 6px 10px 2px; }
+  #menu .hd { font-size: 11px; color: var(--dim); padding: 6px 10px 2px; max-width: 300px; line-height: 1.35; }
   .cbox textarea::placeholder { color: var(--dim); }
   .round { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--round); color: var(--round-fg); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .round:hover { filter: brightness(1.08); }
@@ -482,7 +482,7 @@ function sky(gs, { labels = true } = {}) {
       o.push(`<text x="${lx}" y="${top}" text-anchor="${anchor}" font-size="5.5" fill="var(--label)" style="pointer-events:none"><tspan x="${lx}">${esc(l1)}</tspan>${l2 ? `<tspan x="${lx}" dy="6.5">${esc(l2)}</tspan>` : ''}</text>`)
       // a quiet × at the top right of the grown moon (1.8× on hover): closes the session, undoable
       const qx = +(mx + mr * 1.8 * 0.72 + 2).toFixed(1), qy = +(my - mr * 1.8 * 0.72 - 2).toFixed(1)
-      o.push(`<g class="mx" data-close-k="${esc(k.id)}" data-tip="Close session (undoable)"><g class="mxs"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--text)" fill-opacity="0.22" stroke="var(--text)" stroke-opacity="0.55" stroke-width="0.5"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--text)" stroke-width="0.9" stroke-linecap="round"/></g></g></g>`)
+      o.push(`<g class="mx" data-close-k="${esc(k.id)}" data-tip="${esc(closeTip(k))}"><g class="mxs"><circle class="mx" cx="${qx}" cy="${qy}" r="4.2" fill="var(--text)" fill-opacity="0.22" stroke="var(--text)" stroke-opacity="0.55" stroke-width="0.5"/><path class="mx" d="M${qx - 1.6},${qy - 1.6}L${qx + 1.6},${qy + 1.6}M${qx + 1.6},${qy - 1.6}L${qx - 1.6},${qy + 1.6}" stroke="var(--text)" stroke-width="0.9" stroke-linecap="round"/></g></g></g>`)
     })
     o.push(`<g data-p="${esc(p.name)}" data-c="${p.x},${p.y},${p.r}" data-tip="${esc(`${p.name}\n${p.list.length} sessions · ${nWait} waiting for you`)}" data-tipbig="1">`)
     if (nWait) o.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r + 6}" fill="none" stroke="var(--red)" stroke-width="2.5"/>`)
@@ -515,9 +515,10 @@ async function closePlanet(anchor, name) {
   const list = (new Map(groups()).get(name) ?? []).filter(k => !k.remote)
   if (!list.length) return
   // after the click that follows this pointerup, which would close a menu opened now as a click outside it
-  setTimeout(() => openMenu(anchor, [{ hd: name }, { label: `Close its ${list.length} sessions on this computer`, run: async () => {
-    let n = 0
-    for (const k of list) { try { await api('/api/close', { id: k.id }); n++ } catch {} }
+  setTimeout(() => openMenu(anchor, [{ hd: name }, { hd: `They go to Claude's archive. Undo: ${UNDO_KEY}, or Closed → Reopen in the sidebar.` }, { label: `Close its ${list.length} sessions on this computer`, run: async () => {
+    const done = []
+    for (const k of list) { try { await api('/api/close', { id: k.id }); done.push(k.id) } catch {} }
+    remember(done); const n = done.length
     S.cols = S.cols.filter(c => !list.some(k => c === 'k:' + k.id)); keep('cols', S.cols)
     toast(`${n} sessions closed`, async () => { for (const k of list) await api('/api/reopen', { id: k.id }).catch(() => {}); refresh(true) })
     refresh(true)
@@ -589,9 +590,29 @@ async function loadTalk(id) {
   renderCols()
 }
 // Closing is always undoable for a few seconds, so a stray click costs nothing.
+// Closing is undone with ⌘Z (Ctrl+Z on Windows) on the map, newest first, as well as with the toast's Undo and
+// Closed → Reopen in the sidebar (owner 2026-11-02). A close of a whole planet comes back as one.
+const UNDO = [], UNDO_KEY = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘Z' : 'Ctrl+Z'
+const remember = ids => { if (ids.length) { UNDO.push(ids); UNDO.splice(0, Math.max(0, UNDO.length - 20)) } }
+async function undoClose() {
+  const ids = UNDO.pop(); if (!ids) return toast('Nothing to undo')
+  for (const id of ids) await api('/api/reopen', { id }).then(x => x.job && (S.jobs[x.job] = { label: 'Reopen', at: Date.now() })).catch(() => {})
+  toast(ids.length === 1 ? 'Session reopened' : `${ids.length} sessions reopened`)
+  refresh(true)
+}
+document.addEventListener('keydown', e => {
+  if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return
+  if (e.target.closest?.('input, textarea, select, [contenteditable]')) return  // typing keeps its own undo
+  e.preventDefault(); undoClose()
+})
+// What a × does to this session, and how it comes back
+const closeTip = k => k.remote || k.acc !== S.data.current
+  ? `Hide here: it stays as it is where it lives. Undo: ${UNDO_KEY}, or Closed → Reopen in the sidebar.`
+  : `Close: it goes to Claude's archive. Undo: ${UNDO_KEY}, or Closed → Reopen in the sidebar.`
 async function closeTopic(k) {
   try {
     const r = await api('/api/close', { id: k.id })
+    remember([k.id])
     S.cols = S.cols.filter(c => c !== 'k:' + k.id); keep('cols', S.cols)
     if (r.job) S.jobs[r.job] = { label: `Archive: ${cut(k.title, 30)}`, at: Date.now() }
     toast(`“${cut(k.title, 40)}” closed`, () => api('/api/reopen', { id: k.id }).then(x => { S.jobs[x.job] = { label: 'Reopen', at: Date.now() }; refresh(true) }))
@@ -1013,6 +1034,7 @@ const TR = {
   'Project names': 'Proje adları', 'Folder names': 'Klasör adları', 'Your own names and the Claude sidebar groups': 'Kendi verdiğin adlar ve Claude kenar çubuğu grupları', 'Each session under the folder it runs in': 'Her konu çalıştığı klasörün altında',
   'Close session (undoable)': 'Konuyu kapat (geri alınabilir)', 'Close its sessions…': 'Konularını kapat…',
   'Show session titles': 'Konu başlıklarını göster', 'Hide session titles': 'Konu başlıklarını gizle',
+  'Nothing to undo': 'Geri alınacak bir şey yok', 'Session reopened': 'Konu yeniden açıldı',
   'Rename…': 'Adını değiştir…', 'Rename': 'Adını değiştir', 'New name': 'Yeni ad',
   'Move to project…': 'Projeye taşı…', 'Move to project': 'Projeye taşı', 'New project…': 'Yeni proje…', 'Take out of this project': 'Bu projeden çıkar',
   'Name of the new project': 'Yeni projenin adı', 'New project name': 'Yeni proje adı', 'Add': 'Ekle', 'Taken out of the project': 'Projeden çıkarıldı',
@@ -1031,7 +1053,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Close its (\d+) sessions on this computer$/, 'Bu bilgisayardaki $1 konusunu kapat'], [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^↪ via (.+)$/, '↪ $1 üzerinden'], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
+  [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Close: it goes to Claude's archive\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, "Kapat: Claude'da arşive gider. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç."], [/^Hide here: it stays as it is where it lives\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, 'Burada gizle: olduğu yerde aynen kalır. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç.'], [/^They go to Claude's archive\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, "Claude'da arşive giderler. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç."], [/^(\d+) sessions reopened$/, '$1 konu yeniden açıldı'], [/^Close its (\d+) sessions on this computer$/, 'Bu bilgisayardaki $1 konusunu kapat'], [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^↪ via (.+)$/, '↪ $1 üzerinden'], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
 ]
@@ -1283,7 +1305,7 @@ document.addEventListener('click', e => {
     const old = visible().filter(waiting).filter(x => Date.now() - x.last > 7 * DAY)
     if (a === 'old') { S.confirmOld = true; return renderCols() }
     if (a === 'old-no') { S.confirmOld = false; return renderCols() }
-    if (a === 'old-yes') { S.confirmOld = false; return (async () => { for (const x of old) await api('/api/close', { id: x.id }).then(r => r.job && (S.jobs[r.job] = { label: 'Archive', at: Date.now() })).catch(() => {}); toast(`${old.length} sessions closed`); refresh(true) })() }
+    if (a === 'old-yes') { S.confirmOld = false; return (async () => { for (const x of old) await api('/api/close', { id: x.id }).then(r => r.job && (S.jobs[r.job] = { label: 'Archive', at: Date.now() })).catch(() => {}); remember(old.map(x => x.id)); toast(`${old.length} sessions closed`); refresh(true) })() }
   }
   const open = t.closest('[data-open]'); if (open) return openCol(open.dataset.open)
 })
