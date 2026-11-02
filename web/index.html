@@ -456,12 +456,15 @@ function sky(gs, { labels = true } = {}) {
   o.push('</svg>')
   return o.join('')
 }
+// Another computer's session opens on claude.ai while its Remote Control is on, and always when it was started from
+// claude.ai (a cse_ id): then the app reports it off, yet claude.ai shows it, to reply while it runs there, else to read.
+const onWeb = k => !!(k?.remote && k.bridge && (k.rc !== false || /^cse_/.test(k.bridge)))
 // A moon straight to its session where it lives: the Claude app here, claude.ai for another computer's (while its
 // Remote Control is on). Double-click, ⌘/Ctrl-click or the right-click menu on the map (owner 2026-11-02).
 function toApp(k) {
   if (!k) return
   if (!k.remote) return openInApp(k)
-  if (k.bridge && k.rc !== false) return window.open(`https://claude.ai/code/${encodeURIComponent(k.bridge)}`, '_blank', 'noopener')
+  if (onWeb(k)) return window.open(`https://claude.ai/code/${encodeURIComponent(k.bridge)}`, '_blank', 'noopener')
   toast("This session is on another computer and its Remote Control is off: open it there.")
 }
 function onSkyClick(e, fallback) {
@@ -587,7 +590,7 @@ function renderPlist() {
 const conv = (talk, hist, k) => talk === undefined ? '<div class="dim">Loading…</div>'
   : talk.length ? talk.map(m => `<div class="msg ${m.role === 'claude' ? 'claude' : 'sen'}">${m.via ? `<div class="via">↪ via ${esc(m.via)}</div>` : ''}<div class="txt selectable">${md(m.text)}</div></div>`).join('')
   : hist.length ? hist.map(m => `<div class="msg"><div class="meta">Summary · ${ago(m.at)} ago</div><div class="txt selectable">${md(m.text)}</div></div>`).join('')
-  : k?.remote && (k.rc === false || !k.bridge) ? '<div class="dim">The conversation is on another computer, and its Remote Control is off: open it on that computer.</div>'
+  : k?.remote && !onWeb(k) ? '<div class="dim">The conversation is on another computer, and its Remote Control is off: open it on that computer.</div>'
   : k?.remote ? '<div class="dim">The conversation is on another computer. Open it on claude.ai to read and reply.</div>'
   : '<div class="dim">No transcript on this Mac (another account or the cloud).</div>'
 function topicBody(k) {
@@ -652,7 +655,7 @@ function renderCols() {
     const inApp = k && !k.remote ? k : c === 'home' ? homeRow() : null
     // another computer's session opens on claude.ai, through its Remote Control, from any device
     const appBtn = inApp ? `<button class="btn hbtn" data-act="app" data-id="${esc(inApp.id)}" data-tip="Open in the Claude app: its browser, changes and terminal panes open there, beside the session">${ICON.app}Open in app</button>`
-      : k?.remote && k.bridge && k.rc !== false ? `<button class="btn hbtn" data-act="web" data-url="https://claude.ai/code/${esc(k.bridge)}" data-tip="Opens this session on claude.ai to read and reply, while its Remote Control is on">${ICON.app}Open on claude.ai</button>`
+      : onWeb(k) ? `<button class="btn hbtn" data-act="web" data-url="https://claude.ai/code/${esc(k.bridge)}" data-tip="${k.rc === false ? 'Opens this session on claude.ai. If it is not open on that computer, you can only read it.' : 'Opens this session on claude.ai to read and reply, while its Remote Control is on'}">${ICON.app}Open on claude.ai</button>`
       : k?.remote ? `<span class="dim hnote" data-tip="Turn its Remote Control on there, or open it on that computer">Remote Control off</span>` : ''
     const sideBtn = c === S.cols[0] ? `<button class="icon sideopen" data-tip="Show sidebar">${SIDE_ICO}</button>` : ''
     setHTML(el.querySelector('header'), `${sideBtn}${title}${appBtn}<button class="icon" data-colx="${esc(c)}" title="Close column">${ICON.x}</button>`)
@@ -942,6 +945,7 @@ const TR = {
   'The conversation is on another computer. Open it on claude.ai to read and reply.': "Konuşma diğer bilgisayarda. Okumak ve cevaplamak için claude.ai'de aç.",
   'Opens this session on claude.ai to read and reply, while its Remote Control is on': "Bu konuyu okumak ve cevaplamak için claude.ai'de açar (Remote Control açıkken)",
   'Hides it from this map; the session stays as it is on the other computer': 'Bu haritadan gizler; konu diğer bilgisayarda olduğu gibi kalır',
+  'Opens this session on claude.ai. If it is not open on that computer, you can only read it.': "Bu konuyu claude.ai'de açar. O bilgisayarda açık değilse yalnızca okuyabilirsin.",
   'Remote Control off': "Remote Control kapalı", 'Turn its Remote Control on there, or open it on that computer': "Orada Remote Control'ü aç ya da konuyu o bilgisayarda aç",
   'The conversation is on another computer, and its Remote Control is off: open it on that computer.': "Konuşma diğer bilgisayarda ve Remote Control'ü kapalı: konuyu o bilgisayarda aç.",
   'Project names': 'Proje adları', 'Folder names': 'Klasör adları', 'Your own names and the Claude sidebar groups': 'Kendi verdiğin adlar ve Claude kenar çubuğu grupları', 'Each session under the folder it runs in': 'Her konu çalıştığı klasörün altında',
