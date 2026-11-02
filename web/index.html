@@ -65,6 +65,12 @@
   .icon { width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .icon:hover { background: var(--hover); color: var(--text); }
   .msg .via { font-size: 11px; color: var(--dim); margin: 0 0 2px; text-align: right; }
+  .days { display: grid; gap: 2px; }
+  .daysl { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--text); }
+  .daysl .dd { color: var(--dim); font-size: 11.5px; }
+  .days input[type=range] { width: 100%; margin: 2px 0 0; accent-color: var(--blue); }
+  .dticks { display: flex; justify-content: space-between; padding: 0 4px; font-size: 9.5px; color: var(--dim); }
+  .dticks span { width: 0; display: flex; justify-content: center; }
   .seg { display: flex; background: var(--seg); border-radius: 7px; padding: 2px; gap: 2px; }
   .seg button { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 22px; padding: 0 9px; border: 0; border-radius: 5px; background: none; color: var(--dim); font-size: 11.5px; }
   .seg button:hover { color: var(--text); }
@@ -323,7 +329,7 @@
     <div id="brand"><img src="/icon.png" alt="" width="26" height="26"><div><div class="bname">Qosmopol</div><div class="btag">Interactive project map for Claude Code</div></div><button class="icon" id="sidetog" data-tip="Hide sidebar"><svg class="i" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2.2"/><path d="M6.2 2.8v10.4"/><path d="M3.4 5.3h1.3M3.4 7.3h1.3M3.4 9.3h1.3" stroke-linecap="round"/></svg></button></div>
     <div id="head">
       <div id="counts">Scanning…</div>
-      <div class="seg" id="days"></div>
+      <div id="days" class="days"><div class="daysl"><span class="dn"></span><span class="dd"></span></div><input type="range" min="0" max="9" step="1" aria-label="Time range"><div class="dticks"></div></div>
       <div class="seg" id="themes"></div>
       <div class="seg" id="names"></div>
     </div>
@@ -384,6 +390,27 @@ const unread = k => Math.max(k.seen, readAt(k.id)) < k.last - 1000
 // Blue, like Claude's sidebar: a reply you have not read, from the last 24 hours
 const fresh = k => !waiting(k) && !running(k) && unread(k) && Date.now() - k.last < DAY
 const ago = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 60 ? `${m}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d` }
+// The time range: a slider in steps, the last N days with the dates they cover (owner 2026-11-02: "tıkır tıkır sağa sola").
+const DAY_STEPS = [1, 2, 3, 5, 7, 14, 30, 60, 90, 0]  // 0: everything
+function showDays() {
+  const box = $('#days'), input = box?.querySelector('input'); if (!input) return
+  const i = DAY_STEPS.indexOf(S.days), at = i < 0 ? 4 : i
+  if (document.activeElement !== input || +input.value !== at) input.value = at
+  const tr = LANG === 'tr', n = S.days
+  box.querySelector('.dn').textContent = n === 0 ? (tr ? 'Hepsi' : 'All time') : tr ? `Son ${n} gün` : `Last ${n} ${n === 1 ? 'day' : 'days'}`
+  const fmt = new Intl.DateTimeFormat(tr ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short' })
+  box.querySelector('.dd').textContent = n === 0 ? '' : `${fmt.format(new Date(Date.now() - n * DAY))} – ${tr ? 'bugün' : 'today'}`
+  const ticks = box.querySelector('.dticks')
+  if (!ticks.childElementCount) ticks.innerHTML = DAY_STEPS.map(d => `<span>${d || '∞'}</span>`).join('')
+}
+let daysRaf = 0
+document.addEventListener('input', e => {
+  if (!e.target.matches('#days input')) return
+  S.days = DAY_STEPS[+e.target.value] ?? 7
+  showDays()
+  if (!daysRaf) daysRaf = requestAnimationFrame(() => { daysRaf = 0; render() })  // the map follows the slider as it moves
+})
+document.addEventListener('change', e => { if (e.target.matches('#days input')) keep('days', S.days) })
 const visible = () => (S.data?.sessions ?? []).filter(k => S.days === 0 || Date.now() - k.last < S.days * DAY || (waiting(k) && Date.now() - k.last < 30 * DAY))
 const dot = k => `<span class="dot${waiting(k) ? ' r' : running(k) ? ' o' : fresh(k) ? ' b' : !unread(k) ? '' : ' u'}" data-tip="${waiting(k) ? 'Waiting for you' : running(k) ? 'Agent working' : fresh(k) ? 'New reply in the last 24 hours' : unread(k) ? 'Unread reply' : 'Nothing new'}"></span>`
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`
@@ -587,7 +614,7 @@ function renderSide() {
   const shown = visible(), w = shown.filter(waiting).length, r = shown.filter(running).length, n = shown.filter(k => !waiting(k) && !running(k) && unread(k)).length
   setHTML($('#counts'), `<span class="w"><b>${w}</b> waiting</span><span class="o"><b>${r}</b> running</span><span><b>${n}</b> unread</span>`)
   const th = document.documentElement.dataset.theme
-  setHTML($('#days'), [1, 7, 30, 0].map(x => `<button data-days="${x}" class="${S.days === x ? 'on' : ''}">${x ? x + (x === 1 ? ' day' : ' days') : 'All'}</button>`).join(''))
+  showDays()
   setHTML($('#names'), [['project', 'Project names', 'Your own names and the Claude sidebar groups'], ['folder', 'Folder names', 'Each session under the folder it runs in']].map(([v, l, tip]) => `<button data-names="${v}" data-tip="${tip}" class="${S.names === v ? 'on' : ''}">${l}</button>`).join(''))
   setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
@@ -1229,7 +1256,6 @@ document.addEventListener('click', e => {
   const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { S.jobs[r.job] = { label: 'Reopen', at: Date.now() }; toast('Session reopened'); refresh(true) })
   const nm = t.closest('[data-names]'); if (nm) { S.names = nm.dataset.names; keep('names', S.names); return refresh(true) }
   const pick = t.closest('[data-theme-pick]'); if (pick) { document.documentElement.dataset.theme = pick.dataset.themePick; keep('theme', pick.dataset.themePick); return renderSide() }
-  const days = t.closest('[data-days]'); if (days) { S.days = +days.dataset.days; keep('days', S.days); return render() }
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
   const filter = t.closest('[data-filter]'); if (filter) { S.filter = filter.dataset.filter; return renderCols() }
   const more = t.closest('.row .more'); if (more) { e.stopPropagation(); return rowMenu(more.closest('.row'), more) }
