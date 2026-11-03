@@ -64,6 +64,8 @@ Running Claude Code on more than one computer (two Macs, a Mac and a Windows PC)
 
 **Your own projects.** Qosmopol groups sessions by the folder they run in, and Claude's own project names are not open to plugins, so one piece of work can be spread over several planets. Use **Move to project…** in a project's ⋯ menu (a whole planet) or **Move to project** in a session's column (one session) to gather them under a name of your choosing; the groups travel with the summary, so every computer shows the same project. **Take out of this project** undoes it. Sessions you file under a group in the Claude app's sidebar get that group's name on the map by themselves; **Rename…** in a planet's ⋯ menu gives a folder the name you use in Claude. When one folder holds several pieces of work (`Projects/Media/#Game`), **Move folder “#Game” to project…** in a session's ⋯ menu gathers that subfolder alone, including the sessions you start there later. **Project names / Folder names** at the top of the sidebar switches between these names and the plain folder view.
 
+**Claude projects (claude.ai Projects).** A project's own conversation lives on claude.ai, so the map cannot show it. When a project starts a session on your computer, the app calls it "Local session (from a project)" and runs it in your Projects folder; Qosmopol puts each project's sessions on a planet of their own (`claude.ai · AB12`, the end of the project's id) and names each session after the message that started it. **Rename…** the planet once to give it the project's name.
+
 The design and what comes next (replying and closing across computers) are in [docs/coklu-bilgisayar-tasarim.md](docs/coklu-bilgisayar-tasarim.md).
 
 ## How it works

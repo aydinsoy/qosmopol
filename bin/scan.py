@@ -5,8 +5,10 @@ argv[1]: this session's CLI id, to tell which account folder is the one signed i
 Only fields the Qosmopol pane draws are kept; archived sessions are left out.
 """
 import glob
+import html
 import json
 import os
+import re
 import sys
 import time
 import winenv  # noqa: F401  (first: a bare Windows environment gets its home and APPDATA back)
@@ -15,7 +17,8 @@ import sync
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")  # the JSON goes to a pipe, which Windows would write in its ANSI code page
 
-WRITTEN = {os.path.basename(f)[:-6]: os.path.getmtime(f) for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*.jsonl"))}
+TRANSCRIPTS = {os.path.basename(f)[:-6]: f for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*.jsonl"))}
+WRITTEN = {k: os.path.getmtime(f) for k, f in TRANSCRIPTS.items()}
 
 # The Claude desktop app's own folder: ~/Library/Application Support/Claude on macOS, %APPDATA%\Claude on Windows.
 CLAUDE = os.path.join(os.environ["APPDATA"], "Claude") if sys.platform == "win32" else os.path.expanduser("~/Library/Application Support/Claude")
@@ -65,6 +68,29 @@ def subfolder(path):
     return "/".join(parts[parts.index("Projects") + 2:])
 
 
+def project_thread(d):
+    """A session that a Claude project (claude.ai Projects) started on this computer: (project id, first message).
+    The app names every such session "Local session (from a project)" and runs it in the Projects folder, so without
+    this they all fall on one planet. The project's own conversation lives on claude.ai; only its id is written here,
+    in the message that woke the session."""
+    if not (d.get("remoteControlSpawn") or {}).get("projectThreadChild"):
+        return None
+    try:
+        with open(TRANSCRIPTS.get(d.get("cliSessionId") or "", ""), encoding="utf-8") as fh:
+            for _, line in zip(range(200), fh):
+                if "<project id=" not in line:
+                    continue
+                c = json.loads(line).get("message", {}).get("content")
+                text = c if isinstance(c, str) else " ".join(x.get("text", "") for x in c or [] if isinstance(x, dict))
+                m = re.search(r'<project id="(chan_[A-Za-z0-9]{4,60})"', text)
+                if m:
+                    said = re.search(r"<message\b[^>]*>(.*?)</message>", text, re.S)
+                    return m.group(1), " ".join(html.unescape(said.group(1) if said else "").split())
+    except (OSError, ValueError, AttributeError):
+        pass
+    return None
+
+
 accounts, rows, current = [], [], ""
 for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
     acc = os.path.relpath(f, ROOT).split(os.sep)[0]
@@ -81,12 +107,18 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
         accounts.append(acc)
     s = d.get("postTurnSummary") or {}
     cwd = d.get("originCwd") or d.get("cwd") or ""
+    title, proj, sub = d.get("title") or "Untitled session", project(cwd), subfolder(cwd)
+    thread = project_thread(d)
+    if thread:  # one planet per Claude project (they live on claude.ai), until the owner names it on the map
+        proj, sub = "claude.ai · " + thread[0][-4:], ""  # same in every language: the rename rule is keyed on it
+        if thread[1] and re.search(r"\(from a project\)$", title):
+            title = thread[1]
     rows.append({
         "id": d.get("sessionId"),
         "acc": acc,
-        "title": (d.get("title") or "Untitled session")[:120],
-        "proj": project(cwd),
-        "sub": subfolder(cwd),
+        "title": title[:120],
+        "proj": proj,
+        "sub": sub,
         "cwd": cwd,
         "last": d.get("lastActivityAt") or 0,
         "seen": d.get("lastFocusedAt") or 0,
