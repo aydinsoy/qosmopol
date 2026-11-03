@@ -342,9 +342,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     save(ORDER, order)
                     SCAN["at"] = 0
                 return self.reply(200, {"ok": True})
-            if path == "/api/set":  # model, effort or permission mode of a session; '' is the home session
+            if path == "/api/set":  # model, effort, permission mode or title of a session; '' is the home session
                 what, value = body.get("what"), str(body.get("value") or "")
-                ok = (what == "effort" and value in ("low", "medium", "high", "xhigh", "max")) \
+                if what == "title":
+                    value = " ".join(value.split())[:200]
+                ok = (what == "title" and value != "") \
+                    or (what == "effort" and value in ("low", "medium", "high", "xhigh", "max")) \
                     or (what == "mode" and value in ("default", "acceptEdits", "plan", "auto")) \
                     or (what == "model" and re.fullmatch(r"claude-[a-z0-9.\-]{1,60}(\[1m\])?", value) is not None)
                 if not ok:

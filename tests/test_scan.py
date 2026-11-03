@@ -42,9 +42,24 @@ class Scan(unittest.TestCase):
         self.session("local_d", "c-d", "Plain session in Projects")
         rows = self.scan()
         self.assertEqual([(rows[i]["proj"], rows[i]["title"]) for i in ("local_a", "local_b", "local_c", "local_d")],
-                         [("claude.ai · AB12", "localhost & port 5173"), ("claude.ai · AB12", "devam"),
-                          ("claude.ai · CD34", "Fix the font"), ("Projects", "Plain session in Projects")])
-        self.assertEqual(rows["local_a"]["sub"], "")
+                         [("Claude project · AB12", "localhost & port 5173"), ("Claude project · AB12", "devam"),
+                          ("Claude project · CD34", "Fix the font"), ("Projects", "Plain session in Projects")])
+        self.assertEqual([rows[i].get("unnamed") for i in ("local_a", "local_d")], [True, None])
+        self.assertEqual((rows["local_a"]["proj0"], rows["local_a"]["sub"]), ("claude.ai · AB12", ""))
+
+    def test_an_unnamed_project_speaks_claudes_language_and_a_given_name_holds_in_every_language(self):
+        self.session("local_a", "c-a", "Local session (from a project)", "chan_01AAAAAB12", "hi")
+        self.session("local_b", "c-b", "Local session (from a project)", "chan_01BBBBCD34", "hi")
+        with open(os.path.join(os.path.dirname(self.sessions), "..", "..", "config.json"), "w", encoding="utf-8") as f:
+            json.dump({"locale": "tr-TR"}, f)
+        rows = self.scan()
+        self.assertEqual(rows["local_a"]["proj"], "Claude projesi · AB12")
+        os.makedirs(os.path.join(self.home, ".qosmopol"), exist_ok=True)  # the owner names it once, from the map
+        with open(os.path.join(self.home, ".qosmopol", "gruplar.json"), "w", encoding="utf-8") as f:
+            json.dump({"at": 1, "rules": {f"p:{rows['local_a']['dev']}:claude.ai · AB12": "Space Game"}}, f)
+        rows = self.scan()
+        self.assertEqual([(rows[i]["proj"], rows[i].get("unnamed")) for i in ("local_a", "local_b")],
+                         [("Space Game", None), ("Claude projesi · CD34", True)])
 
     def test_a_missing_or_odd_transcript_leaves_the_folder_planet(self):
         self.session("local_a", "c-a", "Local session (from a project)", "chan_01AAAAAB12", "hi")

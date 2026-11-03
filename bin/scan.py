@@ -165,10 +165,16 @@ try:  # the owner's own project names, on this computer's sessions and the other
     group_names = sync.apply_groups(rows, sync.device()["id"])
 except OSError:
     group_names = []
-accounts.sort()
-hidden = [{"id": l[0], "proj": l[1] if len(l) > 1 else "", "title": l[2] if len(l) > 2 else l[0]} for l in LINES]
 try:  # the language the owner chose in the Claude app, for the band and the pane
     lang = json.load(open(os.path.join(CLAUDE, "config.json"), encoding="utf-8")).get("locale", "")
 except (OSError, ValueError):
     lang = ""
+# A Claude project nobody has named yet: its name stays on claude.ai, so the map says what it is, in the owner's
+# language, and asks for the name once. The rules stay keyed on "claude.ai · XXXX", the same in every language.
+for k in rows:
+    m = not k.get("group") and re.fullmatch(r"claude\.ai · ([A-Za-z0-9]{4})", k.get("proj0") or "")
+    if m:
+        k["proj"], k["unnamed"] = ("Claude projesi · " if lang.lower().startswith("tr") else "Claude project · ") + m.group(1), True
+accounts.sort()
+hidden = [{"id": l[0], "proj": l[1] if len(l) > 1 else "", "title": l[2] if len(l) > 2 else l[0]} for l in LINES]
 print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "hidden": hidden, "lang": lang, "devices": devices, "groups": group_names}, ensure_ascii=False))

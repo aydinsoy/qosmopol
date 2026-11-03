@@ -179,6 +179,8 @@
   .group .row .age { font-size: 12px; }
   /* the numbers sit flush right; ⋯ takes no room and shows over them only on hover or when the row is selected */
   .group .row { position: relative; }
+  .group .row .ren { flex: none; margin-left: 4px; padding: 0 5px; border: 1px dashed var(--line, #555); border-radius: 7px; background: none; color: var(--text2); font: inherit; font-size: 11px; cursor: pointer; }
+  .group .row .ren:hover { color: var(--text); border-style: solid; }
   .group .row .more { visibility: hidden; position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border: 0; border-radius: 8px; background: inherit; color: var(--text2); display: inline-flex; align-items: center; justify-content: center; }
   .group .row:hover .more, .group .row.on .more, .group .row .more.open { visibility: visible; }
   .group .row .more:hover, .group .row .more.open { background: color-mix(in srgb, var(--input), var(--text) 12%); color: var(--text); }
@@ -652,7 +654,8 @@ function renderSide() {
   setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
   const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
-    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : list.some(fresh) ? ' b' : ''}" data-tip="${lw ? 'Waiting for you' : lr ? 'Agent working' : list.some(fresh) ? 'New reply in the last 24 hours' : 'Nothing new'}"></span><span class="name" data-tip="${esc(name)} · ${plural(list.length, 'session')} ${S.days ? `in the last ${plural(S.days, 'day')}` : 'in total'}${lw ? ` · ${lw} waiting for you` : ''}${lr ? ` · ${lr} running` : ''}">${esc(name)}</span>${lw ? `<span class="badge r" data-tip="${plural(lw, 'session')} waiting for you">${lw}</span>` : ''}${lr ? `<span class="badge o" data-tip="${plural(lr, 'session')} running">${lr}</span>` : ''}<span class="badge" data-tip="${plural(list.length, 'session')} ${S.days ? `in the last ${plural(S.days, 'day')}` : 'in total'}">${list.length}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`
+    const nameIt = S.names !== 'folder' && list.some(k => k.unnamed) ? `<button class="ren" data-rename="${esc(name)}" data-tip="${NAME_IT_TIP}">✎</button>` : ''
+    return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : list.some(fresh) ? ' b' : ''}" data-tip="${lw ? 'Waiting for you' : lr ? 'Agent working' : list.some(fresh) ? 'New reply in the last 24 hours' : 'Nothing new'}"></span><span class="name" data-tip="${esc(name)} · ${plural(list.length, 'session')} ${S.days ? `in the last ${plural(S.days, 'day')}` : 'in total'}${lw ? ` · ${lw} waiting for you` : ''}${lr ? ` · ${lr} running` : ''}">${esc(name)}</span>${nameIt}${lw ? `<span class="badge r" data-tip="${plural(lw, 'session')} waiting for you">${lw}</span>` : ''}${lr ? `<span class="badge o" data-tip="${plural(lr, 'session')} running">${lr}</span>` : ''}<span class="badge" data-tip="${plural(list.length, 'session')} ${S.days ? `in the last ${plural(S.days, 'day')}` : 'in total'}">${list.length}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`
   }).join('')
   const hidden = d.hidden ?? []
   const closed = hidden.length ? `<div class="section">Closed</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} sessions</span></div>` +
@@ -767,7 +770,7 @@ function renderCols() {
       // height sets the scale (the viewBox ratio gives the width), so a narrower column crops both sides evenly
       const svg = sky(groups()), vb = /viewBox="[-\d.]+ [-\d.]+ (\d+) (\d+)"/.exec(svg)
       const full = el.classList.contains('mapfull')
-      body = `<div class="bigmap${S.labels ? ' labels' : ''}"><div class="mapview">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maptools"><button data-map="labels" class="txt${S.labels ? ' on' : ''}" data-tip="${S.labels ? 'Hide session titles' : 'Show session titles'}">Aa</button><button data-map="reset" data-tip="Center and reset zoom">${ICON.refresh}</button><button data-map="full" data-tip="${full ? 'Exit full screen' : 'Full screen'}">${full ? ICON.shrink : ICON.expand}</button></div></div><div class="maplegend">Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more.</div>`
+      body = `<div class="bigmap${S.labels ? ' labels' : ''}"><div class="mapview">${vb ? svg.replace('<svg ', `<svg style="aspect-ratio:${vb[1]} / ${vb[2]}" `) : svg}</div><div class="maptools"><button data-map="labels" class="txt${S.labels ? ' on' : ''}" data-tip="${S.labels ? 'Hide session titles' : 'Show session titles'}">Aa</button><button data-map="reset" data-tip="Center and reset zoom">${ICON.refresh}</button><button data-map="full" data-tip="${full ? 'Exit full screen' : 'Full screen'}">${full ? ICON.shrink : ICON.expand}</button></div></div><div class="maplegend">Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more. Double-click a planet or a session’s title to rename it.</div>`
     }
     // a conversation follows its newest lines at the bottom while the owner is there, and stays put once they scroll up
     const b = el.querySelector('.body'), first = b._html === undefined, atEnd = first || b.scrollHeight - b.scrollTop - b.clientHeight < 60
@@ -897,6 +900,17 @@ document.addEventListener('dblclick', e => {  // a moon: its session in the Clau
   if (e.target.closest?.('g.mx')) return  // two quick clicks on a × are two closes, not an open
   const m = e.target.closest?.('svg [data-k]'); if (m) { e.preventDefault(); return toApp(byId().get(m.dataset.k)) }
 })
+// A name: rename it, as in the Claude app's sidebar. Taken from the second click (e.detail), not from dblclick: the first
+// click re-draws the row or the map, and a browser sends no dblclick when the two clicks land on different elements.
+function renameAt(t) {
+  if (!t.closest || t.closest('g.mx, svg [data-k], button, input, textarea, .composer, #menu')) return false
+  const title = t.closest('.col > header .title, .item .t'), col = title?.closest('.col')
+  const k = title && byId().get(title.closest('.item')?.dataset.open?.slice(2) ?? col?.dataset.col?.slice(2) ?? '')
+  if (k) { getSelection()?.removeAllRanges(); renameTopic(title, k); return true }
+  const row = t.closest('.row[data-proj]'), pl = t.closest('svg [data-p]'), name = row?.dataset.proj ?? pl?.dataset.p
+  if (!name || S.names === 'folder') return false
+  getSelection()?.removeAllRanges(); renameMenu(row ?? pl, name); return true
+}
 document.addEventListener('contextmenu', e => {
   const m = !e.target.closest?.('g.mx') && e.target.closest?.('svg [data-k]'), k = m && byId().get(m.dataset.k); if (!k) return
   e.preventDefault()
@@ -1000,8 +1014,14 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // --- language: Turkish when the owner uses Claude in Turkish (Claude's own setting, else the browser's), English otherwise.
 // The UI is written in English; after each change a pass swaps UI text through this dictionary. Session titles,
 // conversations and agents' summaries are never touched.
-let LANG = /^tr/i.test(navigator.language || '') ? 'tr' : 'en'
+let LANG = 'en'  // English unless the owner chose Turkish in the Claude app (S.data.lang); never the browser's language
 const TR = {
+  'Restart the Claude app once to finish updating Qosmopol, then rename it again.': "Qosmopol'ün güncellenmesi için Claude uygulamasını bir kez yeniden başlat, sonra adı yeniden değiştir.",
+  "Name it (or double-click the name). This Claude project's name stays on claude.ai and is not written to this computer: give it its name from Claude once.": "Adlandır (ya da ada çift tıkla). Bu Claude projesinin adı claude.ai'de durur, bilgisayara yazılmaz: Claude'daki adını bir kez ver.",
+  'Rename session': 'Konunun adını değiştir', 'New title': 'Yeni başlık', 'Asking the Claude app…': 'Claude uygulamasına soruluyor…',
+  "This Claude project's name stays on claude.ai and is not written to this computer: give it its name from Claude once.": "Bu Claude projesinin adı claude.ai'de durur, bilgisayara yazılmaz: Claude'daki adını bir kez ver.",
+  'This session is on another computer: rename it there.': 'Bu konu başka bir bilgisayarda: adını orada değiştir.',
+  'Claude did not allow renaming it from the map: rename it in the Claude app (opening it there).': "Claude haritadan ad değiştirmeye izin vermedi: Claude uygulamasında değiştir (orada açılıyor).",
   'Scanning…': 'Taranıyor…', 'Inbox': 'Gelen kutusu', 'Open a project, a session, the map or the inbox from the left.': 'Soldan bir proje, konu, harita ya da gelen kutusunu aç.', 'Center and reset zoom': 'Ortala ve yakınlaştırmayı sıfırla', 'Full screen': 'Tam ekran', 'Exit full screen': 'Tam ekrandan çık', 'No folder (temporary workspace)': 'Klasör yok (geçici çalışma alanı)', 'Show folder in Finder': "Klasörü Finder'da göster", 'Copy folder path': 'Klasör yolunu kopyala', 'Folder path copied': 'Klasör yolu kopyalandı', 'Interactive project map for Claude Code': 'Claude Code için etkileşimli proje haritası', '1 day': '1 gün', '7 days': '7 gün', '30 days': '30 gün', 'All': 'Hepsi',
   'Graphite': 'Antrasit', 'Light': 'Açık', 'Black': 'Siyah', 'Projects': 'Projeler', 'auto-sort': 'otomatik sırala',
   'Loose sessions': 'Projesiz konular', 'Closed': 'Kapatılanlar', 'Home session (Claude)': 'Ana oturum (Claude)', 'Map': 'Harita',
@@ -1024,7 +1044,7 @@ const TR = {
   'Max': 'En yüksek', 'Default effort': 'Varsayılan efor', 'Default model': 'Varsayılan model', 'Change for this session': 'Bu konu için değiştir',
   "The home session's model and effort change in the Claude app's own menu": 'Ana oturumun modeli ve eforu Claude uygulamasının kendi menüsünden değişir',
   'Asking the app… (it may show an approval card)': 'Uygulamaya soruluyor… (onay kartı çıkabilir)',
-  'Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more.': 'Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · mavi: son 24 saatte yeni cevap · gri: kapanmış, 10 günde solup kaybolur. Daireye bas: sütunu açılır. Aya çift tıkla ya da ⌘/Ctrl ile tıkla: Claude uygulamasında açılır; sağ tık: diğer seçenekler.',
+  'Blinking red: something needs you · orange: agent working · blue: new reply in the last 24 hours · grey: closed, fading out over 10 days. Click a circle to open its column. Double-click or ⌘/Ctrl-click a moon to open it in the Claude app; right-click for more. Double-click a planet or a session’s title to rename it.': 'Kırmızı yanıp sönen: senden bir şey bekleniyor · turuncu: ajan çalışıyor · mavi: son 24 saatte yeni cevap · gri: kapanmış, 10 günde solup kaybolur. Daireye bas: sütunu açılır. Aya çift tıkla ya da ⌘/Ctrl ile tıkla: Claude uygulamasında açılır; sağ tık: diğer seçenekler. Gezegene ya da konunun başlığına çift tıkla: adını değiştir.',
   'Open in the Claude app': 'Claude uygulamasında aç', 'Open its column': 'Sütununu aç', 'Open on claude.ai': "claude.ai'de aç",
   "This session is on another computer and its Remote Control is off: open it there.": 'Bu konu başka bir bilgisayarda ve Remote Control kapalı: orada aç.',
   "What you write here or in the sidebar bar goes to Qosmopol's home session; replies show up here.": "Buradan ya da soldaki çubuktan yazdıkların Qosmopol'un ana oturumuna gider; cevaplar burada görünür.",
@@ -1151,15 +1171,28 @@ function groupMenu(anchor, target, current) {
 }
 // A planet's own name: its folder's, unless the owner gives it the name they use in Claude's sidebar. Same rules as
 // "Move to project" underneath, so the name holds on every computer and new sessions in that folder get it too.
+// A Claude project (claude.ai Projects) keeps its name on claude.ai; its sessions here carry only its id (2026-11-03).
+const UNNAMED_TIP = "This Claude project's name stays on claude.ai and is not written to this computer: give it its name from Claude once."
+const NAME_IT_TIP = 'Name it (or double-click the name). ' + UNNAMED_TIP
 function renameMenu(anchor, name) {
-  const go = v => v === name ? null : api('/api/group', { planet: name, name: v }).then(() => {
+  const unnamed = (new Map(groups()).get(name) ?? []).some(k => k.unnamed)
+  const go = v => !v.trim() || v === name ? null : api('/api/group', { planet: name, name: v.trim() }).then(() => {
     toast(`Renamed to ${v}`)
     const order = S.data.order ?? []  // the renamed planet keeps its place in the owner's order
     if (order.includes(name) && !order.includes(v)) saveOrder(order.map(n => n === name ? v : n))
     return refresh(true)
   }).catch(err => toast('Could not rename: ' + err.message))
-  openMenu(anchor, [{ hd: 'Rename' }, { input: 'New name', value: name, button: 'Save', run: go }])
+  openMenu(anchor, [{ hd: 'Rename' }, ...(unnamed ? [{ hd: UNNAMED_TIP }] : []), { input: 'New name', value: unnamed ? '' : name, button: 'Save', run: go }])
   anchor.classList?.add('open')
+}
+// A session's own title, changed in the Claude app itself (its sidebar shows it too); the app may ask or refuse.
+function renameTopic(anchor, k) {
+  if (!k) return
+  if (k.remote) return toast('This session is on another computer: rename it there.')
+  const go = v => !v.trim() || v.trim() === k.title ? null : api('/api/set', { id: k.home ? '' : k.id, what: 'title', value: v.trim() })
+    .then(r => { S.jobs[r.job] = { kind: 'title', title: v.trim(), k: k.id, at: Date.now() }; toast('Asking the Claude app…'); setTimeout(() => refresh(true), 3000) })
+    .catch(err => toast('Could not rename: ' + err.message))
+  openMenu(anchor, [{ hd: 'Rename session' }, { input: 'New title', value: k.title, button: 'Save', run: go }])
 }
 // A subfolder (Media/#Game) as one project: its sessions, and the ones started there later, on this computer.
 const folderMenu = (anchor, k) => groupMenu(anchor, { folder: k.id }, k.rule?.startsWith('f:') ? k.proj : '')
@@ -1293,9 +1326,11 @@ document.addEventListener('click', e => {
   const chip = comp && t.closest('[data-chip]'); if (chip) return chip.classList.contains('ro') ? homeRow() && openInApp(homeRow()) : chipMenu(comp, chip)
   const mi = t.closest('#menu [data-mi]'); if (mi) { const f = MENU[+mi.dataset.mi]; closeMenu(); return f && f() }
   if (!t.closest('#menu')) closeMenu()
+  if (e.detail === 2 && renameAt(t)) return
   const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
   const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
   const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { if (r.job) S.jobs[r.job] = { label: 'Reopen', kind: 'reopen', at: Date.now() }; toast('Session reopened'); refresh(true) })
+  const ren = t.closest('[data-rename]'); if (ren) { e.stopPropagation(); return renameMenu(ren, ren.dataset.rename) }
   const nm = t.closest('[data-names]'); if (nm) { S.names = nm.dataset.names; keep('names', S.names); return refresh(true) }
   const pick = t.closest('[data-theme-pick]'); if (pick) { document.documentElement.dataset.theme = pick.dataset.themePick; keep('theme', pick.dataset.themePick); return renderSide() }
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
@@ -1572,6 +1607,13 @@ async function refresh(now) {
   for (const [job, j] of Object.entries(S.jobs)) {
     const r = S.data.results?.[job], out = j.note?.isConnected ? j.note : $('#sidebar-composer .note')
     // a close already shows on the map; the Claude app may refuse the archive (its permission check, 2026-11-02): say so
+    if (j.kind === 'title' && (r || Date.now() - j.at > 20000)) {  // the app may refuse it from here, as with the other settings
+      const refusedHere = r && !r.ok && /refused|classifier|permission|declined/i.test(r.text)
+      toast(r?.ok ? `Renamed to ${j.title}` : refusedHere ? 'Claude did not allow renaming it from the map: rename it in the Claude app (opening it there).'
+        : r?.text === 'unknown setting' ? 'Restart the Claude app once to finish updating Qosmopol, then rename it again.' : `Could not rename: ${r?.text || 'the bridge is not answering'}`)
+      if (refusedHere) { const k = byId().get(j.k); if (k) openInApp(k) }
+      delete S.jobs[job]; continue
+    }
     if (j.kind && (r || Date.now() - j.at > 20000)) { if (j.kind === 'archive' && r && !r.ok) refused++; delete S.jobs[job]; continue }
     // a model, effort or mode change the app refused from here (its permission check, as in auto mode): say it plainly and
     // take the owner to the session in the Claude app, where it is one click (2026-11-02: four refused clicks in a row)

@@ -168,12 +168,12 @@ async function bridge($: EngineInterface) {
           void $.prompt.submit({ text: String(j.text), asUser: true })
           out.push({ job: j.job, ok: true, text: 'delivered to the Qosmopol session (runs once it is idle)' })
         } else if (j.kind === 'set') {
-          // The app refuses a session re-pricing its own turns: the home session changes only its mode from here.
-          if (j.id === 'self' && j.what !== 'mode') {
+          // The app refuses a session re-pricing its own turns: the home session changes only its mode and title from here.
+          if (j.id === 'self' && j.what !== 'mode' && j.what !== 'title') {
             out.push({ job: j.job, ok: false, text: "the home session's model and effort change in the Claude app's menu" })
             continue
           }
-          const tool = { model: 'set_session_model', effort: 'set_session_effort', mode: 'set_session_permission_mode' }[j.what as string]
+          const tool = { model: 'set_session_model', effort: 'set_session_effort', mode: 'set_session_permission_mode', title: 'set_session_title' }[j.what as string]
           if (!tool) {
             out.push({ job: j.job, ok: false, text: 'unknown setting' })
             continue

@@ -347,3 +347,32 @@ for (const lang of ['en-US', 'tr-TR']) test(`the pane speaks the app's language 
     expect(words).not.toMatch(/\b(Projects|Refresh|Conversation|Open in app|Mark read)\b/)
   }
 })
+
+test('a session renamed on the map is renamed in the Claude app itself, the home session too', async ($, on) => {
+  let queued = [{ job: 't1', kind: 'set', id: 'local_1', what: 'title', value: 'Space Game' }, { job: 't2', kind: 'set', id: 'self', what: 'title', value: 'Home' }]
+  const mcp: string[] = []
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    if (e.argv.includes('take')) {
+      const jobs = queued
+      queued = []
+      return { value: { exitCode: 0, stdout: JSON.stringify(jobs), stderr: '' } }
+    }
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('mcp.call', (_, e) => { mcp.push(`${e.tool} ${JSON.stringify(e.args)}`); return { value: { content: [], isError: false } } })
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  const clock = mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
+  await clock.advance(3000)
+  expect(mcp.filter(m => m.startsWith('set_session_title'))).toEqual([
+    'set_session_title {"session_id":"local_1","title":"Space Game"}', 'set_session_title {"session_id":"self","title":"Home"}'])
+})
