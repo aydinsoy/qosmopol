@@ -1709,7 +1709,8 @@ function flyTo(x, y, s, done) {
   const s0 = MV.s, w0 = [(cx - MV.x) / s0, (cy - MV.y) / s0], w1 = [(cx - x) / s, (cy - y) / s]  // the map point mid-box, before and after
   const far = Math.hypot((w1[0] - w0[0]) * Math.min(s0, s), (w1[1] - w0[1]) * Math.min(s0, s)) / Math.max(box.width, box.height)
   const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1400 + Math.min(800, far * 1000)
-  const dip = Math.min(0.7, 0.58 + far * 0.3)  // the circles shrink to about a third before they come (owner 2026-11-05), ease = t => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)  // ease in-out cubic
+  const dip = Math.min(0.7, 0.58 + far * 0.3)  // the circles shrink to about a third before they come (owner 2026-11-05)
+  const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)  // ease in-out cubic
   const t0 = performance.now()
   const step = now => {
     const t = ms ? Math.min(1, (now - t0) / ms) : 1, e = ease(t)
