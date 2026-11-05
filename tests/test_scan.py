@@ -69,6 +69,17 @@ class Scan(unittest.TestCase):
         rows = self.scan()
         self.assertEqual([rows[i]["proj"] for i in ("local_a", "local_b")], ["Projects", "Projects"])
 
+    def test_a_picture_at_the_end_of_a_conversation_does_not_hide_it(self):
+        cli = "11111111-2222-3333-4444-555555555555"
+        say = lambda role, text: json.dumps({"type": role, "message": {"role": role, "content": [{"type": "text", "text": text}]}})
+        picture = json.dumps({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content": [
+            {"type": "image", "source": {"type": "base64", "data": "A" * 1_000_000}}]}]}})  # the session looked at a screenshot
+        with open(os.path.join(self.transcripts, cli + ".jsonl"), "w", encoding="utf-8") as f:
+            f.write("\n".join([say("user", "why are the projects missing?"), say("assistant", "Let me look."), picture]) + "\n")
+        konu = os.path.join(os.path.dirname(SCAN), "konu.py")
+        out = json.loads(subprocess.run([sys.executable, konu, cli], env=self.env, capture_output=True, text=True, encoding="utf-8", check=True).stdout)
+        self.assertEqual([m["text"] for m in out["msgs"]], ["why are the projects missing?", "Let me look."])
+
 
 if __name__ == "__main__":
     unittest.main()
