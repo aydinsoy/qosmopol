@@ -1699,7 +1699,7 @@ function focusPlanet(name) {
 }
 // The view glides to (x, y, s) like a map flying to a place (owner 2026-11-05: the spring curve slid too fast and
 // overshot). The point at the middle of the box travels on a straight line with a slow start and a slow landing;
-// on the way the view draws back (to about half) and comes in again. Longer ways take longer, up to 1.9 s.
+// on the way the view draws back first (to about a third) and then glides in. Longer ways take longer, up to 2.2 s.
 let flight = 0
 const cancelFlight = () => { cancelAnimationFrame(flight); flight = 0 }
 function flyTo(x, y, s, done) {
@@ -1708,12 +1708,12 @@ function flyTo(x, y, s, done) {
   const box = v.parentElement.getBoundingClientRect(), cx = box.width / 2 - v.offsetLeft, cy = box.height / 2 - v.offsetTop
   const s0 = MV.s, w0 = [(cx - MV.x) / s0, (cy - MV.y) / s0], w1 = [(cx - x) / s, (cy - y) / s]  // the map point mid-box, before and after
   const far = Math.hypot((w1[0] - w0[0]) * Math.min(s0, s), (w1[1] - w0[1]) * Math.min(s0, s)) / Math.max(box.width, box.height)
-  const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1100 + Math.min(800, far * 1000)
-  const dip = Math.min(0.5, 0.3 + far * 0.4)  // the circles shrink to about half before they come (owner 2026-11-05), ease = t => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)  // ease in-out cubic
+  const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1400 + Math.min(800, far * 1000)
+  const dip = Math.min(0.7, 0.58 + far * 0.3)  // the circles shrink to about a third before they come (owner 2026-11-05), ease = t => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)  // ease in-out cubic
   const t0 = performance.now()
   const step = now => {
     const t = ms ? Math.min(1, (now - t0) / ms) : 1, e = ease(t)
-    const k = (s0 + (s - s0) * e) * (1 - dip * Math.sin(Math.PI * t))  // scale on its way, drawn back mid-flight
+    const k = (s0 + (s - s0) * e) * (1 - dip * Math.sin(Math.PI * Math.min(1, t < 0.4 ? t / 0.8 : 0.5 + (t - 0.4) / 1.2)))  // drawn back early, then in
     const wx = w0[0] + (w1[0] - w0[0]) * e, wy = w0[1] + (w1[1] - w0[1]) * e
     MV.x = cx - wx * k; MV.y = cy - wy * k; MV.s = k
     applyMapView()
