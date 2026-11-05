@@ -70,7 +70,7 @@ Running Claude Code on more than one computer (two Macs, a Mac and a Windows PC)
 
 **The sidebar.** *Pinned* lists your Claude projects and any session you pinned in Claude's sidebar; *Recent* shows the five most recent of the rest, newest first (*Show all* for the others). **↻ Refresh** reads your Claude projects again. **Hide on map** in a row's ⋯ menu takes a project or a session off the map here (nothing is archived); *Closed* brings it back.
 
-**Finding a project.** Click a project (or a session) in the sidebar and the map flies to its planet: the view first draws back to about a third and then glides in, the planet landing in the middle, 15% larger. ↻ on the map goes back to the whole view.
+**Finding a project.** Click a project (or a session) in the sidebar and the map flies to its planet: the view first draws back to about two thirds and then glides in, the planet landing in the middle, 15% larger. ↻ on the map goes back to the whole view.
 
 **Renaming.** Double-click a planet (on the map or in the sidebar) to rename it, or a session's title (in its column or a project's list) to rename the session in the Claude app itself; the app may ask you to approve it.
 
