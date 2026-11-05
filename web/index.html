@@ -653,9 +653,25 @@ async function openInApp(k) {
 function setHTML(el, html) { if (el._html === html) return false; el.innerHTML = html; el._html = html; return true }
 const md = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>')
 function render() { renderSide(); renderPlist(); renderCols() }
+// While the map shows Claude projects under their id alone, the home box offers the request that names them, faintly;
+// Tab writes it in (2026-11-05). The home session knows how to carry it out (hooks/register.tsx, namesHelp).
+const SUGGEST = 'Match the project names here with the names in Claude'
+function suggest() {
+  const ta = $('#sidebar-composer textarea'); if (!ta) return
+  const want = (S.data?.sessions ?? []).some(k => k.unnamed) ? tr(SUGGEST) : ''
+  if (ta.dataset.suggest === want) return
+  ta.dataset.suggest = want
+  ta.placeholder = want ? `${want}   ⇥ Tab` : tr('Message Claude… (home session)')
+}
+document.addEventListener('keydown', e => {
+  const t = e.target
+  if (e.key !== 'Tab' || e.shiftKey || !t.matches?.('#sidebar-composer textarea') || t.value || !t.dataset.suggest) return
+  e.preventDefault(); t.value = t.dataset.suggest; grow(t); t.closest('.composer').classList.add('has-text')
+})
 function renderSide() {
   const d = S.data
   if (!d || S.drag) return
+  suggest()
   const shown = visible(), w = shown.filter(waiting).length, r = shown.filter(running).length, n = shown.filter(k => !waiting(k) && !running(k) && unread(k)).length
   setHTML($('#counts'), `<span class="w"><b>${w}</b> waiting</span><span class="o"><b>${r}</b> running</span><span><b>${n}</b> unread</span>`)
   const th = document.documentElement.dataset.theme
@@ -1026,6 +1042,7 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // conversations and agents' summaries are never touched.
 let LANG = 'en'  // English unless the owner chose Turkish in the Claude app (S.data.lang); never the browser's language
 const TR = {
+  'Match the project names here with the names in Claude': 'Buradaki proje adlarını Claude’daki adlarla eşitle',
   'Drop to attach': 'Eklemek için bırak', 'Drop it on a message box': 'Bir mesaj kutusunun üzerine bırak', 'Remove': 'Kaldır',
   'Restart the Claude app once to finish updating Qosmopol, then rename it again.': "Qosmopol'ün güncellenmesi için Claude uygulamasını bir kez yeniden başlat, sonra adı yeniden değiştir.",
   "Name it (or double-click the name). This Claude project's name stays on claude.ai and is not written to this computer: give it its name from Claude once.": "Adlandır (ya da ada çift tıkla). Bu Claude projesinin adı claude.ai'de durur, bilgisayara yazılmaz: Claude'daki adını bir kez ver.",

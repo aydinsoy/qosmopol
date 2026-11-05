@@ -376,3 +376,34 @@ test('a session renamed on the map is renamed in the Claude app itself, the home
   expect(mcp.filter(m => m.startsWith('set_session_title'))).toEqual([
     'set_session_title {"session_id":"local_1","title":"Space Game"}', 'set_session_title {"session_id":"self","title":"Home"}'])
 })
+
+const COMPOSE = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: ['desktop'] as const, tools: [], outputStyle: null, traits: [] }
+test('the home session alone is told how to give the unnamed Claude projects their names', async ($, on) => {
+  let home = 'cli-1'
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    if (e.argv.includes('home')) return { value: { exitCode: 0, stdout: home + '\n', stderr: '' } }
+    if (e.argv.includes('take')) return { value: { exitCode: 0, stdout: '[]', stderr: '' } }
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('mcp.call', () => ({ value: { content: [{ type: 'text', text: '[]' }], isError: false } }))
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude.', scope: 'shared' }] }))
+
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
+  const mine = (await $.prompt.compose(COMPOSE)).sections.find(s => s.id === 'qosmopol:names')
+  expect(mine?.scope).toBe('session')
+  expect(mine?.text).toContain('server.py projects')
+  expect(mine?.text).toContain('server.py name "<planet>" "<project name>"')
+  home = 'cli-2'  // another session ran /qosmopol: this one is no longer the home
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
+  expect((await $.prompt.compose(COMPOSE)).sections.map(s => s.id)).toEqual(['intro'])
+})

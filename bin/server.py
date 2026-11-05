@@ -211,6 +211,25 @@ def enqueue(job):
     return job["job"]
 
 
+def planet_keys(rows, planet):
+    """The rules that name a planet: change these and the planet's name changes; the rest of its sessions go by their
+    folder (or one by one, when a Claude sidebar group named them)."""
+    return sorted({k.get("rule") or ("s:" + k["id"] if k.get("side") else f"p:{k.get('dev', '')}:{k.get('proj0') or k['proj']}")
+                   for k in rows if k["proj"] == planet})
+
+
+def unnamed_projects():
+    """The Claude projects (claude.ai Projects) the map shows under their id alone, each with what its sessions were
+    about: what the home session matches against the project names it can see in the Claude app."""
+    rows = scan()["sessions"]
+    out = {}
+    for k in sorted(rows, key=lambda k: -(k.get("last") or 0)):
+        if k.get("unnamed"):
+            out.setdefault(k["proj"], []).append(k["title"])
+    return {"unnamed": [{"planet": p, "sessions": t[:12]} for p, t in out.items()],
+            "named": sorted({k["proj"] for k in rows if not k.get("unnamed")})}
+
+
 def attach(name, data):
     """Save a file dropped on a message box; (status, reply). Only a few plain kinds, never over ATTACH_MAX, never
     outside ATTACH, never over an existing file."""
@@ -361,10 +380,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     keys = [f"f:{base}/{folder['sub']}" if folder.get("sub") else f"p:{base}"]
                 elif sid:
                     keys = ["s:" + sid]
-                else:  # a planet: change the rules that named its sessions; the rest go by their folder (or one by one
-                    planet = str(body.get("planet") or "")[:200]  # when a Claude sidebar group named them)
-                    keys = sorted({k.get("rule") or ("s:" + k["id"] if k.get("side") else f"p:{k.get('dev', '')}:{k.get('proj0') or k['proj']}")
-                                   for k in rows if k["proj"] == planet})
+                else:
+                    keys = planet_keys(rows, str(body.get("planet") or "")[:200])
                 if not keys:
                     return self.reply(404, {"error": "nothing to move"})
                 sync.set_groups({key: body.get("name") or "" for key in keys})
@@ -483,6 +500,17 @@ if __name__ == "__main__":
                   "rc": {str(k): bool(v) for k, v in (seen.items() if isinstance(seen, dict) else []) if str(k).startswith("local_")},
                   # the Claude sidebar group each session is filed under: its project name on the map
                   "side": {str(k): str(v).strip()[:80] for k, v in side.items() if str(k).startswith("local_") and str(v).strip()}})
+        sys.exit(0)
+    if args[:1] == ["projects"]:  # for the home session: the planets still waiting for their Claude project's name
+        print(json.dumps(unnamed_projects(), ensure_ascii=False, indent=1))
+        sys.exit(0)
+    if args[:1] == ["name"] and len(args) == 3:  # name "<planet>" "<project name>", as Rename… on the map does
+        keys = planet_keys(scan()["sessions"], args[1])
+        if not keys or not args[2].strip():
+            print(f"no planet called {args[1]!r}", file=sys.stderr)
+            sys.exit(1)
+        sync.set_groups({key: " ".join(args[2].split())[:80] for key in keys})
+        print(f"{args[1]} → {' '.join(args[2].split())[:80]}")
         sys.exit(0)
     if args[:1] == ["done"]:
         done(args[1] if len(args) > 1 else "[]")

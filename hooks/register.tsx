@@ -29,6 +29,14 @@ let stopBridge: (() => void) | undefined
 let bridging = false
 let rcAt = 0
 let inbox = ''  // this session's own inbox (bin/server.py INBOX), '' until the server has made it
+// The home session carries one more instruction in its system prompt: how to give the map's unnamed Claude projects
+// their names (2026-11-05: any owner should get it done by asking, from the map's box at the bottom left).
+let homeHere = false
+let serverCmd = ''
+const namesHelp = (cmd: string) => `Qosmopol (the project map plugin): this session is Qosmopol's home session, and what the owner writes in the map's box arrives here as their own words.
+When the owner asks to match the map's project names with Claude's own project names (claude.ai Projects): run \`${cmd} projects\`. It lists the map's planets that carry only a project id ("Claude project · XXXX"), each with the titles of its sessions on this computer.
+A project's name lives only in the Claude app's interface, never on disk. If you can see the Claude app (computer use), its sidebar lists the projects: open each one and match each planet to the project whose threads carry the same requests. If you cannot see it, show the owner the list and ask which project each planet is.
+Then name each planet with \`${cmd} name "<planet>" "<project name>"\` (the same as Rename… on the map; it reaches the owner's other computers too). Name only the matches you are sure of, and report what you named and what is left.`
 let aliveAt = 0
 const WEB = 'http://127.0.0.1:47321/'
 const onWindows = async ($: EngineInterface) => (await $.env.get('OS')) === 'Windows_NT'
@@ -93,7 +101,8 @@ async function openMap($: EngineInterface) {
 // the session's project name. Once a minute, from the home session alone.
 async function remoteControl($: EngineInterface) {
   try {
-    if ((await server($, 'home')).stdout.trim() !== String(await $.session.id())) return
+    homeHere = (await server($, 'home')).stdout.trim() === String(await $.session.id())
+    if (!homeHere) return
     const res = await $.mcp.call('ccd_session_mgmt', 'list_sessions', { limit: 200 })
     const list = JSON.parse((res.content ?? []).map((c: any) => c.text ?? '').join(''))
     const rows = Array.isArray(list) ? list : [], rc: Record<string, boolean> = {}, side: Record<string, string> = {}
@@ -289,8 +298,15 @@ export const register: Register = on => {
     void server($, '--daemon')
     // Only the home session (the last one that ran /qosmopol) opens the pane by itself.
     const home = (await server($, 'home')).stdout.trim()
-    if (home && home === String(await $.session.id())) void $.ui.open({ id: PANE, title: TITLE })
+    homeHere = !!home && home === String(await $.session.id())
+    serverCmd = (await python($, 'server.py')).map(a => (/[\s"'$]/.test(a) ? JSON.stringify(a) : a)).join(' ')
+    if (homeHere) void $.ui.open({ id: PANE, title: TITLE })
     return next(e)
+  })
+
+  on('prompt.compose', async ($, e, next) => {
+    const r = await next(e)
+    return homeHere && serverCmd ? { sections: [...r.sections, { id: 'qosmopol:names', scope: 'session' as const, text: namesHelp(serverCmd) }] } : r
   })
 
   on('command.run', { command: 'qosmopol' }, async $ => {
@@ -305,6 +321,7 @@ export const register: Register = on => {
       $.ui.toast(text)
       return { text }
     }
+    homeHere = true
     await $.ui.open({ id: PANE, title: TITLE })
     return { text: `Qosmopol is open. Full-screen web view: ${WEB} (this session is now Qosmopol's home session: what you write in the web view comes here).` }
   })
