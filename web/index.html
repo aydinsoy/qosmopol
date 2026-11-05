@@ -1336,7 +1336,11 @@ document.addEventListener('click', e => {
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
   const filter = t.closest('[data-filter]'); if (filter) { S.filter = filter.dataset.filter; return renderCols() }
   const more = t.closest('.row .more'); if (more) { e.stopPropagation(); return rowMenu(more.closest('.row'), more) }
-  const proj = t.closest('[data-proj]'); if (proj) return pickProject(S.pp === proj.dataset.proj ? '' : proj.dataset.proj)
+  const proj = t.closest('[data-proj]'); if (proj) {
+    const name = S.pp === proj.dataset.proj ? '' : proj.dataset.proj
+    pickProject(name); if (name) setTimeout(() => focusPlanet(name))
+    return
+  }
   if (t.closest('[data-plx]')) return pickProject('')
   const pact = t.closest('[data-pact]'); if (pact) {
     const list = new Map(groups()).get(S.pp) ?? []
@@ -1362,7 +1366,11 @@ document.addEventListener('click', e => {
     if (a === 'old-no') { S.confirmOld = false; return renderCols() }
     if (a === 'old-yes') { S.confirmOld = false; return (async () => { for (const x of old) await api('/api/close', { id: x.id }).then(r => r.job && (S.jobs[r.job] = { label: 'Archive', kind: 'archive', at: Date.now() })).catch(() => {}); remember(old.map(x => x.id)); toast(`${old.length} sessions closed`); refresh(true) })() }
   }
-  const open = t.closest('[data-open]'); if (open) return openCol(open.dataset.open)
+  const open = t.closest('[data-open]'); if (open) {
+    const k = t.closest('#tree') && ids.get(open.dataset.open.slice(2))  // a session in the sidebar: its planet comes forward too
+    openCol(open.dataset.open); if (k) setTimeout(() => focusPlanet(k.proj))
+    return
+  }
 })
 // --- projects reorder by drag and drop; the order is kept by the server, so every browser and the installed app share it
 function saveOrder(names) {
@@ -1557,6 +1565,17 @@ function zoomMapAt(clientX, clientY, factor) {
   const s = Math.max(0.3, Math.min(6, MV.s * factor)), k = s / MV.s
   const px = clientX - box.left - v.offsetLeft, py = clientY - box.top - v.offsetTop  // pointer in the view's untransformed frame
   MV.x = px - (px - MV.x) * k; MV.y = py - (py - MV.y) * k; MV.s = s
+  applyMapView(); saveMapView()
+}
+// A project or session picked in the sidebar: its planet comes to the middle of the map, 30% larger (2026-11-05).
+function focusPlanet(name) {
+  const v = document.querySelector('.mapview'), g = [...document.querySelectorAll('.bigmap svg [data-p]')].find(x => x.dataset.p === name)
+  const c = g?.querySelector('circle'); if (!v || !c) return
+  const box = v.parentElement.getBoundingClientRect(), r = c.getBoundingClientRect(), s = 1.3
+  // the planet's centre in the view's own untransformed frame (the frame zoomMapAt works in), then put it mid-box at s
+  const px = (r.left + r.width / 2 - box.left - v.offsetLeft - MV.x) / MV.s, py = (r.top + r.height / 2 - box.top - v.offsetTop - MV.y) / MV.s
+  MV.x = box.width / 2 - v.offsetLeft - px * s; MV.y = box.height / 2 - v.offsetTop - py * s; MV.s = s
+  v.style.transition = 'transform .6s var(--spring)'; setTimeout(() => (v.style.transition = ''), 650)
   applyMapView(); saveMapView()
 }
 function toggleMapFull() {
