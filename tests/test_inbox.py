@@ -82,6 +82,21 @@ class Inbox(unittest.TestCase):
                              env={**os.environ, "HOME": ROOT, "USERPROFILE": ROOT}).stdout
         self.assertEqual(json.loads(out)["msgs"], [{"role": "sen", "text": "ok", "via": "Home"}, {"role": "claude", "text": "done"}])
 
+    def test_a_dropped_file_is_kept_here_privately_and_only_plain_kinds_get_in(self):
+        import base64
+        png = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 100).decode()
+        status, r = server.attach("Ekran Resmi 2026-11-05 13.21.23.png", png)
+        self.assertEqual((status, r["name"], r["size"]), (200, "Ekran Resmi 2026-11-05 13.21.23.png", 108))
+        self.assertEqual(os.path.dirname(r["path"]), server.ATTACH)
+        with open(r["path"], "rb") as f:
+            self.assertTrue(f.read().startswith(b"\x89PNG"))
+        if sys.platform != "win32":
+            self.assertEqual(os.stat(r["path"]).st_mode & 0o777, 0o600)
+        self.assertEqual(server.attach("../../evil.png", png)[1]["path"].startswith(server.ATTACH + os.sep), True)  # never outside
+        self.assertEqual(server.attach("run.sh", png)[0], 400)
+        self.assertEqual(server.attach("a.png", "not base64!")[0], 400)
+        self.assertEqual(server.attach("a.png", "")[0], 413)
+
 
 if __name__ == "__main__":
     unittest.main()

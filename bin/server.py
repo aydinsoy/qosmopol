@@ -13,6 +13,8 @@ to a queue that the Qosmopol mod (running inside a Claude Code session) carries 
   server.py take [ID]       (for the mod) print and clear the queued jobs, if ID is the home
   server.py done JSON       (for the mod) store results: [{"job": ..., "ok": ..., "text": ...}]
 """
+import base64
+import binascii
 import glob
 import http.server
 import re
@@ -46,6 +48,11 @@ RC = os.path.join(HOME, "rc.json")  # which sessions' Remote Control is on, as t
 # as the owner's own words. Through the app (send_message) it would arrive as another session's message, which Claude
 # takes as a teammate's note rather than an instruction, and the owner would not see it as theirs (2026-11-02).
 INBOX = os.path.join(HOME, "gelen")
+# Files dropped on a message box in the web view (2026-11-05): kept here, and the message carries their path, which the
+# session reads like any file on this computer. A month later they go.
+ATTACH = os.path.join(HOME, "ekler")
+ATTACH_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".pdf", ".txt", ".md", ".csv", ".json", ".log"}
+ATTACH_MAX = 20 * 1024 * 1024
 ALIVE, LATE = 15, 12  # a mod that wrote its heartbeat within ALIVE seconds is running; one that left a message LATE gave up
 PORT = 47321
 KEEP = 1000
@@ -204,6 +211,30 @@ def enqueue(job):
     return job["job"]
 
 
+def attach(name, data):
+    """Save a file dropped on a message box; (status, reply). Only a few plain kinds, never over ATTACH_MAX, never
+    outside ATTACH, never over an existing file."""
+    name = os.path.basename(str(name or "").replace("\\", "/")) or "file.png"
+    ext = os.path.splitext(name)[1].lower()
+    if ext not in ATTACH_EXT:
+        return 400, {"error": "this kind of file cannot be attached"}
+    try:
+        raw = base64.b64decode(str(data or ""), validate=True)
+    except (ValueError, binascii.Error):
+        return 400, {"error": "bad file"}
+    if not raw or len(raw) > ATTACH_MAX:
+        return 413, {"error": "too large"}
+    os.makedirs(ATTACH, mode=0o700, exist_ok=True)
+    for old in glob.glob(os.path.join(ATTACH, "*")):
+        if time.time() - os.path.getmtime(old) > 30 * 86400:
+            os.remove(old)
+    path = os.path.join(ATTACH, f"{time.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(3)}-{re.sub(r'[^A-Za-z0-9._ -]', '_', name)[-80:]}")
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(raw)
+    return 200, {"path": path, "name": name, "size": len(raw)}
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -259,7 +290,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not self.allowed():
             return self.reply(403, {"error": "forbidden"})
         try:
-            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            size = int(self.headers.get("Content-Length") or 0)
+            if size > ATTACH_MAX * 4 // 3 + 4096:  # a 20 MB file, base64 in JSON, and no more
+                return self.reply(413, {"error": "too large"})
+            body = json.loads(self.rfile.read(size) or b"{}")
         except ValueError:
             return self.reply(400, {"error": "bad request"})
         path = urllib.parse.urlparse(self.path).path
@@ -300,6 +334,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     save(READ, r)
                     SCAN["at"] = 0
                 return self.reply(200, {"ok": True})
+            if path == "/api/attach":
+                return self.reply(*attach(body.get("name"), body.get("data")))
             if path == "/api/send":
                 text = str(body.get("text") or "").strip()[:8000]
                 if not text:

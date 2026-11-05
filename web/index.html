@@ -215,6 +215,16 @@
      and a quiet row underneath with the session's mode, model and effort */
   .composer { flex: none; padding: 10px 12px 8px; }
   .cbox { display: flex; align-items: center; gap: 6px; background: var(--input); border: 1px solid var(--input-line); border-radius: 18px; padding: 6px 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  /* a file dragged over the page: every message box shows it takes files; the one under the pointer lights up */
+  .cbox { position: relative; transition: box-shadow .15s, border-color .15s, background .15s; }
+  body.dragfiles .cbox { border-style: dashed; border-color: color-mix(in srgb, var(--blue) 55%, var(--input-line)); }
+  .composer.dropok .cbox { border: 2px solid var(--blue); background: color-mix(in srgb, var(--blue) 12%, var(--input)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 22%, transparent); }
+  .composer.dropok .cbox::after { content: attr(data-drop); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: inherit; font-size: 13px; font-weight: 600; color: var(--blue); background: color-mix(in srgb, var(--input) 70%, transparent); pointer-events: none; }
+  .files { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+  .files:empty { display: none; }
+  .fchip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 4px 2px 8px; border: 1px solid var(--input-line); border-radius: 9px; background: var(--input); color: var(--text2); font-size: 12px; }
+  .fchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fchip button { border: 0; background: none; color: var(--text2); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 3px; }
   .cbox:focus-within { border-color: color-mix(in srgb, var(--input-line), var(--text) 22%); }
   .cbox textarea { flex: 1; resize: none; background: none; border: 0; padding: 6px 2px; min-height: 22px; max-height: 160px; line-height: 1.45; color: var(--text); font-size: 14px; }
   .cbox .plus, .cbox .micbtn { width: 30px; height: 30px; border: 0; border-radius: 50%; background: none; color: var(--text2); display: inline-flex; align-items: center; justify-content: center; flex: none; }
@@ -1016,6 +1026,7 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // conversations and agents' summaries are never touched.
 let LANG = 'en'  // English unless the owner chose Turkish in the Claude app (S.data.lang); never the browser's language
 const TR = {
+  'Drop to attach': 'Eklemek için bırak', 'Drop it on a message box': 'Bir mesaj kutusunun üzerine bırak', 'Remove': 'Kaldır',
   'Restart the Claude app once to finish updating Qosmopol, then rename it again.': "Qosmopol'ün güncellenmesi için Claude uygulamasını bir kez yeniden başlat, sonra adı yeniden değiştir.",
   "Name it (or double-click the name). This Claude project's name stays on claude.ai and is not written to this computer: give it its name from Claude once.": "Adlandır (ya da ada çift tıkla). Bu Claude projesinin adı claude.ai'de durur, bilgisayara yazılmaz: Claude'daki adını bir kez ver.",
   'Rename session': 'Konunun adını değiştir', 'New title': 'Yeni başlık', 'Asking the Claude app…': 'Claude uygulamasına soruluyor…',
@@ -1088,6 +1099,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
+  [/^Could not attach: /, 'Eklenemedi: '], [/^Attaching (.+)…$/, '$1 ekleniyor…'], [/^Too large to attach: (.+) \(at most 20 MB\)$/, 'Eklenemeyecek kadar büyük: $1 (en çok 20 MB)'], [/this kind of file cannot be attached/, 'bu tür dosya eklenemiyor'],
   [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Close: hidden on the map, and archived in Claude when the app allows it\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, "Kapat: haritada gizlenir, Claude izin verirse arşive de gider. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç."], [/^Hide here: it stays as it is where it lives\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, 'Burada gizle: olduğu yerde aynen kalır. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç.'], [/^Hidden on the map, and archived in Claude when the app allows it\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, "Haritada gizlenir, Claude izin verirse arşive de gider. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç."], [/^(\d+) hidden on the map; the Claude app did not allow archiving them\.$/, '$1 konu haritada gizlendi; Claude arşivlemeye izin vermedi.'], [/^(\d+) sessions reopened$/, '$1 konu yeniden açıldı'], [/^(\d+) sessions closed again$/, '$1 konu yeniden kapatıldı'], [/^Close its (\d+) sessions on this computer$/, 'Bu bilgisayardaki $1 konusunu kapat'], [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^↪ via (.+)$/, '↪ $1 üzerinden'], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
@@ -1285,14 +1297,16 @@ function chipMenu(comp, chip) {
 
 // --- composers: the sidebar one talks to the home session, a column's to its topic (a project column: home, prefixed)
 async function send(comp) {
-  const box = comp.querySelector('textarea'), text = box.value.trim(), to = comp.dataset.to, note = comp.querySelector('.note')
+  const box = comp.querySelector('textarea'), to = comp.dataset.to, note = comp.querySelector('.note'), files = comp._files ?? []
+  // the session reads a dropped file from its path on this computer, like any file it is given
+  const text = [box.value.trim(), ...files.map(f => `[Attached file: ${f.path}]`)].filter(Boolean).join('\n\n')
   if (!text) return
   const k = to.startsWith('k:') ? byId().get(to.slice(2)) : null
   const body = to.startsWith('p:') ? `[${to.slice(2)}] ${text}` : text
   try {
     const r = await api('/api/send', { id: k ? k.id : '', text: body })
     S.jobs[r.job] = { label: k ? cut(k.title, 30) : 'Claude', at: Date.now(), note }
-    box.value = ''; grow(box); comp.classList.remove('has-text')
+    box.value = ''; grow(box); comp.classList.remove('has-text'); comp._files = []; showFiles(comp)
     note.textContent = 'Sending…'
     const tid = k ? k.id : 'home'
     if (!k && !S.cols.includes('home')) openCol('home')
@@ -1301,6 +1315,46 @@ async function send(comp) {
     setTimeout(() => refresh(true), 3000)
   } catch (err) { note.textContent = 'Could not send: ' + err.message }
 }
+// --- files dropped or pasted on a message box (2026-11-05: a screenshot dropped on the map made Safari leave the page)
+const hasFiles = e => [...(e.dataTransfer?.types ?? [])].includes('Files')
+async function attach(comp, f) {
+  const note = comp.querySelector('.note')
+  if (f.size > 20 * 1024 * 1024) return toast(`Too large to attach: ${f.name} (at most 20 MB)`)
+  note.textContent = `Attaching ${f.name || 'image'}…`
+  try {
+    const data = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(r.error); r.readAsDataURL(f) })
+    const r = await api('/api/attach', { name: f.name || `pasted-${Date.now()}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, data })
+    comp._files = [...(comp._files ?? []), r]; showFiles(comp); note.textContent = ''
+    comp.querySelector('textarea')?.focus()
+  } catch (err) { note.textContent = 'Could not attach: ' + err.message }
+}
+function showFiles(comp) {
+  let row = comp.querySelector('.files'); if (!row) { row = document.createElement('div'); row.className = 'files'; comp.prepend(row) }
+  setHTML(row, (comp._files ?? []).map((f, i) => `<span class="fchip" title="${esc(f.path)}">📎 <span>${esc(f.name)}</span><button data-unattach="${i}" title="Remove">×</button></span>`).join(''))
+}
+let dragDepth = 0
+document.addEventListener('dragenter', e => { if (hasFiles(e)) { dragDepth++; document.body.classList.add('dragfiles') } })
+document.addEventListener('dragleave', e => { if (hasFiles(e) && --dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragfiles'); document.querySelectorAll('.composer.dropok').forEach(c => c.classList.remove('dropok')) } })
+document.addEventListener('dragover', e => {
+  if (!hasFiles(e)) return
+  e.preventDefault()  // the browser never leaves the map to show the file
+  const comp = e.target.closest?.('.composer')
+  e.dataTransfer.dropEffect = comp ? 'copy' : 'none'
+  document.querySelectorAll('.composer.dropok').forEach(c => c !== comp && c.classList.remove('dropok'))
+  if (comp && !comp.classList.contains('dropok')) { comp.classList.add('dropok'); comp.querySelector('.cbox').dataset.drop = tr('Drop to attach') }
+})
+document.addEventListener('drop', e => {
+  if (!hasFiles(e)) return
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragfiles')
+  const comp = e.target.closest?.('.composer'); document.querySelectorAll('.composer.dropok').forEach(c => c.classList.remove('dropok'))
+  if (!comp) return toast('Drop it on a message box')
+  for (const f of e.dataTransfer.files) attach(comp, f)
+})
+document.addEventListener('paste', e => {  // ⌘V / Ctrl+V of a screenshot in a message box
+  const comp = e.target.closest?.('.composer'), files = [...(e.clipboardData?.files ?? [])]
+  if (!comp || !files.length) return
+  e.preventDefault(); files.forEach(f => attach(comp, f))
+})
 const grow = t => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 160) + 'px' }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition
 let rec = null
@@ -1328,6 +1382,7 @@ document.addEventListener('click', e => {
   if (!t.closest('#menu')) closeMenu()
   if (e.detail === 2 && renameAt(t)) return
   const close = t.closest('[data-close]'); if (close) { e.stopPropagation(); const k = ids.get(close.dataset.close); return k && closeTopic(k) }
+  const un = t.closest('[data-unattach]'); if (un) { const comp = un.closest('.composer'); comp._files.splice(+un.dataset.unattach, 1); return showFiles(comp) }
   const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
   const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { if (r.job) S.jobs[r.job] = { label: 'Reopen', kind: 'reopen', at: Date.now() }; toast('Session reopened'); refresh(true) })
   const ren = t.closest('[data-rename]'); if (ren) { e.stopPropagation(); return renameMenu(ren, ren.dataset.rename) }

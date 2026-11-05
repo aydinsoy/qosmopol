@@ -66,6 +66,8 @@ Running Claude Code on more than one computer (two Macs, a Mac and a Windows PC)
 
 **Claude projects (claude.ai Projects).** A project's own conversation lives on claude.ai, so the map cannot show it, and its name is not written to your computer. When a project starts a session on your computer, the app calls it "Local session (from a project)" and runs it in your Projects folder; Qosmopol puts each project's sessions on a planet of their own, "Claude project · AB12" (the end of the project's id), and names each session after the message that started it. Click **✎** next to the planet, or double-click its name, and give it the project's name once.
 
+**Screenshots and files.** Drag a file over the map and every message box shows it takes files; drop it on one (or paste a screenshot with ⌘V / Ctrl+V) and it is attached. The file is kept in `~/.qosmopol/ekler` (for 30 days) and the message carries its path, so the session reads it like any file on your computer. Images, PDF and plain text, up to 20 MB.
+
 **Finding a project.** Click a project (or a session) in the sidebar and its planet comes to the middle of the map, 30% larger; ↻ on the map goes back to the whole view.
 
 **Renaming.** Double-click a planet (on the map or in the sidebar) to rename it, or a session's title (in its column or a project's list) to rename the session in the Claude app itself; the app may ask you to approve it.
