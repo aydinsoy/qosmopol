@@ -91,7 +91,7 @@ def project_thread(d):
     return None
 
 
-accounts, rows, current = [], [], ""
+accounts, rows, current, home_hidden = [], [], "", []
 for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
     acc = os.path.relpath(f, ROOT).split(os.sep)[0]
     try:
@@ -99,9 +99,12 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
             d = json.load(fh)
     except (OSError, ValueError):
         continue
-    if me and (d.get("cliSessionId") == me or me in (d.get("priorCliSessionIds") or [])):
+    mine = bool(me) and (d.get("cliSessionId") == me or me in (d.get("priorCliSessionIds") or []))
+    if mine:
         current = acc
-    if d.get("isArchived") or d.get("sessionId") in HIDDEN:
+    # A session closed on the map stays out, except the one this scan is for: the web view still follows its
+    # conversation (2026-11-05: the hidden home session never told the column a reply had landed).
+    if d.get("isArchived") or (d.get("sessionId") in HIDDEN and not mine):
         continue
     if acc not in accounts:
         accounts.append(acc)
@@ -114,7 +117,7 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
         extra = {"thread": thread[0]}  # the full id, as claude.ai/projects links it: what the home session matches on
         if thread[1] and re.search(r"\(from a project\)$", title):
             title = thread[1]
-    rows.append({
+    (home_hidden if d.get("sessionId") in HIDDEN else rows).append({
         "id": d.get("sessionId"),
         "acc": acc,
         "title": title[:120],
@@ -179,4 +182,4 @@ for k in rows:
         k["proj"], k["unnamed"] = ("Claude projesi · " if lang.lower().startswith("tr") else "Claude project · ") + m.group(1), True
 accounts.sort()
 hidden = [{"id": l[0], "proj": l[1] if len(l) > 1 else "", "title": l[2] if len(l) > 2 else l[0]} for l in LINES]
-print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "hidden": hidden, "lang": lang, "devices": devices, "groups": group_names}, ensure_ascii=False))
+print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "homeHidden": (home_hidden or [None])[0], "hidden": hidden, "lang": lang, "devices": devices, "groups": group_names}, ensure_ascii=False))

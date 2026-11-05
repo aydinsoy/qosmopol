@@ -215,7 +215,7 @@ async function scan($: EngineInterface) {
     const me = await $.session.id()
     const r = await $.process.run(await python($, 'scan.py', String(me)), { timeoutMs: 60_000 })
     if (r.exitCode !== 0) throw new Error(r.stderr.slice(0, 300) || `exit ${r.exitCode}`)
-    const d = JSON.parse(r.stdout) as Omit<Tarama, 'at'>
+    const { homeHidden: _hidden, ...d } = JSON.parse(r.stdout) as Omit<Tarama, 'at'> & { homeHidden?: unknown }  // the web view's alone
     const now = await $.clock.now()
     await update($, tarama, () => ({ ...d, at: now }))
     const known = new Set((await read($, mesajlar)).map(m => m.id))

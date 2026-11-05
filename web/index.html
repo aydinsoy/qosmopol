@@ -741,7 +741,8 @@ function modelName(m) {
   const x = /^claude-([a-z]+)-(\d+)(?:-(\d))?(?:-\d{8})?(\[1m\])?$/.exec(m || '')
   return x ? `${x[1][0].toUpperCase()}${x[1].slice(1)} ${x[2]}${x[3] ? '.' + x[3] : ''}${x[4] ? ' · 1M' : ''}` : esc(m || 'Default model')
 }
-const homeRow = () => (S.data?.sessions ?? []).find(x => x.home)
+// the home session, also when the owner closed it on the map (scan.py "homeHidden": followed, never drawn)
+const homeRow = () => (S.data?.sessions ?? []).find(x => x.home) ?? S.data?.homeHidden ?? undefined
 function targetOf(comp) { const to = comp.dataset.to; return to.startsWith('k:') ? byId().get(to.slice(2)) : homeRow() }
 function fillMeta(comp, withWait) {
   const k = targetOf(comp), isHome = !comp.dataset.to.startsWith('k:')
@@ -1716,6 +1717,7 @@ async function refresh(now) {
     if (r) { out.textContent = r.ok ? `✓ delivered · ${j.label}` : `✗ not delivered · ${j.label}: ${r.text}`; delete S.jobs[job] }
     else if (Date.now() - j.at > 20000) { out.textContent = `${j.label}: the bridge is not answering. Is the home session open?`; delete S.jobs[job] }
   }
+  reloadMoved()
   if (refused) toast(refused === 1 ? 'Hidden on the map; the Claude app did not allow archiving it.' : `${refused} hidden on the map; the Claude app did not allow archiving them.`)
   render()
 }
@@ -1725,6 +1727,19 @@ setInterval(refresh, 10000)
 const talkIds = () => S.cols.filter(c => c.startsWith('k:') || c === 'home').map(c => (c === 'home' ? 'home' : c.slice(2)))
 setInterval(() => talkIds().forEach(loadTalk), 15000)
 talkIds().forEach(loadTalk)
+// A reply must not wait for the next 15-second tick: Safari slows or stops timers in a tab behind another app, and the
+// owner came back to an empty column after a reply had landed (2026-11-05). Back in front: reload at once; a session
+// whose last activity moved in the scan: reload its column now.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(true); talkIds().forEach(loadTalk) } })
+addEventListener('focus', () => talkIds().forEach(loadTalk))
+const LAST = {}
+function reloadMoved() {
+  for (const id of talkIds()) {
+    const k = id === 'home' ? homeRow() : byId().get(id), at = k?.last ?? 0
+    if (LAST[id] !== undefined && at && at !== LAST[id]) loadTalk(id)
+    LAST[id] = at
+  }
+}
 </script>
 </body>
 </html>

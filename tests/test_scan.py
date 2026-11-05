@@ -31,9 +31,10 @@ class Scan(unittest.TestCase):
         with open(os.path.join(self.sessions, sid + ".json"), "w", encoding="utf-8") as f:
             json.dump(d, f)
 
-    def scan(self):
-        out = subprocess.run([sys.executable, SCAN], env=self.env, capture_output=True, text=True, encoding="utf-8", check=True).stdout
-        return {k["id"]: k for k in json.loads(out)["sessions"]}
+    def scan(self, me=None, full=False):
+        out = subprocess.run([sys.executable, SCAN, *([me] if me else [])], env=self.env, capture_output=True, text=True, encoding="utf-8", check=True).stdout
+        d = json.loads(out)
+        return d if full else {k["id"]: k for k in d["sessions"]}
 
     def test_each_claude_project_is_its_own_planet_named_by_what_was_asked(self):
         self.session("local_a", "c-a", "Local session (from a project)", "chan_01AAAAAB12", "localhost &amp; port\n 5173")
@@ -68,6 +69,17 @@ class Scan(unittest.TestCase):
         self.session("local_b", "c-b", "Local session (from a project)", 'x" onload="evil', "hi")  # not a project id
         rows = self.scan()
         self.assertEqual([rows[i]["proj"] for i in ("local_a", "local_b")], ["Projects", "Projects"])
+
+    def test_the_home_session_closed_on_the_map_is_still_followed_but_never_drawn(self):
+        self.session("local_home", "c-home", "Qosmopol")
+        self.session("local_other", "c-other", "Old work")
+        os.makedirs(os.path.join(self.home, ".qosmopol"), exist_ok=True)
+        with open(os.path.join(self.home, ".qosmopol", "gizli.txt"), "w", encoding="utf-8") as f:
+            f.write("local_home\tNo folder\tQosmopol\nlocal_other\tProjects\tOld work\n")
+        d = self.scan("c-home", full=True)
+        self.assertEqual([k["id"] for k in d["sessions"]], [])
+        self.assertEqual((d["homeHidden"]["id"], d["homeHidden"]["home"]), ("local_home", True))
+        self.assertIsNone(self.scan(full=True)["homeHidden"])  # without a home, nothing comes back
 
     def test_a_picture_at_the_end_of_a_conversation_does_not_hide_it(self):
         cli = "11111111-2222-3333-4444-555555555555"
