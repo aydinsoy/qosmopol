@@ -1630,10 +1630,11 @@ addEventListener('resize', () => sizeMarks())
 const saveMapView = () => keep('mapView', { x: Math.round(MV.x), y: Math.round(MV.y), s: +MV.s.toFixed(3) })
 function resetMapView() {
   const v = document.querySelector('.mapview')
-  if (v) { v.style.transition = 'transform .6s var(--spring)'; setTimeout(() => (v.style.transition = ''), 650) }
+  if (v) return flyTo(0, 0, 1, () => refresh(true))
   MV.x = 0; MV.y = 0; MV.s = 1; applyMapView(); saveMapView(); refresh(true)
 }
 function zoomMapAt(clientX, clientY, factor) {
+  cancelFlight()
   const v = document.querySelector('.mapview'), box = v?.parentElement.getBoundingClientRect(); if (!v) return
   const s = Math.max(0.3, Math.min(6, MV.s * factor)), k = s / MV.s
   const px = clientX - box.left - v.offsetLeft, py = clientY - box.top - v.offsetTop  // pointer in the view's untransformed frame
@@ -1647,9 +1648,32 @@ function focusPlanet(name) {
   const box = v.parentElement.getBoundingClientRect(), r = c.getBoundingClientRect(), s = 1.3
   // the planet's centre in the view's own untransformed frame (the frame zoomMapAt works in), then put it mid-box at s
   const px = (r.left + r.width / 2 - box.left - v.offsetLeft - MV.x) / MV.s, py = (r.top + r.height / 2 - box.top - v.offsetTop - MV.y) / MV.s
-  MV.x = box.width / 2 - v.offsetLeft - px * s; MV.y = box.height / 2 - v.offsetTop - py * s; MV.s = s
-  v.style.transition = 'transform .6s var(--spring)'; setTimeout(() => (v.style.transition = ''), 650)
-  applyMapView(); saveMapView()
+  flyTo(box.width / 2 - v.offsetLeft - px * s, box.height / 2 - v.offsetTop - py * s, s)
+}
+// The view glides to (x, y, s) like a map flying to a place (owner 2026-11-05: the spring curve slid too fast and
+// overshot). The point at the middle of the box travels on a straight line with a slow start and a slow landing;
+// a long way out, the view draws back a little halfway and comes in again. Longer ways take longer, up to 1.5 s.
+let flight = 0
+const cancelFlight = () => { cancelAnimationFrame(flight); flight = 0 }
+function flyTo(x, y, s, done) {
+  cancelFlight()
+  const v = document.querySelector('.mapview'); if (!v) return
+  const box = v.parentElement.getBoundingClientRect(), cx = box.width / 2 - v.offsetLeft, cy = box.height / 2 - v.offsetTop
+  const s0 = MV.s, w0 = [(cx - MV.x) / s0, (cy - MV.y) / s0], w1 = [(cx - x) / s, (cy - y) / s]  // the map point mid-box, before and after
+  const far = Math.hypot((w1[0] - w0[0]) * Math.min(s0, s), (w1[1] - w0[1]) * Math.min(s0, s)) / Math.max(box.width, box.height)
+  const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800 + Math.min(700, far * 900)
+  const dip = Math.min(0.2, far * 0.3), ease = t => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)  // ease in-out cubic
+  const t0 = performance.now()
+  const step = now => {
+    const t = ms ? Math.min(1, (now - t0) / ms) : 1, e = ease(t)
+    const k = (s0 + (s - s0) * e) * (1 - dip * Math.sin(Math.PI * t))  // scale on its way, drawn back mid-flight
+    const wx = w0[0] + (w1[0] - w0[0]) * e, wy = w0[1] + (w1[1] - w0[1]) * e
+    MV.x = cx - wx * k; MV.y = cy - wy * k; MV.s = k
+    applyMapView()
+    if (t < 1) flight = requestAnimationFrame(step)
+    else { flight = 0; MV.x = x; MV.y = y; MV.s = s; applyMapView(); saveMapView(); done?.() }
+  }
+  flight = requestAnimationFrame(step)
 }
 function toggleMapFull() {
   const col = document.querySelector('[data-col="harita"]'); if (!col) return
@@ -1659,6 +1683,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.q
 let mpan = null
 document.addEventListener('pointerdown', e => {
   const m = e.button === 0 && e.target.closest('.bigmap'); if (!m || e.target.closest('.maptools')) return
+  cancelFlight()  // a hand on the map stops a flight where it is
   mpan = { x0: e.clientX, y0: e.clientY, x: MV.x, y: MV.y, moved: false, el: m }
   clearTimeout(tipTimer); $('#tip').classList.remove('on')
 })
