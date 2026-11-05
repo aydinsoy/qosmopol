@@ -46,6 +46,7 @@ class Scan(unittest.TestCase):
                           ("Claude project · CD34", "Fix the font"), ("Projects", "Plain session in Projects")])
         self.assertEqual([rows[i].get("unnamed") for i in ("local_a", "local_d")], [True, None])
         self.assertEqual((rows["local_a"]["proj0"], rows["local_a"]["sub"]), ("claude.ai · AB12", ""))
+        self.assertEqual((rows["local_a"]["thread"], "thread" in rows["local_d"]), ("chan_01AAAAAB12", False))  # as claude.ai/projects links it
 
     def test_an_unnamed_project_speaks_claudes_language_and_a_given_name_holds_in_every_language(self):
         self.session("local_a", "c-a", "Local session (from a project)", "chan_01AAAAAB12", "hi")

@@ -222,11 +222,12 @@ def unnamed_projects():
     """The Claude projects (claude.ai Projects) the map shows under their id alone, each with what its sessions were
     about: what the home session matches against the project names it can see in the Claude app."""
     rows = scan()["sessions"]
-    out = {}
+    out, ids = {}, {}
     for k in sorted(rows, key=lambda k: -(k.get("last") or 0)):
         if k.get("unnamed"):
             out.setdefault(k["proj"], []).append(k["title"])
-    return {"unnamed": [{"planet": p, "sessions": t[:12]} for p, t in out.items()],
+            ids.setdefault(k["proj"], k.get("thread") or "")
+    return {"unnamed": [{"planet": p, "id": ids[p], "sessions": t[:12]} for p, t in out.items()],
             "named": sorted({k["proj"] for k in rows if not k.get("unnamed")})}
 
 

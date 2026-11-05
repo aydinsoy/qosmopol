@@ -107,10 +107,11 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
         accounts.append(acc)
     s = d.get("postTurnSummary") or {}
     cwd = d.get("originCwd") or d.get("cwd") or ""
-    title, proj, sub = d.get("title") or "Untitled session", project(cwd), subfolder(cwd)
+    title, proj, sub, extra = d.get("title") or "Untitled session", project(cwd), subfolder(cwd), {}
     thread = project_thread(d)
     if thread:  # one planet per Claude project (they live on claude.ai), until the owner names it on the map
         proj, sub = "claude.ai · " + thread[0][-4:], ""  # same in every language: the rename rule is keyed on it
+        extra = {"thread": thread[0]}  # the full id, as claude.ai/projects links it: what the home session matches on
         if thread[1] and re.search(r"\(from a project\)$", title):
             title = thread[1]
     rows.append({
@@ -141,6 +142,7 @@ for f in glob.glob(os.path.join(ROOT, "*", "*", "local_*.json")):
         "home": bool(me) and (d.get("cliSessionId") == me or me in (d.get("priorCliSessionIds") or [])),
         # Remote Control's id: claude.ai/code/<id> opens the session from any device while it is still valid
         "bridge": (d.get("bridgeSessionIds") or [""])[-1],
+        **extra,
     })
 
 # Remote Control on or off, as the home session last read it from the app; too old a reading says nothing.

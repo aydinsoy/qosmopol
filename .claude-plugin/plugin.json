@@ -1,6 +1,6 @@
 {
   "name": "qosmopol",
-  "version": "0.3.26",
+  "version": "0.3.27",
   "description": "The interactive project map for Claude Code: every project and session at a glance, what needs you blinks red, working agents glow orange; side-by-side sessions and one command bar with a microphone.",
   "author": { "name": "aydinsoy" },
   "license": "MIT",

@@ -34,9 +34,9 @@ let inbox = ''  // this session's own inbox (bin/server.py INBOX), '' until the 
 let homeHere = false
 let serverCmd = ''
 const namesHelp = (cmd: string) => `Qosmopol (the project map plugin): this session is Qosmopol's home session, and what the owner writes in the map's box arrives here as their own words.
-When the owner asks to match the map's project names with Claude's own project names (claude.ai Projects): run \`${cmd} projects\`. It lists the map's planets that carry only a project id ("Claude project · XXXX"), each with the titles of its sessions on this computer.
-A project's name lives only in the Claude app's interface, never on disk. If you can see the Claude app (computer use), its sidebar lists the projects: open each one and match each planet to the project whose threads carry the same requests. If you cannot see it, show the owner the list and ask which project each planet is.
-Then name each planet with \`${cmd} name "<planet>" "<project name>"\` (the same as Rename… on the map; it reaches the owner's other computers too). Name only the matches you are sure of, and report what you named and what is left.`
+When the owner asks to match the map's project names with Claude's own project names (claude.ai Projects): run \`${cmd} projects\`. It lists the map's planets that carry only a project id ("Claude project · XXXX"), each with the project's full id (chan_…) and the titles of its sessions on this computer.
+A project's name is never written to disk, and you cannot look at the Claude app's own window. The names are on claude.ai: if you can use the owner's browser (Claude in Chrome), open https://claude.ai/projects, where each project's link ends in its id (/code/project/chan_…), so every match is exact; read the names only, change nothing there. Without a browser, show the owner the list and ask which project each planet is.
+Then name each planet with \`${cmd} name "<planet>" "<project name>"\` (the same as Rename… on the map; it reaches the owner's other computers too). Leave out a status mark the owner put before a name (such as 🟢): the map shows the state itself. Name only exact or confirmed matches, and report what you named and what is left.`
 let aliveAt = 0
 const WEB = 'http://127.0.0.1:47321/'
 const onWindows = async ($: EngineInterface) => (await $.env.get('OS')) === 'Windows_NT'
