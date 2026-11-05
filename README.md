@@ -68,7 +68,9 @@ Running Claude Code on more than one computer (two Macs, a Mac and a Windows PC)
 
 **Screenshots and files.** Drag a file over the map and every message box shows it takes files; drop it on one (or paste a screenshot with ⌘V / Ctrl+V) and it is attached. The file is kept in `~/.qosmopol/ekler` (for 30 days) and the message carries its path, so the session reads it like any file on your computer. Images, PDF and plain text, up to 20 MB.
 
-**Finding a project.** Click a project (or a session) in the sidebar and its planet comes to the middle of the map, 30% larger; ↻ on the map goes back to the whole view.
+**The sidebar.** *Pinned* lists your Claude projects and any session you pinned in Claude's sidebar; *Recent* shows the five most recent of the rest, newest first (*Show all* for the others). **↻ Refresh** reads your Claude projects again. **Hide on map** in a row's ⋯ menu takes a project or a session off the map here (nothing is archived); *Closed* brings it back.
+
+**Finding a project.** Click a project (or a session) in the sidebar and the map flies to its planet: the view draws back to about half on the way and lands with the planet in the middle, 15% larger. ↻ on the map goes back to the whole view.
 
 **Renaming.** Double-click a planet (on the map or in the sidebar) to rename it, or a session's title (in its column or a project's list) to rename the session in the Claude app itself; the app may ask you to approve it.
 

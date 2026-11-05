@@ -95,6 +95,15 @@ class Scan(unittest.TestCase):
                          [("Space Game", True, None), ("Claude project · CD34", None, True)])  # one Claude has not listed yet
         self.assertEqual([p["name"] for p in d["projects"]], ["Space Game", "New One"])  # archived ones leave the map
 
+    def test_a_session_pinned_in_the_claude_sidebar_is_pinned_on_the_map(self):
+        self.session("local_a", "c-a", "Pinned work")
+        self.session("local_b", "c-b", "Other work")
+        os.makedirs(os.path.join(self.home, ".qosmopol"), exist_ok=True)
+        with open(os.path.join(self.home, ".qosmopol", "rc.json"), "w", encoding="utf-8") as f:
+            json.dump({"at": 1, "rc": {}, "side": {}, "pins": ["local_a"]}, f)
+        rows = self.scan()
+        self.assertEqual([rows[i].get("pinned") for i in ("local_a", "local_b")], [True, None])
+
     def test_a_picture_at_the_end_of_a_conversation_does_not_hide_it(self):
         cli = "11111111-2222-3333-4444-555555555555"
         say = lambda role, text: json.dumps({"type": role, "message": {"role": role, "content": [{"type": "text", "text": text}]}})

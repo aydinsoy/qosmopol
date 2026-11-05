@@ -53,6 +53,7 @@ INBOX = os.path.join(HOME, "gelen")
 # The owner's Claude projects (claude.ai Projects), as the home session's mod last read them from the Code API with the
 # session's own credential: their names and which ones exist, a minute old at most (2026-11-05).
 PROJECTS = os.path.join(HOME, "projeler.json")
+HIDDEN_PLANETS = os.path.join(HOME, "gizli-gezegen.json")  # planets the owner hid on the map, by name: shown again from Closed
 ATTACH = os.path.join(HOME, "ekler")
 ATTACH_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".pdf", ".txt", ".md", ".csv", ".json", ".log"}
 ATTACH_MAX = 20 * 1024 * 1024
@@ -123,6 +124,7 @@ def scan():
         data["messages"] = log
         data["readAt"] = load(READ, {})
         data["order"] = load(ORDER, [])
+        data["hiddenPlanets"] = [n for n in load(HIDDEN_PLANETS, []) if isinstance(n, str)]
         data["homeDir"] = os.path.expanduser("~")
         # the page speaks the language the owner chose in the Claude app (config.json "locale"); the browser decides otherwise
         data["lang"] = load(os.path.join(CLAUDE, "config.json"), {}).get("locale", "")
@@ -357,6 +359,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     save(READ, r)
                     SCAN["at"] = 0
                 return self.reply(200, {"ok": True})
+            if path == "/api/hide-planet":  # a whole planet off the map (its sessions stay as they are), or back
+                name = " ".join(str(body.get("name") or "").split())[:200]
+                if not name:
+                    return self.reply(400, {"error": "no planet"})
+                names = [n for n in load(HIDDEN_PLANETS, []) if isinstance(n, str) and n != name] + ([name] if body.get("hide", True) else [])
+                save(HIDDEN_PLANETS, names[-500:])
+                SCAN["at"] = 0
+                return self.reply(200, {"ok": True, "hidden": names})
             if path == "/api/projects-refresh":  # ↻ beside Projects: the home session reads the list again now
                 return self.reply(200, {"job": enqueue({"kind": "projects"})})
             if path == "/api/attach":
@@ -370,7 +380,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 sess = {k["id"]: k for k in scan()["sessions"]}
                 k = sess.get(sid)
                 run("scan.py", "--gizle", sid, (k or {}).get("proj", ""), (k or {}).get("title", sid))
-                job = enqueue({"kind": "archive", "id": sid}) if k and not k.get("remote") and k["acc"] == scan()["current"] else None
+                # "Hide on map" hides it here alone; closing also asks the app to archive it (it may refuse)
+                job = None if body.get("hideOnly") else enqueue({"kind": "archive", "id": sid}) if k and not k.get("remote") and k["acc"] == scan()["current"] else None
                 SCAN["at"] = 0
                 return self.reply(200, {"ok": True, "job": job})
             if path == "/api/reopen":
@@ -501,11 +512,18 @@ if __name__ == "__main__":
             side = None
         if not isinstance(side, dict):  # the app has not said this round: keep the names it gave last
             side = (load(RC, {}) or {}).get("side") or {}
+        try:
+            pins = json.loads(args[3]) if len(args) > 3 else None
+        except ValueError:
+            pins = None
+        if not isinstance(pins, list):  # likewise the sessions pinned in the Claude sidebar
+            pins = (load(RC, {}) or {}).get("pins") or []
         os.makedirs(HOME, exist_ok=True)
         save(RC, {"at": int(time.time() * 1000),
                   "rc": {str(k): bool(v) for k, v in (seen.items() if isinstance(seen, dict) else []) if str(k).startswith("local_")},
                   # the Claude sidebar group each session is filed under: its project name on the map
-                  "side": {str(k): str(v).strip()[:80] for k, v in side.items() if str(k).startswith("local_") and str(v).strip()}})
+                  "side": {str(k): str(v).strip()[:80] for k, v in side.items() if str(k).startswith("local_") and str(v).strip()},
+                  "pins": [str(k) for k in pins if str(k).startswith("local_")][:500]})
         sys.exit(0)
     if args[:1] == ["projects-set"] and len(args) == 2:  # from the home session's mod: the projects it just read
         try:

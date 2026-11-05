@@ -153,13 +153,16 @@ try:
     _rc = json.load(open(os.path.expanduser("~/.qosmopol/rc.json"), encoding="utf-8"))
     RC = _rc.get("rc") or {} if time.time() - (_rc.get("at") or 0) / 1000 < 600 else {}
     SIDE = _rc.get("side") or {}  # names do not go stale like the switch does: they stand until the app says otherwise
-except (OSError, ValueError, AttributeError):
-    RC, SIDE = {}, {}
+    PINS = set(_rc.get("pins") or [])
+except (OSError, ValueError, AttributeError, TypeError):
+    RC, SIDE, PINS = {}, {}, set()
 for k in rows:
     if k["id"] in RC:
         k["rc"] = RC[k["id"]]
     if isinstance(SIDE.get(k["id"]), str):
         k["side"] = SIDE[k["id"]]
+    if k["id"] in PINS:
+        k["pinned"] = True
 # The owner's other computers, from the shared sync folder (off until the owner picks one).
 try:
     devices, remote = sync.peers()

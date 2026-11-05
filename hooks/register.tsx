@@ -125,14 +125,16 @@ async function remoteControl($: EngineInterface) {
     await projects($).catch(() => '')
     const res = await $.mcp.call('ccd_session_mgmt', 'list_sessions', { limit: 200 })
     const list = JSON.parse((res.content ?? []).map((c: any) => c.text ?? '').join(''))
-    const rows = Array.isArray(list) ? list : [], rc: Record<string, boolean> = {}, side: Record<string, string> = {}
+    const rows = Array.isArray(list) ? list : [], rc: Record<string, boolean> = {}, side: Record<string, string> = {}, pins: string[] = []
     for (const k of rows) {
       if (typeof k?.sessionId !== 'string') continue
       if (typeof k.remoteControlActive === 'boolean') rc[k.sessionId] = k.remoteControlActive
       if (typeof k.group?.name === 'string' && k.group.name.trim()) side[k.sessionId] = k.group.name.trim()
+      if (k.pinned === true) pins.push(k.sessionId)  // pinned in the Claude sidebar: on top of the map's list too
     }
     // no `group` key anywhere: the app has not reported its groups yet, so the last names stand
-    await server($, 'rc', JSON.stringify(rc), rows.some(k => k && 'group' in k) ? JSON.stringify(side) : 'null')
+    await server($, 'rc', JSON.stringify(rc), rows.some(k => k && 'group' in k) ? JSON.stringify(side) : 'null',
+      rows.some(k => k && 'pinned' in k) ? JSON.stringify(pins) : 'null')
   } catch {
     // no list this round: the map keeps the last one for a while, then shows the button as before
   }

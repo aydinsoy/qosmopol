@@ -179,6 +179,8 @@
   .group .row .age { font-size: 12px; }
   /* the numbers sit flush right; ⋯ takes no room and shows over them only on hover or when the row is selected */
   .group .row { position: relative; }
+  .refbtn { margin-left: auto; float: right; border: 1px solid var(--input-line); border-radius: 8px; background: var(--input); color: var(--text); font: inherit; font-size: 11px; font-weight: 600; padding: 2px 8px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .refbtn:hover { border-color: var(--blue); color: var(--blue); }
   .group .row .ren { flex: none; margin-left: 4px; padding: 0 5px; border: 1px dashed var(--line, #555); border-radius: 7px; background: none; color: var(--text2); font: inherit; font-size: 11px; cursor: pointer; }
   .group .row .ren:hover { color: var(--text); border-style: solid; }
   .group .row .more { visibility: hidden; position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border: 0; border-radius: 8px; background: inherit; color: var(--text2); display: inline-flex; align-items: center; justify-content: center; }
@@ -435,6 +437,7 @@ function groups() {
   for (const k of visible()) g.set(k.proj, [...(g.get(k.proj) ?? []), k])
   // every Claude project has its planet, a faint empty one while no session of it is here (a new project shows at once)
   if (S.names !== 'folder') for (const p of S.data?.projects ?? []) if (!g.has(p.name)) g.set(p.name, [])
+  for (const n of S.data?.hiddenPlanets ?? []) g.delete(n)  // hidden on the map by the owner; back from Closed
   const auto = (a, b) => b[1].filter(waiting).length - a[1].filter(waiting).length || Math.max(0, ...b[1].map(k => k.last)) - Math.max(0, ...a[1].map(k => k.last))
   return [...g.entries()].sort((a, b) => pos(a[0]) - pos(b[0]) || auto(a, b))
 }
@@ -645,6 +648,22 @@ async function closeTopic(k) {
     await refresh(true)
   } catch (err) { toast('Could not close: ' + err.message) }
 }
+// "Hide on map": off the map here only, nothing is archived; back from Closed, or Undo (owner 2026-11-05)
+async function hideTopic(k) {
+  try {
+    await api('/api/close', { id: k.id, hideOnly: true })
+    remember([k.id]); S.cols = S.cols.filter(c => c !== 'k:' + k.id); keep('cols', S.cols)
+    toast(`“${cut(k.title, 40)}” hidden on the map`, () => api('/api/reopen', { id: k.id }).then(() => refresh(true)))
+    await refresh(true)
+  } catch (err) { toast('Could not hide: ' + err.message) }
+}
+async function hidePlanet(name, hide = true) {
+  try {
+    await api('/api/hide-planet', { name, hide })
+    if (hide) { if (S.pp === name) pickProject(''); toast(`“${cut(name, 40)}” hidden on the map`, () => hidePlanet(name, false)) }
+    await refresh(true)
+  } catch (err) { toast('Could not hide: ' + err.message) }
+}
 async function markRead(k) { await api('/api/read', { id: k.id }).catch(() => {}); await refresh(true) }
 async function openInApp(k) {
   await api('/api/read', { id: k.id }).catch(() => {})
@@ -680,19 +699,32 @@ function renderSide() {
   showDays()
   setHTML($('#names'), [['project', 'Project names', 'Your own names and the Claude sidebar groups'], ['folder', 'Folder names', 'Each session under the folder it runs in']].map(([v, l, tip]) => `<button data-names="${v}" data-tip="${tip}" class="${S.names === v ? 'on' : ''}">${l}</button>`).join(''))
   setHTML($('#themes'), [['antrasit', 'Graphite'], ['acik', 'Light'], ['siyah', 'Black']].map(([v, l]) => `<button data-theme-pick="${v}" class="${th === v ? 'on' : ''}">${l}</button>`).join(''))
-  const tree = groups().filter(([name]) => !LOOSE.has(name)).map(([name, list]) => {
+  const projRow = ([name, list]) => {
     const lw = list.filter(waiting).length, lr = list.filter(running).length, on = S.pp === name
     const nameIt = S.names !== 'folder' && list.some(k => k.unnamed) ? `<button class="ren" data-rename="${esc(name)}" data-tip="${NAME_IT_TIP}">✎</button>` : ''
     return `<div class="row proj${on ? ' on' : ''}${lw ? ' sw' : lr ? ' sr' : ''}" data-proj="${esc(name)}" data-drag="${esc(name)}"><span class="dot${lw ? ' r' : lr ? ' o' : list.some(fresh) ? ' b' : ''}" data-tip="${lw ? 'Waiting for you' : lr ? 'Agent working' : list.some(fresh) ? 'New reply in the last 24 hours' : 'Nothing new'}"></span><span class="name" data-tip="${esc(name)} · ${plural(list.length, 'session')} ${S.days ? `in the last ${plural(S.days, 'day')}` : 'in total'}${lw ? ` · ${lw} waiting for you` : ''}${lr ? ` · ${lr} running` : ''}">${esc(name)}</span>${nameIt}${lw ? `<span class="badge r" data-tip="${plural(lw, 'session')} waiting for you">${lw}</span>` : ''}${lr ? `<span class="badge o" data-tip="${plural(lr, 'session')} running">${lr}</span>` : ''}<span class="badge" data-tip="${plural(list.length, 'session')} ${S.days ? `in the last ${plural(S.days, 'day')}` : 'in total'}">${list.length}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`
-  }).join('')
+  }
+  // Pinned on top: the Claude projects (what the owner pins in Claude's sidebar) and any planet holding a session pinned
+  // there; below, the 5 most recent of the rest, newest first; "Show all" for the others (owner 2026-11-05).
+  const claudeNames = new Set((d.projects ?? []).map(p => p.name)), all = groups().filter(([name]) => !LOOSE.has(name))
+  const isPinned = ([name, list]) => claudeNames.has(name) || list.some(k => k.pinned)
+  const lastOf = list => Math.max(0, ...list.map(k => k.last))
+  const recentItems = [...all.filter(g => !isPinned(g)).map(g => ({ at: lastOf(g[1]), html: projRow(g) })),
+    ...visible().filter(k => LOOSE.has(k.proj) && !k.pinned).map(k => ({ at: k.last, html: looseRow(k) }))].sort((a, b) => b.at - a.at)
+  const showAll = S.open.has('__tumu'), more = recentItems.length - 5
+  const tree = all.filter(isPinned).map(projRow).join('') + visible().filter(k => LOOSE.has(k.proj) && k.pinned).map(k => looseRow(k)).join('')
+  const recent = recentItems.slice(0, showAll ? undefined : 5).map(x => x.html).join('') +
+    (more > 0 ? `<div class="row proj" data-allrest="1"><span class="name dim">${showAll ? 'Show fewer' : `Show all (${recentItems.length})`}</span></div>` : '')
   const hidden = d.hidden ?? []
-  const closed = hidden.length ? `<div class="section">Closed</div><div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} sessions</span></div>` +
+  const hp = d.hiddenPlanets ?? []
+  const closedPlanets = hp.map(n => `<div class="row sub"><span class="name dim">${esc(n)}</span><button class="btn" data-unhide="${esc(n)}">Show on map</button></div>`).join('')
+  const closedSessions = hidden.length ? `<div class="row proj" data-closed="1"><span class="chev">${S.open.has('__kapali') ? ICON.down : ICON.right}</span><span class="name dim">${hidden.length} sessions</span></div>` +
     (S.open.has('__kapali') ? [...hidden].reverse().map(h => `<div class="row sub"><span class="name dim">${esc(h.proj)} · ${esc(h.title)}</span><button class="btn" data-reopen="${esc(h.id)}">Reopen</button></div>`).join('') : '') : ''
+  const closed = (hidden.length || hp.length) ? `<div class="section">Closed</div>${closedPlanets}${closedSessions}` : ''
   const custom = (d.order ?? []).some(n => !n.startsWith('s:')) ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
-  const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
-  const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`).join('')
-  const sync = '<button class="linkbtn" data-act="projects-refresh" title="Read your Claude projects again: new, renamed or archived ones">↻</button>'
-  setHTML($('#tree'), `<div class="section">Projects ${sync}${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmopol</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div><div class="row${S.cols.includes('inbox') ? ' on' : ''}" data-open="inbox"><span class="dot${visible().some(waiting) ? ' r' : ''}"></span><span class="name">Inbox</span>${visible().filter(waiting).length ? `<span class="badge r" style="margin-left:auto">${visible().filter(waiting).length}</span>` : ''}</div><div class="row${S.cols.includes('sync') ? ' on' : ''}" data-open="sync"><span class="dot" style="background:${(d.devices ?? []).some(x => !x.stale) ? 'var(--blue)' : 'var(--grey)'}"></span><span class="name">Other computers</span>${(d.devices ?? []).length ? `<span class="badge" style="margin-left:auto">${d.devices.length}</span>` : ''}</div>${closed}`)
+  function looseRow(k) { return `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" data-tip="More options">${ICON.more}</button></div>` }
+  const sync = `<button class="refbtn" data-act="projects-refresh" title="Read your Claude projects again: new, renamed or archived ones">↻ ${tr('Refresh')}</button>`
+  setHTML($('#tree'), `<div class="section">Pinned ${sync}${custom}</div><div class="group">${tree}</div>${recent ? `<div class="section">Recent</div><div class="group">${recent}</div>` : ''}<div class="section">Qosmopol</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div><div class="row${S.cols.includes('inbox') ? ' on' : ''}" data-open="inbox"><span class="dot${visible().some(waiting) ? ' r' : ''}"></span><span class="name">Inbox</span>${visible().filter(waiting).length ? `<span class="badge r" style="margin-left:auto">${visible().filter(waiting).length}</span>` : ''}</div><div class="row${S.cols.includes('sync') ? ' on' : ''}" data-open="sync"><span class="dot" style="background:${(d.devices ?? []).some(x => !x.stale) ? 'var(--blue)' : 'var(--grey)'}"></span><span class="name">Other computers</span>${(d.devices ?? []).length ? `<span class="badge" style="margin-left:auto">${d.devices.length}</span>` : ''}</div>${closed}`)
   fillMeta($('#sidebar-composer'), true)
 }
 function renderPlist() {
@@ -1046,6 +1078,7 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // conversations and agents' summaries are never touched.
 let LANG = 'en'  // English unless the owner chose Turkish in the Claude app (S.data.lang); never the browser's language
 const TR = {
+  'Refresh': 'Yenile', 'Pinned': 'Sabitlenenler', 'Recent': 'Son konular', 'Show fewer': 'Daha az göster', 'Hide on map': 'Haritada gizle', 'Show on map': 'Haritada göster',
   'Restart the Claude app once to finish updating Qosmopol.': "Qosmopol'ün güncellenmesi için Claude uygulamasını bir kez yeniden başlat.",
   'This name comes from your Claude project: rename the project in Claude and the map follows within a minute (or press ↻ beside Projects).': "Bu ad Claude projenden geliyor: projenin adını Claude'da değiştir, harita bir dakika içinde izler (ya da Projeler'in yanındaki ↻'ye bas).",
   'Read your Claude projects again: new, renamed or archived ones': 'Claude projelerini yeniden oku: yeni, adı değişen ya da arşivlenenler', 'Asking Claude for your projects…': 'Claude’a projelerin soruluyor…',
@@ -1123,7 +1156,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not attach: /, 'Eklenemedi: '], [/^Projects up to date: (\d+) projects$/, 'Projeler güncel: $1 proje'], [/^Could not read your projects: /, 'Projeler okunamadı: '], [/^Could not refresh: /, 'Yenilenemedi: '], [/^Attaching (.+)…$/, '$1 ekleniyor…'], [/^Too large to attach: (.+) \(at most 20 MB\)$/, 'Eklenemeyecek kadar büyük: $1 (en çok 20 MB)'], [/this kind of file cannot be attached/, 'bu tür dosya eklenemiyor'],
+  [/^Could not attach: /, 'Eklenemedi: '], [/^Show all \((\d+)\)$/, 'Tümünü göster ($1)'], [/^“(.+)” hidden on the map$/, '“$1” haritada gizlendi'], [/^Could not hide: /, 'Gizlenemedi: '], [/^Projects up to date: (\d+) projects$/, 'Projeler güncel: $1 proje'], [/^Could not read your projects: /, 'Projeler okunamadı: '], [/^Could not refresh: /, 'Yenilenemedi: '], [/^Attaching (.+)…$/, '$1 ekleniyor…'], [/^Too large to attach: (.+) \(at most 20 MB\)$/, 'Eklenemeyecek kadar büyük: $1 (en çok 20 MB)'], [/this kind of file cannot be attached/, 'bu tür dosya eklenemiyor'],
   [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Close: hidden on the map, and archived in Claude when the app allows it\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, "Kapat: haritada gizlenir, Claude izin verirse arşive de gider. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç."], [/^Hide here: it stays as it is where it lives\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, 'Burada gizle: olduğu yerde aynen kalır. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç.'], [/^Hidden on the map, and archived in Claude when the app allows it\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, "Haritada gizlenir, Claude izin verirse arşive de gider. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç."], [/^(\d+) hidden on the map; the Claude app did not allow archiving them\.$/, '$1 konu haritada gizlendi; Claude arşivlemeye izin vermedi.'], [/^(\d+) sessions reopened$/, '$1 konu yeniden açıldı'], [/^(\d+) sessions closed again$/, '$1 konu yeniden kapatıldı'], [/^Close its (\d+) sessions on this computer$/, 'Bu bilgisayardaki $1 konusunu kapat'], [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^↪ via (.+)$/, '↪ $1 üzerinden'], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
@@ -1257,6 +1290,7 @@ function rowMenu(row, anchor) {
       ...(S.names === 'folder' ? [] : [  // names are given in the project view, where they show
         { label: 'Rename…', run: () => renameMenu(anchor, name) },
         { label: 'Move to project…', run: () => groupMenu(anchor, { planet: name }, name) }]),
+      { label: 'Hide on map', run: () => hidePlanet(name) },
     ]
   } else {
     const k = ids.get(row.dataset.open.slice(2)); if (!k) return
@@ -1268,7 +1302,7 @@ function rowMenu(row, anchor) {
       { label: 'Move to top', run: () => moveTo(row, 'top') },
       { label: 'Move to project…', run: () => groupMenu(anchor, { id: k.id }, k.group ? k.proj : '') },
       ...(k.sub ? [{ label: `Move folder “${k.sub.split('/').pop()}” to project…`, run: () => folderMenu(anchor, k) }] : []),
-      { label: 'Close session', run: () => closeTopic(k) },
+      { label: 'Hide on map', run: () => hideTopic(k) },
     ]
   }
   openMenu(anchor, items)
@@ -1414,6 +1448,8 @@ document.addEventListener('click', e => {
   const colx = t.closest('[data-colx]'); if (colx) return closeCol(colx.dataset.colx)
   const reopen = t.closest('[data-reopen]'); if (reopen) return api('/api/reopen', { id: reopen.dataset.reopen }).then(r => { if (r.job) S.jobs[r.job] = { label: 'Reopen', kind: 'reopen', at: Date.now() }; toast('Session reopened'); refresh(true) })
   const ren = t.closest('[data-rename]'); if (ren) { e.stopPropagation(); return renameMenu(ren, ren.dataset.rename) }
+  const unhide = t.closest('[data-unhide]'); if (unhide) return hidePlanet(unhide.dataset.unhide, false)
+  if (t.closest('[data-allrest]')) { S.open.has('__tumu') ? S.open.delete('__tumu') : S.open.add('__tumu'); keep('open', [...S.open]); return renderSide() }
   const nm = t.closest('[data-names]'); if (nm) { S.names = nm.dataset.names; keep('names', S.names); return refresh(true) }
   const pick = t.closest('[data-theme-pick]'); if (pick) { document.documentElement.dataset.theme = pick.dataset.themePick; keep('theme', pick.dataset.themePick); return renderSide() }
   const tab = t.closest('[data-tab]'); if (tab) { S.tab = tab.dataset.tab; return renderCols() }
@@ -1652,18 +1688,18 @@ function zoomMapAt(clientX, clientY, factor) {
   MV.x = px - (px - MV.x) * k; MV.y = py - (py - MV.y) * k; MV.s = s
   applyMapView(); saveMapView()
 }
-// A project or session picked in the sidebar: its planet comes to the middle of the map, 30% larger (2026-11-05).
+// A project or session picked in the sidebar: its planet comes to the middle of the map, 15% larger (owner 2026-11-05).
 function focusPlanet(name) {
   const v = document.querySelector('.mapview'), g = [...document.querySelectorAll('.bigmap svg [data-p]')].find(x => x.dataset.p === name)
   const c = g?.querySelector('circle'); if (!v || !c) return
-  const box = v.parentElement.getBoundingClientRect(), r = c.getBoundingClientRect(), s = 1.3
+  const box = v.parentElement.getBoundingClientRect(), r = c.getBoundingClientRect(), s = 1.15
   // the planet's centre in the view's own untransformed frame (the frame zoomMapAt works in), then put it mid-box at s
   const px = (r.left + r.width / 2 - box.left - v.offsetLeft - MV.x) / MV.s, py = (r.top + r.height / 2 - box.top - v.offsetTop - MV.y) / MV.s
   flyTo(box.width / 2 - v.offsetLeft - px * s, box.height / 2 - v.offsetTop - py * s, s)
 }
 // The view glides to (x, y, s) like a map flying to a place (owner 2026-11-05: the spring curve slid too fast and
 // overshot). The point at the middle of the box travels on a straight line with a slow start and a slow landing;
-// a long way out, the view draws back a little halfway and comes in again. Longer ways take longer, up to 1.5 s.
+// on the way the view draws back (to about half) and comes in again. Longer ways take longer, up to 1.9 s.
 let flight = 0
 const cancelFlight = () => { cancelAnimationFrame(flight); flight = 0 }
 function flyTo(x, y, s, done) {
@@ -1672,8 +1708,8 @@ function flyTo(x, y, s, done) {
   const box = v.parentElement.getBoundingClientRect(), cx = box.width / 2 - v.offsetLeft, cy = box.height / 2 - v.offsetTop
   const s0 = MV.s, w0 = [(cx - MV.x) / s0, (cy - MV.y) / s0], w1 = [(cx - x) / s, (cy - y) / s]  // the map point mid-box, before and after
   const far = Math.hypot((w1[0] - w0[0]) * Math.min(s0, s), (w1[1] - w0[1]) * Math.min(s0, s)) / Math.max(box.width, box.height)
-  const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800 + Math.min(700, far * 900)
-  const dip = Math.min(0.2, far * 0.3), ease = t => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)  // ease in-out cubic
+  const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1100 + Math.min(800, far * 1000)
+  const dip = Math.min(0.5, 0.3 + far * 0.4)  // the circles shrink to about half before they come (owner 2026-11-05), ease = t => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)  // ease in-out cubic
   const t0 = performance.now()
   const step = now => {
     const t = ms ? Math.min(1, (now - t0) / ms) : 1, e = ease(t)
