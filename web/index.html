@@ -1709,7 +1709,7 @@ function flyTo(x, y, s, done) {
   const s0 = MV.s, w0 = [(cx - MV.x) / s0, (cy - MV.y) / s0], w1 = [(cx - x) / s, (cy - y) / s]  // the map point mid-box, before and after
   const far = Math.hypot((w1[0] - w0[0]) * Math.min(s0, s), (w1[1] - w0[1]) * Math.min(s0, s)) / Math.max(box.width, box.height)
   const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900 + Math.min(500, far * 700)  // brisker (owner 2026-11-05)
-  const dip = Math.min(0.24, 0.2 + far * 0.1)  // the circles shrink to about four fifths before they come (owner 2026-11-05: less than 0.3.36)
+  const dip = Math.min(0.2, 0.04 + far * 0.35)  // a little more than the first flight of 0.3.30, which drew back with the distance (owner 2026-11-05)
   const ease = t => (t < 0.5 ? 8 * t ** 4 : 1 - (-2 * t + 2) ** 4 / 2)  // ease in-out quart: a firmer middle, the same soft landing
   const t0 = performance.now()
   const step = now => {
