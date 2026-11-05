@@ -99,10 +99,30 @@ async function openMap($: EngineInterface) {
 // session list. The other computers show "Open on claude.ai" only where it is on (a closed one opened claude.ai's
 // start page, 2026-11-01). The same list names the sidebar group each session is filed under: the map uses it as
 // the session's project name. Once a minute, from the home session alone.
+// The owner's Claude projects (claude.ai Projects): only Claude knows their names, so the home session reads them from
+// the Code API with the session's own credential (the secret stays with the engine) and hands them to the map. Once a
+// minute and from ↻: renamed, new or archived projects show on the map without anyone asking Claude (2026-11-05).
+async function projects($: EngineInterface) {
+  const auth = await $.session.authorize()
+  if (!auth) return 'no Claude login in this session'
+  const r = await $.http.fetch('https://api.anthropic.com/v1/code/channels?scope=all', {
+    auth: auth.handle, headers: { 'anthropic-version': '2023-06-01', 'anthropic-beta': 'ccr-byoc-2025-07-29' },
+  })
+  if (!r.ok) return `the Code API answered ${r.status}`
+  const list = ((JSON.parse(r.text) as { data?: any[] }).data ?? []).map(c => ({
+    id: String(c.id ?? ''),
+    // a mark the owner puts before a name (🟢) is theirs for the sidebar: the map shows the state with its own dots
+    name: String(c.name ?? '').replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u, '').trim() || String(c.name ?? '').trim(),
+    archived: !!c.archived_at,
+  }))
+  const w = await server($, 'projects-set', JSON.stringify(list))
+  return failure(w) || `${list.filter(p => !p.archived).length} projects`
+}
 async function remoteControl($: EngineInterface) {
   try {
     homeHere = (await server($, 'home')).stdout.trim() === String(await $.session.id())
     if (!homeHere) return
+    await projects($).catch(() => '')
     const res = await $.mcp.call('ccd_session_mgmt', 'list_sessions', { limit: 200 })
     const list = JSON.parse((res.content ?? []).map((c: any) => c.text ?? '').join(''))
     const rows = Array.isArray(list) ? list : [], rc: Record<string, boolean> = {}, side: Record<string, string> = {}
@@ -176,6 +196,9 @@ async function bridge($: EngineInterface) {
           // sent a message:" frame (owner 2026-11-01: "ön ek gereksiz").
           void $.prompt.submit({ text: String(j.text), asUser: true })
           out.push({ job: j.job, ok: true, text: 'delivered to the Qosmopol session (runs once it is idle)' })
+        } else if (j.kind === 'projects') {
+          const text = await projects($)
+          out.push({ job: j.job, ok: / projects$/.test(text), text })
         } else if (j.kind === 'set') {
           // The app refuses a session re-pricing its own turns: the home session changes only its mode and title from here.
           if (j.id === 'self' && j.what !== 'mode' && j.what !== 'title') {
@@ -322,6 +345,7 @@ export const register: Register = on => {
       return { text }
     }
     homeHere = true
+    void projects($).then(() => scan($)).catch(() => {})  // the names at once, not a minute later
     await $.ui.open({ id: PANE, title: TITLE })
     return { text: `Qosmopol is open. Full-screen web view: ${WEB} (this session is now Qosmopol's home session: what you write in the web view comes here).` }
   })

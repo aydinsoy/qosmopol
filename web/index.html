@@ -433,7 +433,9 @@ const pos = n => { const i = (S.data?.order ?? []).indexOf(n); return i < 0 ? 1e
 function groups() {
   const g = new Map()
   for (const k of visible()) g.set(k.proj, [...(g.get(k.proj) ?? []), k])
-  const auto = (a, b) => b[1].filter(waiting).length - a[1].filter(waiting).length || Math.max(...b[1].map(k => k.last)) - Math.max(...a[1].map(k => k.last))
+  // every Claude project has its planet, a faint empty one while no session of it is here (a new project shows at once)
+  if (S.names !== 'folder') for (const p of S.data?.projects ?? []) if (!g.has(p.name)) g.set(p.name, [])
+  const auto = (a, b) => b[1].filter(waiting).length - a[1].filter(waiting).length || Math.max(0, ...b[1].map(k => k.last)) - Math.max(0, ...a[1].map(k => k.last))
   return [...g.entries()].sort((a, b) => pos(a[0]) - pos(b[0]) || auto(a, b))
 }
 
@@ -689,7 +691,8 @@ function renderSide() {
   const custom = (d.order ?? []).some(n => !n.startsWith('s:')) ? '<button class="linkbtn" data-act="autosort" title="Reset the order: waiting and most recent first">auto-sort</button>' : ''
   const loose = visible().filter(k => LOOSE.has(k.proj)).sort((a, b) => pos('k:' + a.id) - pos('k:' + b.id) || Number(waiting(b)) - Number(waiting(a)) || b.last - a.last)
   const looseRows = loose.map(k => `<div class="row proj${S.cols.includes('k:' + k.id) ? ' on' : ''}${waiting(k) ? ' sw' : running(k) ? ' sr' : ''}" data-open="k:${esc(k.id)}" data-drag="k:${esc(k.id)}" title="${esc(k.title)}">${dot(k)}<span class="name">${esc(k.title)}</span><span class="age">${ago(k.last)}</span><button class="more" data-tip="More options">${ICON.more}</button></div>`).join('')
-  setHTML($('#tree'), `<div class="section">Projects ${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmopol</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div><div class="row${S.cols.includes('inbox') ? ' on' : ''}" data-open="inbox"><span class="dot${visible().some(waiting) ? ' r' : ''}"></span><span class="name">Inbox</span>${visible().filter(waiting).length ? `<span class="badge r" style="margin-left:auto">${visible().filter(waiting).length}</span>` : ''}</div><div class="row${S.cols.includes('sync') ? ' on' : ''}" data-open="sync"><span class="dot" style="background:${(d.devices ?? []).some(x => !x.stale) ? 'var(--blue)' : 'var(--grey)'}"></span><span class="name">Other computers</span>${(d.devices ?? []).length ? `<span class="badge" style="margin-left:auto">${d.devices.length}</span>` : ''}</div>${closed}`)
+  const sync = '<button class="linkbtn" data-act="projects-refresh" title="Read your Claude projects again: new, renamed or archived ones">↻</button>'
+  setHTML($('#tree'), `<div class="section">Projects ${sync}${custom}</div><div class="group">${tree}</div>${loose.length ? `<div class="section">Loose sessions</div><div class="group">${looseRows}</div>` : ''}<div class="section">Qosmopol</div><div class="row${S.cols.includes('home') ? ' on' : ''}" data-open="home"><span class="dot" style="background:var(--blue)"></span><span class="name">Home session (Claude)</span></div><div class="row${S.cols.includes('harita') ? ' on' : ''}" data-open="harita"><span class="dot" style="background:var(--planet-dim)"></span><span class="name">Map</span></div><div class="row${S.cols.includes('inbox') ? ' on' : ''}" data-open="inbox"><span class="dot${visible().some(waiting) ? ' r' : ''}"></span><span class="name">Inbox</span>${visible().filter(waiting).length ? `<span class="badge r" style="margin-left:auto">${visible().filter(waiting).length}</span>` : ''}</div><div class="row${S.cols.includes('sync') ? ' on' : ''}" data-open="sync"><span class="dot" style="background:${(d.devices ?? []).some(x => !x.stale) ? 'var(--blue)' : 'var(--grey)'}"></span><span class="name">Other computers</span>${(d.devices ?? []).length ? `<span class="badge" style="margin-left:auto">${d.devices.length}</span>` : ''}</div>${closed}`)
   fillMeta($('#sidebar-composer'), true)
 }
 function renderPlist() {
@@ -1043,6 +1046,9 @@ document.addEventListener('scroll', () => $('#tip').classList.remove('on'), true
 // conversations and agents' summaries are never touched.
 let LANG = 'en'  // English unless the owner chose Turkish in the Claude app (S.data.lang); never the browser's language
 const TR = {
+  'Restart the Claude app once to finish updating Qosmopol.': "Qosmopol'ün güncellenmesi için Claude uygulamasını bir kez yeniden başlat.",
+  'This name comes from your Claude project: rename the project in Claude and the map follows within a minute (or press ↻ beside Projects).': "Bu ad Claude projenden geliyor: projenin adını Claude'da değiştir, harita bir dakika içinde izler (ya da Projeler'in yanındaki ↻'ye bas).",
+  'Read your Claude projects again: new, renamed or archived ones': 'Claude projelerini yeniden oku: yeni, adı değişen ya da arşivlenenler', 'Asking Claude for your projects…': 'Claude’a projelerin soruluyor…',
   'Match the project names here with the names in Claude': 'Buradaki proje adlarını Claude’daki adlarla eşitle',
   'Drop to attach': 'Eklemek için bırak', 'Drop it on a message box': 'Bir mesaj kutusunun üzerine bırak', 'Remove': 'Kaldır',
   'Restart the Claude app once to finish updating Qosmopol, then rename it again.': "Qosmopol'ün güncellenmesi için Claude uygulamasını bir kez yeniden başlat, sonra adı yeniden değiştir.",
@@ -1117,7 +1123,7 @@ const TR_PART = [  // pieces inside longer UI lines (meta rows, notes, tips, map
   [/Summary · /g, 'Özet · '], [/ (\d+) sessions? in the last (\d+) days?/g, ' son $2 günde $1 konu'], [/ (\d+) sessions? in total/g, ' toplam $1 konu'],
   [/ (\d+) waiting for you/g, ' $1 seni bekliyor'], [/ · (\d+) running/g, ' · $1 çalışıyor'], [/: (\d+) sessions? · /g, ': $1 konu · '], [/\n(\d+) sessions? · (\d+) waiting for you/g, '\n$1 konu · $2 seni bekliyor'], [/\n(\d+) sessions? · /g, '\n$1 konu · '],
   [/\nWAITING FOR YOU · /g, '\nSENİ BEKLİYOR · '], [/\nAgent working · /g, '\nAjan çalışıyor · '], [/\nUnread reply · /g, '\nOkunmamış cevap · '], [/\nNew reply · /g, '\nYeni cevap · '], [/\nClosed · /g, '\nKapanmış · '],
-  [/^Could not attach: /, 'Eklenemedi: '], [/^Attaching (.+)…$/, '$1 ekleniyor…'], [/^Too large to attach: (.+) \(at most 20 MB\)$/, 'Eklenemeyecek kadar büyük: $1 (en çok 20 MB)'], [/this kind of file cannot be attached/, 'bu tür dosya eklenemiyor'],
+  [/^Could not attach: /, 'Eklenemedi: '], [/^Projects up to date: (\d+) projects$/, 'Projeler güncel: $1 proje'], [/^Could not read your projects: /, 'Projeler okunamadı: '], [/^Could not refresh: /, 'Yenilenemedi: '], [/^Attaching (.+)…$/, '$1 ekleniyor…'], [/^Too large to attach: (.+) \(at most 20 MB\)$/, 'Eklenemeyecek kadar büyük: $1 (en çok 20 MB)'], [/this kind of file cannot be attached/, 'bu tür dosya eklenemiyor'],
   [/^Could not close: /, 'Kapatılamadı: '], [/^Could not open the folder: /, 'Klasör açılamadı: '], [/^Could not open: /, 'Açılamadı: '], [/^Could not save the order: /, 'Sıra kaydedilemedi: '], [/^Could not save: /, 'Kaydedilemedi: '], [/^Could not move: /, 'Taşınamadı: '], [/^Could not rename: /, 'Ad değiştirilemedi: '], [/^Close: hidden on the map, and archived in Claude when the app allows it\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, "Kapat: haritada gizlenir, Claude izin verirse arşive de gider. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç."], [/^Hide here: it stays as it is where it lives\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, 'Burada gizle: olduğu yerde aynen kalır. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç.'], [/^Hidden on the map, and archived in Claude when the app allows it\. Undo: (.+), or Closed → Reopen in the sidebar\.$/, "Haritada gizlenir, Claude izin verirse arşive de gider. Geri almak: $1 ya da kenar çubuğunda Kapatılanlar → Yeniden aç."], [/^(\d+) hidden on the map; the Claude app did not allow archiving them\.$/, '$1 konu haritada gizlendi; Claude arşivlemeye izin vermedi.'], [/^(\d+) sessions reopened$/, '$1 konu yeniden açıldı'], [/^(\d+) sessions closed again$/, '$1 konu yeniden kapatıldı'], [/^Close its (\d+) sessions on this computer$/, 'Bu bilgisayardaki $1 konusunu kapat'], [/^(\d+) sessions closed$/, '$1 konu kapatıldı'], [/^↪ via (.+)$/, '↪ $1 üzerinden'], [/^Move folder “(.+)” to project…$/, '“$1” klasörünü projeye taşı…'], [/^The whole folder “(.+)” instead…$/, 'Bunun yerine bütün “$1” klasörü…'], [/^Renamed to (.+)$/, 'Yeni adı: $1'], [/^Moved to (.+)$/, '$1 projesine taşındı'], [/^Could not load: /, 'Yüklenemedi: '],
   [/^Could not send: /, 'Gönderilemedi: '], [/^Could not change: /, 'Değiştirilemedi: '], [/^Cannot reach the server: /, 'Sunucuya ulaşılamadı: '], [/^Microphone: /, 'Mikrofon: '],
   [/^✓ delivered · /, '✓ iletildi · '], [/^✗ not delivered · /, '✗ iletilemedi · '], [/: the bridge is not answering\. Is the home session open\?$/, ': köprü yanıt vermiyor — ana oturum açık mı?'],
@@ -1205,6 +1211,10 @@ function groupMenu(anchor, target, current) {
 const UNNAMED_TIP = "This Claude project's name stays on claude.ai and is not written to this computer: give it its name from Claude once."
 const NAME_IT_TIP = 'Name it (or double-click the name). ' + UNNAMED_TIP
 function renameMenu(anchor, name) {
+  if ((S.data?.projects ?? []).some(p => p.name === name)) {  // its name is Claude's: renamed there, the map follows
+    openMenu(anchor, [{ hd: name }, { hd: 'This name comes from your Claude project: rename the project in Claude and the map follows within a minute (or press ↻ beside Projects).' }])
+    return anchor.classList?.add('open')
+  }
   const unnamed = (new Map(groups()).get(name) ?? []).some(k => k.unnamed)
   const go = v => !v.trim() || v === name ? null : api('/api/group', { planet: name, name: v.trim() }).then(() => {
     toast(`Renamed to ${v}`)
@@ -1423,6 +1433,7 @@ document.addEventListener('click', e => {
   if (t.closest('[data-closed]')) { S.open.has('__kapali') ? S.open.delete('__kapali') : S.open.add('__kapali'); keep('open', [...S.open]); return renderSide() }
   const act = t.closest('[data-act]'); if (act) {
     const k = ids.get(act.dataset.id), a = act.dataset.act
+    if (a === 'projects-refresh') return api('/api/projects-refresh', {}).then(r => { S.jobs[r.job] = { kind: 'projects', at: Date.now() }; toast('Asking Claude for your projects…'); setTimeout(() => refresh(true), 3500) }).catch(err => toast('Could not refresh: ' + err.message))
     if (a === 'autosort') return saveOrder((S.data.order ?? []).filter(n => n.startsWith('s:')))
     if (a === 'pauto') { const mine = new Set((new Map(groups()).get(S.pp) ?? []).map(x => 's:' + x.id)); return saveOrder((S.data.order ?? []).filter(n => !mine.has(n))) }
     if (a === 'app') return openInApp(k)
@@ -1724,6 +1735,10 @@ async function refresh(now) {
   for (const [job, j] of Object.entries(S.jobs)) {
     const r = S.data.results?.[job], out = j.note?.isConnected ? j.note : $('#sidebar-composer .note')
     // a close already shows on the map; the Claude app may refuse the archive (its permission check, 2026-11-02): say so
+    if (j.kind === 'projects' && (r || Date.now() - j.at > 20000)) {
+      toast(r?.ok ? `Projects up to date: ${r.text}` : r?.text === 'unknown job' ? 'Restart the Claude app once to finish updating Qosmopol.' : `Could not read your projects: ${r?.text || 'is the home session open?'}`)
+      delete S.jobs[job]; continue
+    }
     if (j.kind === 'title' && (r || Date.now() - j.at > 20000)) {  // the app may refuse it from here, as with the other settings
       const refusedHere = r && !r.ok && /refused|classifier|permission|declined/i.test(r.text)
       toast(r?.ok ? `Renamed to ${j.title}` : refusedHere ? 'Claude did not allow renaming it from the map: rename it in the Claude app (opening it there).'

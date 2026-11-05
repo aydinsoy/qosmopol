@@ -407,3 +407,38 @@ test('the home session alone is told how to give the unnamed Claude projects the
   await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
   expect((await $.prompt.compose(COMPOSE)).sections.map(s => s.id)).toEqual(['intro'])
 })
+
+test('the home session reads the Claude projects with its own credential and hands their names to the map', async ($, on) => {
+  let queued = [{ job: 'p1', kind: 'projects' }]
+  const runs: string[][] = [], fetched: any[] = []
+  on('command.register', () => ({ value: { command: 'qosmopol' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('process.run', (_, e) => {
+    runs.push([...e.argv])
+    if (e.argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.12.1\n', stderr: '' } }
+    if (e.argv.includes('home')) return { value: { exitCode: 0, stdout: 'cli-1\n', stderr: '' } }
+    if (e.argv.includes('take')) { const jobs = queued; queued = []; return { value: { exitCode: 0, stdout: JSON.stringify(jobs), stderr: '' } } }
+    return { value: { exitCode: 0, stdout: JSON.stringify(SCAN), stderr: '' } }
+  })
+  on('session.authorize', () => ({ value: { handle: 'h-1', kind: 'bearer' as const } }))
+  on('http.fetch', (_, e) => {
+    fetched.push(e)
+    return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ data: [
+      { id: 'chan_01AAAAAB12', name: '🟢  Space Game', archived_at: null }, { id: 'chan_01BBBBCD34', name: 'Old', archived_at: '2026-10-01' }] }) } }
+  })
+  on('mcp.call', () => ({ value: { content: [{ type: 'text', text: '[]' }], isError: false } }))
+  on('env.get', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  mock.store(on)
+  const clock = mock.clock(on, { now: Date.now() })
+  on('session.id', () => ({ value: 'cli-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true })
+  await clock.advance(3000)
+  expect(fetched[0].url).toBe('https://api.anthropic.com/v1/code/channels?scope=all')
+  expect(fetched[0].init.auth).toBe('h-1')
+  const set = runs.find(a => a.includes('projects-set'))!
+  expect(JSON.parse(set[set.length - 1])).toEqual([{ id: 'chan_01AAAAAB12', name: 'Space Game', archived: false }, { id: 'chan_01BBBBCD34', name: 'Old', archived: true }])
+})

@@ -174,12 +174,24 @@ try:  # the language the owner chose in the Claude app, for the band and the pan
     lang = json.load(open(os.path.join(CLAUDE, "config.json"), encoding="utf-8")).get("locale", "")
 except (OSError, ValueError):
     lang = ""
+# The owner's Claude projects as Claude names them (bin/server.py PROJECTS, read by the home session's mod): a project's
+# planet carries its name from Claude, renamed there and here alike, and a project with no session here is listed too.
+try:
+    PROJECTS = [p for p in json.load(open(os.path.expanduser("~/.qosmopol/projeler.json"), encoding="utf-8")).get("list") or []
+                if isinstance(p, dict) and p.get("name") and str(p.get("id", "")).startswith("chan_")]
+except (OSError, ValueError, AttributeError):
+    PROJECTS = []
+NAMED = {p["id"]: p["name"] for p in PROJECTS}
+for k in rows:
+    if NAMED.get(k.get("thread")):
+        k["proj"], k["claude"] = NAMED[k["thread"]], True
 # A Claude project nobody has named yet: its name stays on claude.ai, so the map says what it is, in the owner's
 # language, and asks for the name once. The rules stay keyed on "claude.ai · XXXX", the same in every language.
 for k in rows:
-    m = not k.get("group") and re.fullmatch(r"claude\.ai · ([A-Za-z0-9]{4})", k.get("proj0") or "")
+    m = not k.get("group") and not k.get("claude") and re.fullmatch(r"claude\.ai · ([A-Za-z0-9]{4})", k.get("proj0") or "")
     if m:
         k["proj"], k["unnamed"] = ("Claude projesi · " if lang.lower().startswith("tr") else "Claude project · ") + m.group(1), True
 accounts.sort()
 hidden = [{"id": l[0], "proj": l[1] if len(l) > 1 else "", "title": l[2] if len(l) > 2 else l[0]} for l in LINES]
-print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "homeHidden": (home_hidden or [None])[0], "hidden": hidden, "lang": lang, "devices": devices, "groups": group_names}, ensure_ascii=False))
+print(json.dumps({"current": current, "accounts": accounts, "sessions": rows, "homeHidden": (home_hidden or [None])[0],
+                  "projects": [{"id": p["id"], "name": p["name"]} for p in PROJECTS if not p.get("archived")], "hidden": hidden, "lang": lang, "devices": devices, "groups": group_names}, ensure_ascii=False))

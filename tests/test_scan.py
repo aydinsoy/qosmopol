@@ -81,6 +81,20 @@ class Scan(unittest.TestCase):
         self.assertEqual((d["homeHidden"]["id"], d["homeHidden"]["home"]), ("local_home", True))
         self.assertIsNone(self.scan(full=True)["homeHidden"])  # without a home, nothing comes back
 
+    def test_claude_names_its_projects_and_lists_the_ones_with_no_session_here(self):
+        self.session("local_a", "c-a", "Local session (from a project)", "chan_01AAAAAB12", "hi")
+        self.session("local_b", "c-b", "Local session (from a project)", "chan_01BBBBCD34", "hi")
+        server = os.path.join(os.path.dirname(SCAN), "server.py")
+        got = [{"id": "chan_01AAAAAB12", "name": "Space Game", "archived": False}, {"id": "chan_01CCCCEF56", "name": "New One", "archived": False},
+               {"id": "chan_01DDDDGH78", "name": "Old One", "archived": True}, {"id": "../../etc", "name": "evil"}]
+        r = subprocess.run([sys.executable, server, "projects-set", json.dumps(got)], env=self.env, capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "3"))  # the odd id is dropped
+        d = self.scan(full=True)
+        rows = {k["id"]: k for k in d["sessions"]}
+        self.assertEqual([(rows[i]["proj"], rows[i].get("claude"), rows[i].get("unnamed")) for i in ("local_a", "local_b")],
+                         [("Space Game", True, None), ("Claude project · CD34", None, True)])  # one Claude has not listed yet
+        self.assertEqual([p["name"] for p in d["projects"]], ["Space Game", "New One"])  # archived ones leave the map
+
     def test_a_picture_at_the_end_of_a_conversation_does_not_hide_it(self):
         cli = "11111111-2222-3333-4444-555555555555"
         say = lambda role, text: json.dumps({"type": role, "message": {"role": role, "content": [{"type": "text", "text": text}]}})

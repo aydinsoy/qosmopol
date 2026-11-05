@@ -50,6 +50,9 @@ RC = os.path.join(HOME, "rc.json")  # which sessions' Remote Control is on, as t
 INBOX = os.path.join(HOME, "gelen")
 # Files dropped on a message box in the web view (2026-11-05): kept here, and the message carries their path, which the
 # session reads like any file on this computer. A month later they go.
+# The owner's Claude projects (claude.ai Projects), as the home session's mod last read them from the Code API with the
+# session's own credential: their names and which ones exist, a minute old at most (2026-11-05).
+PROJECTS = os.path.join(HOME, "projeler.json")
 ATTACH = os.path.join(HOME, "ekler")
 ATTACH_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".pdf", ".txt", ".md", ".csv", ".json", ".log"}
 ATTACH_MAX = 20 * 1024 * 1024
@@ -354,6 +357,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     save(READ, r)
                     SCAN["at"] = 0
                 return self.reply(200, {"ok": True})
+            if path == "/api/projects-refresh":  # ↻ beside Projects: the home session reads the list again now
+                return self.reply(200, {"job": enqueue({"kind": "projects"})})
             if path == "/api/attach":
                 return self.reply(*attach(body.get("name"), body.get("data")))
             if path == "/api/send":
@@ -501,6 +506,17 @@ if __name__ == "__main__":
                   "rc": {str(k): bool(v) for k, v in (seen.items() if isinstance(seen, dict) else []) if str(k).startswith("local_")},
                   # the Claude sidebar group each session is filed under: its project name on the map
                   "side": {str(k): str(v).strip()[:80] for k, v in side.items() if str(k).startswith("local_") and str(v).strip()}})
+        sys.exit(0)
+    if args[:1] == ["projects-set"] and len(args) == 2:  # from the home session's mod: the projects it just read
+        try:
+            got = json.loads(args[1])
+        except ValueError:
+            sys.exit(1)
+        keep = [{"id": str(p["id"]), "name": " ".join(str(p.get("name") or "").split())[:80], "archived": bool(p.get("archived"))}
+                for p in (got if isinstance(got, list) else []) if isinstance(p, dict) and re.fullmatch(r"chan_[A-Za-z0-9]{4,60}", str(p.get("id") or ""))]
+        os.makedirs(HOME, exist_ok=True)
+        save(PROJECTS, {"at": int(time.time() * 1000), "list": [p for p in keep if p["name"]]})
+        print(len(keep))
         sys.exit(0)
     if args[:1] == ["projects"]:  # for the home session: the planets still waiting for their Claude project's name
         print(json.dumps(unnamed_projects(), ensure_ascii=False, indent=1))
